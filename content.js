@@ -1359,7 +1359,21 @@
   }
   function readProps(rel, text) {
     const p = parseNote(text, rel.split("/").pop().replace(/\.md$/i, ""));
-    return { title: p.title, color: colorName(p.color ?? void 0), pinned: p.pinned, tags: p.tags, ...p.pos ? { pos: p.pos } : {} };
+    return {
+      title: p.title,
+      color: colorName(p.color ?? void 0),
+      pinned: p.pinned,
+      tags: p.tags,
+      ...p.pos ? { pos: p.pos } : {},
+      ...p.agent ? { agent: p.agent } : {},
+      ...p.url ? { url: p.url } : {},
+      ...p.device ? { device: p.device } : {},
+      ...p.expires ? { expires: p.expires } : {},
+      ...p.remindAt ? { remindAt: p.remindAt } : {},
+      ...p.remindRepeat ? { remindRepeat: p.remindRepeat } : {},
+      ...p.remindOn ? { remindOn: p.remindOn } : {},
+      ...p.remindPersist ? { remindPersist: true } : {}
+    };
   }
   function setField(text, key, value) {
     const line2 = value === null ? null : `${key}: ${value}`;
@@ -1464,10 +1478,42 @@ ${body}`;
     if (c.color !== void 0) t = setColor(t, c.color);
     if (c.pinned !== void 0) t = setPinned(t, c.pinned);
     if (c.tags !== void 0) t = setTags2(t, c.tags);
+    if (c.remind !== void 0) t = setReminder(t, c.remind);
     return t;
   }
+  var REMIND_KEYS = ["remind_at", "remind_repeat", "remind_on", "remind_persist", "reminder_id"];
+  function setReminder(text, r) {
+    let t = text;
+    for (const k of REMIND_KEYS) t = setField(t, k, null);
+    if (!r) return t;
+    t = setField(t, "remind_at", r.at);
+    if (r.repeat) t = setField(t, "remind_repeat", r.repeat);
+    if (r.on === "phone") t = setField(t, "remind_on", "phone");
+    if (r.persist) t = setField(t, "remind_persist", "true");
+    return t;
+  }
+  function nextRing(at, repeat, now = /* @__PURE__ */ new Date()) {
+    const d = new Date(at);
+    const step2 = () => {
+      if (repeat === "daily") d.setUTCDate(d.getUTCDate() + 1);
+      else if (repeat === "weekly") d.setUTCDate(d.getUTCDate() + 7);
+      else d.setUTCMonth(d.getUTCMonth() + 1);
+    };
+    step2();
+    for (let i3 = 0; i3 < 4e3 && d <= now; i3++) step2();
+    return d.toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+  function reminderState(p, now = Date.now()) {
+    if (!p.remindAt) return "none";
+    const t = Date.parse(p.remindAt);
+    return !isFinite(t) ? "none" : t > now ? "upcoming" : "missed";
+  }
+  var isExpired = (p, now = Date.now()) => {
+    const t = Date.parse(p.expires ?? "");
+    return isFinite(t) && t <= now;
+  };
   function changedKeys(c) {
-    return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
+    return [...["color", "pinned", "tags"].filter((k) => c[k] !== void 0), ...c.remind !== void 0 ? REMIND_KEYS : []];
   }
   function attachmentRel(noteRel, ext2, now = Date.now()) {
     const base2 = noteRel.split("/").pop().replace(/\.md$/i, "");
@@ -1818,7 +1864,7 @@ ${body}`;
     el2.style.position = "fixed";
     el2.style.margin = "0";
     el2.style.inset = "auto";
-    const gap = o.offset ?? 4, pad = 8;
+    const gap = o.offset ?? 4, pad2 = 8;
     const w = el2.offsetWidth, h = el2.offsetHeight;
     let x2, y;
     if (place === "point" && o.point) {
@@ -1832,11 +1878,11 @@ ${body}`;
       } else {
         x2 = o.align === "end" ? r.right - w : r.left;
         const below = r.bottom + gap, above = r.top - gap - h;
-        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
+        y = place === "above" ? above >= pad2 ? above : below : below + h <= innerHeight - pad2 || above < pad2 ? below : above;
       }
     }
-    el2.style.left = `${Math.max(pad, Math.min(x2, innerWidth - w - pad))}px`;
-    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
+    el2.style.left = `${Math.max(pad2, Math.min(x2, innerWidth - w - pad2))}px`;
+    el2.style.top = `${Math.max(pad2, Math.min(y, innerHeight - h - pad2))}px`;
   }
   var parts = [];
   function dismissOutside(el2, isOpen, close) {
@@ -3139,7 +3185,7 @@ ${body}`;
       ctx.font = getComputedStyle(el2).font;
       return ctx.measureText((el2.textContent ?? "").trim()).width;
     };
-    const pad = (el2) => {
+    const pad2 = (el2) => {
       if (!el2) return 0;
       const cs = getComputedStyle(el2);
       return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
@@ -3147,8 +3193,8 @@ ${body}`;
     const want = ths.map((th, i3) => {
       const ws = rows.map((r) => textW(r.cells[i3])).sort((a, b) => a - b);
       const p90 = ws.length ? ws[Math.min(ws.length - 1, Math.floor(ws.length * 0.9))] : 0;
-      const body = p90 + pad(rows[0]?.cells[i3]) + 4;
-      const head = textW(th) + pad(th) + 18;
+      const body = p90 + pad2(rows[0]?.cells[i3]) + 4;
+      const head = textW(th) + pad2(th) + 18;
       return Math.max(56, Math.min(420, Math.ceil(Math.max(head, body))));
     });
     const total = want.reduce((a, b) => a + b, 0);
@@ -4582,6 +4628,59 @@ ${answer}`;
     render2();
     openMenu = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu", focus: menu.querySelector(".fe-pm-add input") });
   }
+  var pad = (n) => String(n).padStart(2, "0");
+  var localValue = (iso) => {
+    const d = new Date(iso);
+    return isFinite(+d) ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
+  };
+  var whenShort = (iso) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  var plain = (u) => u.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  function reminderLabel(p, now = Date.now()) {
+    const st = reminderState(p, now);
+    if (st === "none") return "Remind";
+    return `${st === "missed" ? "Missed " : ""}${whenShort(p.remindAt)}${p.remindRepeat ? ` \xB7 ${p.remindRepeat}` : ""}${p.remindOn === "phone" ? " \xB7 on phone" : ""}`;
+  }
+  function openReminderMenu(anchor, props, apply) {
+    closePropsMenu();
+    const menu = document.createElement("div");
+    menu.className = "fe-pmenu fe-rem";
+    const st = reminderState(props);
+    const seed = props.remindAt ? localValue(props.remindAt) : localValue(new Date(Date.now() + 36e5).toISOString());
+    menu.innerHTML = `
+    <form class="fe-rem-form">
+      <label class="fe-pm-lbl" for="fe-rem-at">Remind me${st === "missed" ? " (missed)" : ""}</label>
+      <input id="fe-rem-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
+      <label class="fe-pm-lbl" for="fe-rem-repeat">Repeats</label>
+      <select id="fe-rem-repeat" class="tb" data-size="sm">${[["", "Does not repeat"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"]].map(([v, t]) => `<option value="${v}"${(props.remindRepeat ?? "") === v ? " selected" : ""}>${t}</option>`).join("")}</select>
+      <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
+      <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== "phone" ? " selected" : ""}>This Mac</option><option value="phone"${props.remindOn === "phone" ? " selected" : ""}>The phone</option></select>
+      <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? " checked" : ""}><span>Keep ringing until dismissed</span></label>
+      <div class="fe-rem-acts">
+        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? "Update" : "Set reminder"}</span></button>
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ""}
+      </div>
+    </form>`;
+    const done = async (c) => {
+      await apply(c);
+      closePropsMenu();
+    };
+    menu.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-rem]");
+      if (!b) return;
+      e.preventDefault();
+      if (b.dataset.rem === "clear") void done({ remind: null });
+      else if (props.remindAt && props.remindRepeat) void done({ remind: { at: nextRing(props.remindAt, props.remindRepeat), repeat: props.remindRepeat, on: props.remindOn, persist: props.remindPersist } });
+      else void done({ remind: null });
+    });
+    menu.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const at = new Date(menu.querySelector("#fe-rem-at").value);
+      if (!isFinite(+at)) return;
+      const repeat = menu.querySelector("#fe-rem-repeat").value;
+      void done({ remind: { at: at.toISOString().replace(/\.\d{3}Z$/, "Z"), ...repeat ? { repeat } : {}, on: menu.querySelector("#fe-rem-on").value, persist: menu.querySelector("#fe-rem-persist").checked } });
+    });
+    openMenu = openLayer(menu, { kind: "popover", anchor, role: "dialog", group: "menu", focus: menu.querySelector("#fe-rem-at") });
+  }
   function mountMetaBar(host, o) {
     const draw = () => {
       const p = o.props();
@@ -4591,7 +4690,11 @@ ${answer}`;
       <button data-size="sm" class="btn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
       <button data-size="sm" class="btn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
       ${p.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
-      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>`;
+      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>
+      <button class="btn fe-chip-btn fe-chip-rem${p.remindAt ? " active" : ""}${reminderState(p) === "missed" ? " missed" : ""}" data-size="sm" data-m="remind" title="${p.remindAt ? "Change or clear this reminder" : "Set a reminder"}">${UI_ICON.clock}<span>${esc(reminderLabel(p))}</span></button>
+      ${p.agent ? `<span class="chip fe-chip-agent" title="This note was made or last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ""}
+      ${p.expires ? `<span class="chip fe-chip-exp${Date.parse(p.expires) <= Date.now() ? " expired" : ""}" title="After this time the note is listed under Expired. It is never deleted.">${UI_ICON.clock}<span>${Date.parse(p.expires) <= Date.now() ? "Expired" : "Expires"} ${esc(whenShort(p.expires))}</span></span>` : ""}
+      ${p.url ? `<span class="chip fe-chip-url" title="${esc(p.url)}">${UI_ICON.link}<span class="fe-chip-url-t">${esc(plain(p.url))}</span><button class="btn" data-icon data-size="xs" data-m="url-open" title="Open ${esc(p.url)}" aria-label="Open the link">${UI_ICON.tab}</button><button class="btn" data-icon data-size="xs" data-m="url-copy" title="Copy the link" aria-label="Copy the link">${UI_ICON.copy ?? UI_ICON.link}</button></span>` : ""}`;
       const btn = host.querySelector("#fe-meta-title");
       btn?.addEventListener("click", () => {
         const box = document.createElement("textarea");
@@ -4641,6 +4744,15 @@ ${answer}`;
       if (b.dataset.m === "pin") {
         await o.apply({ pinned: !p.pinned });
         draw();
+      } else if (b.dataset.m === "remind") openReminderMenu(b, p, async (c) => {
+        const r = await o.apply(c);
+        draw();
+        return r;
+      });
+      else if (b.dataset.m === "url-open") window.open(p.url, "_blank", "noopener");
+      else if (b.dataset.m === "url-copy") {
+        void navigator.clipboard?.writeText(p.url).catch(() => void 0);
+        b.title = "Copied";
       } else if (b.dataset.m === "untag") {
         await o.apply({ tags: p.tags.filter((t) => t !== b.dataset.tag) });
         draw();
@@ -13687,8 +13799,8 @@ ${t}`)) say("Note title saved");
       fmd: svg16('<rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M4 10.5v-5l2 2.5 2-2.5v5M11.5 5.5v5M10 9l1.5 1.5L13 9"/>'),
       ftxt: svg16('<path d="M3 4h10M3 7h10M3 10h7M3 13h5"/>')
     });
-    const plain3 = (t) => String(t ?? "").replace(/<br\s*\/?>/gi, " \xB7 ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-    const lines = (t) => String(t ?? "").split(/<br\s*\/?>/i).map(plain3).filter(Boolean);
+    const plain4 = (t) => String(t ?? "").replace(/<br\s*\/?>/gi, " \xB7 ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    const lines = (t) => String(t ?? "").split(/<br\s*\/?>/i).map(plain4).filter(Boolean);
     const bare = (t) => t.replace(/^[^\p{L}\p{N}]+/u, "");
     let instances = 0, active = null;
     function readDoc(md2) {
@@ -13909,7 +14021,7 @@ ${t}`)) say("Note title saved");
       const subOf = (id) => lines(graph.nodes.get(id)?.text).slice(1).join(" \xB7 ");
       const kindOf2 = (n) => n.classes.find((c) => graph.classes[c]);
       function keyOf(id, depth = 0) {
-        const m = plain3(graph.nodes.get(id)?.text).match(/\b([A-Z]\d{1,2})\b/);
+        const m = plain4(graph.nodes.get(id)?.text).match(/\b([A-Z]\d{1,2})\b/);
         if (m) return { key: m[1], via: null };
         if (depth > 1) return { key: null, via: null };
         for (const e of graph.in.get(id) ?? []) {
@@ -13930,7 +14042,7 @@ ${t}`)) say("Note title saved");
           if (m.flow) {
             const verts = d.db.getVertices();
             for (const v of verts instanceof Map ? verts.values() : Object.values(verts)) m.nodes.push({ id: v.id, text: v.text, type: v.type, classes: v.classes ?? [] });
-            m.edges = d.db.getEdges().map((e) => ({ id: e.id, start: e.start, end: e.end, text: plain3(e.text) }));
+            m.edges = d.db.getEdges().map((e) => ({ id: e.id, start: e.start, end: e.end, text: plain4(e.text) }));
             const cls = d.db.getClasses();
             for (const [name2, c] of cls instanceof Map ? cls : Object.entries(cls)) {
               const stroke = (c.styles ?? []).map((s) => s.match(/^stroke:\s*(#[0-9a-f]{3,8})/i)?.[1]).find(Boolean);
@@ -14403,7 +14515,7 @@ ${t}`)) say("Note title saved");
       let found = [], foundAt = 0;
       function runFind() {
         const q = findIn.value.trim().toLowerCase();
-        found = q ? [...graph.nodes.values()].filter((n) => (n.id + " " + plain3(n.text)).toLowerCase().includes(q)).slice(0, 8) : [];
+        found = q ? [...graph.nodes.values()].filter((n) => (n.id + " " + plain4(n.text)).toLowerCase().includes(q)).slice(0, 8) : [];
         foundAt = 0;
         paintFind();
         if (found.length) highlight({ nodes: found.map((n) => n.id) });
@@ -16646,8 +16758,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const days = m.lastUpdated ? Math.floor((now.getTime() - m.lastUpdated.getTime()) / 864e5) : null;
     return { you, ready, staleDays: days !== null && days > STALE_DAYS ? days : null, waiting: tasks.filter((r) => r.state === "waiting").length };
   }
-  var plain = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
-  var item = (r, i3, sub, tip) => `<li><button type="button" class="fe-dir-next-i" data-row="${i3}"${tip ? ` title="${esc(tip)}"` : ""}>${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ""}<span class="fe-dir-next-t">${esc(plain(r.text || r.section?.title || "Row"))}</span>${sub ? `<span class="fe-dir-next-sub">${sub}</span>` : ""}</button></li>`;
+  var plain2 = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
+  var item = (r, i3, sub, tip) => `<li><button type="button" class="fe-dir-next-i" data-row="${i3}"${tip ? ` title="${esc(tip)}"` : ""}>${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ""}<span class="fe-dir-next-t">${esc(plain2(r.text || r.section?.title || "Row"))}</span>${sub ? `<span class="fe-dir-next-sub">${sub}</span>` : ""}</button></li>`;
   function nextHeadHtml(m, h) {
     const at = (r) => m.rows.indexOf(r);
     const inState = (s) => m.rows.filter((r) => !r.summary && (r.el.dataset.state ?? r.state) === s).length;
@@ -16659,9 +16771,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       ${rows.length ? `<ol>${rows.slice(0, CAP).map((r) => item(r, at(r), sub(r), tip(r))).join("")}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
     </div>`;
     };
-    const youSub = (r) => r.need ? esc(r.need) : r.section && !r.asks ? esc(plain(r.section.title)) : "";
+    const youSub = (r) => r.need ? esc(r.need) : r.section && !r.asks ? esc(plain2(r.section.title)) : "";
     const youTip = (r) => [r.need, r.silent && `If you say nothing: ${r.silent}`].filter(Boolean).join("\n");
-    const readySub = (r) => [r.when, r.section && plain(r.section.title)].filter(Boolean).map((s) => esc(s)).join(" \xB7 ");
+    const readySub = (r) => [r.when, r.section && plain2(r.section.title)].filter(Boolean).map((s) => esc(s)).join(" \xB7 ");
     return `${group2("you", "On you", h.you, youSub, youTip, "Nothing waits on you.", "needs")}${group2("ready", "Ready for an agent", h.ready, readySub, () => "", "Nothing is ready to pick up.", "ready")}`;
   }
 
@@ -16848,7 +16960,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     { id: "parked", label: "parked" },
     { id: "done", label: "done" }
   ];
-  var plain2 = (t) => t.replace(/[\u{1F300}-\u{1FAFF}☀-➿⏩-⏺️]/gu, "").replace(/\s{2,}/g, " ").trim();
+  var plain3 = (t) => t.replace(/[\u{1F300}-\u{1FAFF}☀-➿⏩-⏺️]/gu, "").replace(/\s{2,}/g, " ").trim();
   var GOOGLE = { document: "Google Doc", spreadsheets: "Google Sheet", presentation: "Google Slides" };
   function linkOf(raw, href = raw) {
     if (!raw || raw.startsWith("#") || /^(mailto|javascript):/i.test(raw)) return null;
@@ -16901,7 +17013,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (r.summary) continue;
       const d = directionOf(r.section, m);
       const key = d === "other" ? "other" : d ? String(m.sections.indexOf(d)) : "none";
-      const title = d === "other" ? "Other sections" : d ? plain2(d.title) : "Before the first heading";
+      const title = d === "other" ? "Other sections" : d ? plain3(d.title) : "Before the first heading";
       if (!groups.has(key)) groups.set(key, { key, title, section: d && d !== "other" ? d : null, rows: [] });
       groups.get(key).rows.push(r);
     }
@@ -16923,7 +17035,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const n = (rs, s) => rs.filter((r) => r.el.dataset.state === s).length;
       const legend = STATES.filter((s) => n(shown, s.id)).map((s) => `<span data-state="${s.id}"><i></i>${n(shown, s.id)} ${s.label}</span>`).join("");
       const next = shown.filter((r) => r.el.dataset.state === "needs" || r.el.dataset.state === "ready").slice(0, 3);
-      const nextHtml = next.length ? next.map((r) => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ""}<span>${esc(plain2(r.text || "Row"))}</span></span>`).join("") : '<span class="fe-dc-none">Nothing to pick up</span>';
+      const nextHtml = next.length ? next.map((r) => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ""}<span>${esc(plain3(r.text || "Row"))}</span></span>`).join("") : '<span class="fe-dc-none">Nothing to pick up</span>';
       return `<button type="button" class="fe-dc" data-goto="${esc(g.key)}" title="Show these rows in the list"><span class="fe-dc-hd">${ringHtml(n(g.rows, "done"), g.rows.length)}<span class="fe-dc-t">${esc(g.title)}</span></span><span class="fe-dc-legend">${legend}</span><span class="fe-dc-next">${nextHtml}</span></button>`;
     }).join("");
     return cards2 ? `<div class="fe-dc-grid">${cards2}</div>` : "";
@@ -16940,8 +17052,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const rows = folded ? "" : shown.map((r) => {
         const st = r.el.dataset.state;
         const label = STATES.find((s) => s.id === st)?.label;
-        const sub = r.need || (r.section && r.section !== g.section ? plain2(r.section.title) : "");
-        return `<tr data-row="${at(r)}"${st ? ` data-state="${st}"` : ""}><td class="fe-dl-st">${st ? pillHtml(st, label) : '<span class="fe-dl-none">unmarked</span>'}</td><td class="fe-dl-id">${r.id ? esc(r.id) : ""}</td><td class="fe-dl-t"><span class="fe-dl-tx">${esc(plain2(r.text || "Row"))}</span>${sub ? `<span class="fe-dl-sub">${esc(plain2(sub))}</span>` : ""}</td>` + (linked ? `<td class="fe-dl-links">${chipsHtml2(links.get(r) ?? [])}</td>` : "") + `<td class="fe-dl-when">${r.when ?? ""}</td></tr>`;
+        const sub = r.need || (r.section && r.section !== g.section ? plain3(r.section.title) : "");
+        return `<tr data-row="${at(r)}"${st ? ` data-state="${st}"` : ""}><td class="fe-dl-st">${st ? pillHtml(st, label) : '<span class="fe-dl-none">unmarked</span>'}</td><td class="fe-dl-id">${r.id ? esc(r.id) : ""}</td><td class="fe-dl-t"><span class="fe-dl-tx">${esc(plain3(r.text || "Row"))}</span>${sub ? `<span class="fe-dl-sub">${esc(plain3(sub))}</span>` : ""}</td>` + (linked ? `<td class="fe-dl-links">${chipsHtml2(links.get(r) ?? [])}</td>` : "") + `<td class="fe-dl-when">${r.when ?? ""}</td></tr>`;
       }).join("");
       return `<tbody data-group="${esc(g.key)}"><tr class="fe-dl-g"><th colspan="${cols}"><span class="fe-dl-gh"><button type="button" class="fe-dl-fold" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} these rows">${esc(g.title)}</button>${meterOf(g.rows)}<span class="fe-dl-n">${shown.length}${shown.length !== g.rows.length ? ` of ${g.rows.length}` : ""}</span>${g.section ? `<button type="button" class="fe-dl-go" data-sec="${esc(g.section.el.id)}" title="Read this section in the doc">In doc</button>` : ""}</span></th></tr>${rows}</tbody>`;
     }).join("");
@@ -18930,7 +19042,10 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-sh{padding:var(--sp-4) var(--sp-6) var(--sp-2)}
 .fe-hint{font-size:var(--fs-md);color:var(--dm);font-style:italic;line-height:1.7;padding:var(--sp-3) var(--sp-6)}
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-4)}
-.fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
+.fe-nt-marks{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:2px}.fe-nt-mark{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);color:var(--dm)}.fe-nt-mark svg{width:11px;height:11px;flex:none}.fe-nt-mark.rem.missed{color:var(--gold)}.fe-nt-mark.agent{color:var(--nc-purple)}
+.fe-chip-rem.missed,.fe-chip-exp.expired{color:var(--gold)}.fe-chip-url-t{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
+.fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"],.fe-where[data-state="trouble"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
 .fe-lens-tools{padding:var(--sp-1) var(--sp-3) var(--sp-4)}
@@ -28775,6 +28890,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ntList.querySelector(".fe-nt-pinzone")?.remove();
       if (at && at.rel !== rel) dropNote(notesRoot(), rel, at.pinned, at.rel, at.after);
     });
+    const LANES_FOLDED = /* @__PURE__ */ new Set(["agents", "expired"]);
     const noteFoldsPref = setPref("bfb-notes-folded-v1");
     const noteFolds = () => noteFoldsPref.get();
     ntList.addEventListener("click", (e) => {
@@ -28784,7 +28900,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const folds = noteFolds(), key = g.dataset.grp;
       if (folds.has(key)) folds.delete(key);
       else folds.add(key);
-      const open = !folds.has(key);
+      const open = LANES_FOLDED.has(key) ? folds.has(key) : !folds.has(key);
       g.setAttribute("aria-expanded", String(open));
       g.title = `${open ? "Fold" : "Show"} ${g.dataset.label}`;
       noteFoldsPref.set(folds);
@@ -28853,7 +28969,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = (n) => {
         const c = colorName(n.color);
         return `
-          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}${filtering ? "" : ' draggable="true"'}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length || n.agent || n.url || n.remindAt ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}${filtering ? "" : ' draggable="true"'}>
             ${filtering ? "" : `<span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>`}
             <a href="${esc(fileHref(root2 + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
@@ -28865,14 +28981,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             </span>
           </div>`;
       };
-      const pinned = shown.filter((n) => n.pinned), rest = shown.filter((n) => !n.pinned);
+      const pinned = shown.filter((n) => n.pinned);
+      const lane = (n) => !n.pinned && (n.agent ? "agents" : isExpired(n) ? "expired" : "");
+      const agents = shown.filter((n) => lane(n) === "agents"), expired = shown.filter((n) => lane(n) === "expired");
+      const rest = shown.filter((n) => !n.pinned && !lane(n));
       const folded = noteFolds();
       const group2 = (key, label, list3) => {
-        const open = !folded.has(key) || !!ntFilter.value.trim();
+        const open = (LANES_FOLDED.has(key) ? folded.has(key) : !folded.has(key)) || !!ntFilter.value.trim();
         return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${DISCLOSE}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
       const heldRel = document.activeElement?.matches(".fe-si-link") ? document.activeElement.closest(".fe-nt-item")?.dataset.rel : void 0;
-      ntList.innerHTML = shown.length ? pinned.length ? group2("pinned", "Pinned", pinned) + group2("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
+      ntList.innerHTML = shown.length ? pinned.length || agents.length || expired.length ? (pinned.length ? group2("pinned", "Pinned", pinned) : "") + (pinned.length || rest.length ? group2("all", "All notes", rest) : "") + (agents.length ? group2("agents", "Agents", agents) : "") + (expired.length ? group2("expired", "Expired", expired) : "") : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
       attachNoteEvents(root2);
       if (heldRel) els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === heldRel)?.querySelector(".fe-si-link")?.focus();
     }
@@ -29052,7 +29171,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span class="fe-nt-tag"><i style="--dot:${esc(colour.get(t) ?? "var(--dm)")}"></i>${esc(t)}</span>`).join("")}</span>` : "";
       const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : "";
-      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
+      const rs = reminderState(n);
+      const marks = [
+        n.agent ? `<span class="fe-nt-mark agent" title="Made or last edited by ${esc(n.agent)}">${UI_ICON.ai}<span>${esc(n.agent)}</span></span>` : "",
+        rs !== "none" ? `<span class="fe-nt-mark rem${rs === "missed" ? " missed" : ""}" title="${rs === "missed" ? "This reminder passed and was not dismissed" : "Reminder"}${n.remindOn === "phone" ? " (rings on the phone)" : ""}">${UI_ICON.clock}<span>${rs === "missed" ? "Missed " : ""}${esc(whenShort(n.remindAt))}</span></span>` : "",
+        n.url ? `<span class="fe-nt-mark url" title="${esc(n.url)}">${UI_ICON.link}</span>` : ""
+      ].join("");
+      const marked = marks ? `<span class="fe-nt-marks">${marks}</span>` : "";
+      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}${marked}</span>${pin}`;
     }
     const noteName = (n) => n.title || noteTitle(n.rel);
     const notePath = (root2, rel) => root2.replace(/\/$/, "") + "/" + rel;

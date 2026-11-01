@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos, attachmentRel } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos, attachmentRel, setReminder, dismissReminder, nextRing, reminderState, isExpired, applyChange, changedKeys } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -247,5 +247,50 @@ describe('attachmentRel', () => {
   it('an older name with spaces lends a cleaned-up id, never the title', () => {
     const rel = attachmentRel('weekly plan v2.md', 'png', 1);
     expect(rel).toBe('attachments/weekly-plan-v2-1.png');
+  });
+});
+
+describe('reminders, agents, links and expiry', () => {
+  const base = '---\ntitle: "T"\ncreated: 2026-11-01T10:00:00Z\ntags: "a"\n---\nbody\n';
+  it('readProps carries the fields bfb used to ignore', () => {
+    const t = '---\ntitle: "T"\nexpires: 2026-12-01T00:00:00Z\nremind_at: 2026-11-02T09:00:00Z\nremind_repeat: weekly\nremind_on: phone\nremind_persist: true\nagent: "claude-1"\nurl: "https://example.com/a"\n---\n';
+    expect(readProps('a.md', t)).toMatchObject({ agent: 'claude-1', url: 'https://example.com/a', expires: '2026-12-01T00:00:00Z',
+      remindAt: '2026-11-02T09:00:00Z', remindRepeat: 'weekly', remindOn: 'phone', remindPersist: true });
+  });
+  it('setReminder writes the keys in spec order and touches nothing else', () => {
+    const out = setReminder(base, { at: '2026-11-02T09:00:00Z', repeat: 'daily', on: 'phone', persist: true });
+    expect(out).toBe('---\ntitle: "T"\ncreated: 2026-11-01T10:00:00Z\ntags: "a"\nremind_at: 2026-11-02T09:00:00Z\nremind_repeat: daily\nremind_on: phone\nremind_persist: true\n---\nbody\n');
+    expect(setReminder(out, null)).toBe(base);
+  });
+  it('the Mac is the default device, so remind_on is left out for it', () => {
+    expect(setReminder(base, { at: '2026-11-02T09:00:00Z', on: 'mac' })).not.toMatch(/remind_on/);
+  });
+  it('setting a reminder again replaces the old one, and clearing drops the device handle too', () => {
+    const had = base.replace('tags: "a"\n', 'tags: "a"\nremind_at: 2026-11-01T11:00:00Z\nremind_repeat: weekly\nreminder_id: "r1"\n');
+    expect(setReminder(had, { at: '2026-11-05T09:00:00Z' })).toBe(base.replace('tags: "a"\n', 'tags: "a"\nremind_at: 2026-11-05T09:00:00Z\n'));
+    expect(setReminder(had, null)).toBe(base);
+  });
+  it('dismissing a one-off clears it; dismissing a repeating one moves to the next time', () => {
+    const one = setReminder(base, { at: '2026-11-02T09:00:00Z' });
+    expect(dismissReminder(one, new Date('2026-11-02T09:00:05Z'))).toBe(base);
+    const weekly = setReminder(base, { at: '2026-11-02T09:00:00Z', repeat: 'weekly' });
+    expect(readProps('a.md', dismissReminder(weekly, new Date('2026-11-02T09:00:05Z'))).remindAt).toBe('2026-11-09T09:00:00Z');
+    expect(nextRing('2026-01-31T09:00:00Z', 'monthly', new Date('2026-02-01T00:00:00Z'))).toMatch(/^2026-03-0[23]T09:00:00Z$/);
+  });
+  it('a time that passed and was not dismissed is missed, never dropped', () => {
+    const now = Date.parse('2026-11-03T00:00:00Z');
+    expect(reminderState({ remindAt: '2026-11-02T09:00:00Z' }, now)).toBe('missed');
+    expect(reminderState({ remindAt: '2026-11-04T09:00:00Z' }, now)).toBe('upcoming');
+    expect(reminderState({}, now)).toBe('none');
+  });
+  it('expires only moves a note to Expired once its time has passed', () => {
+    const now = Date.parse('2026-11-03T00:00:00Z');
+    expect(isExpired({ expires: '2026-11-02T00:00:00Z' }, now)).toBe(true);
+    expect(isExpired({ expires: '2026-11-04T00:00:00Z' }, now)).toBe(false);
+    expect(isExpired({}, now)).toBe(false);
+  });
+  it('a reminder change counts every reminder key as changed, so the header guard allows it', () => {
+    expect(changedKeys({ remind: null })).toEqual(expect.arrayContaining(['remind_at', 'remind_repeat', 'remind_on', 'remind_persist', 'reminder_id']));
+    expect(applyChange(base, { remind: { at: '2026-11-02T09:00:00Z' } })).toMatch(/remind_at: 2026-11-02T09:00:00Z/);
   });
 });

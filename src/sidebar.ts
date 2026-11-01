@@ -13,7 +13,8 @@ import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, p
 import { renderSavedList } from './render';
 import { describeSync } from './sync-state';
 import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
-import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
+import { whenShort } from './note-meta-ui';
+import { notes, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -495,6 +496,8 @@ export function initSidebar(app: App): void {
     ntList.querySelector('.fe-nt-pinzone')?.remove();
     if (at && at.rel !== rel) dropNote(notesRoot(), rel, at.pinned, at.rel, at.after);
   });
+  // Lanes the owner did not write start folded; the set below keeps whichever groups were flipped from their start.
+  const LANES_FOLDED = new Set(['agents', 'expired']);
   const noteFoldsPref = setPref('bfb-notes-folded-v1');
   const noteFolds = (): Set<string> => noteFoldsPref.get();
   ntList.addEventListener('click', e => {
@@ -503,7 +506,7 @@ export function initSidebar(app: App): void {
     const body = g.nextElementSibling as HTMLElement;
     const folds = noteFolds(), key = g.dataset.grp!;
     if (folds.has(key)) folds.delete(key); else folds.add(key);
-    const open = !folds.has(key);
+    const open = LANES_FOLDED.has(key) ? folds.has(key) : !folds.has(key);
     g.setAttribute('aria-expanded', String(open));
     g.title = `${open ? 'Fold' : 'Show'} ${g.dataset.label}`;
     noteFoldsPref.set(folds);
@@ -571,7 +574,7 @@ export function initSidebar(app: App): void {
     const row = (n: NoteMeta) => {
       const c = colorName(n.color);
       return `
-          <div class="row fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}${filtering ? '' : ' draggable="true"'}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length || n.agent || n.url || n.remindAt ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}${filtering ? '' : ' draggable="true"'}>
             ${filtering ? '' : `<span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>`}
             <a href="${esc(fileHref(root + '/' + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
@@ -585,10 +588,15 @@ export function initSidebar(app: App): void {
     };
     // With any pinned note in view the list splits into Pinned and All notes,
     // each folding on its header; with none it is one plain list.
-    const pinned = shown.filter(n => n.pinned), rest = shown.filter(n => !n.pinned);
+    // Agents' notes and expired ones sit in their own lanes, folded until opened (a pinned note stays in Pinned).
+    const pinned = shown.filter(n => n.pinned);
+    const lane = (n: NoteMeta) => !n.pinned && (n.agent ? 'agents' : isExpired(n) ? 'expired' : '');
+    const agents = shown.filter(n => lane(n) === 'agents'), expired = shown.filter(n => lane(n) === 'expired');
+    const rest = shown.filter(n => !n.pinned && !lane(n));
     const folded = noteFolds();
     const group = (key: string, label: string, list: NoteMeta[]) => {
-      const open = !folded.has(key) || !!ntFilter.value.trim();
+      // The folds set holds the groups the person flipped from their start: lanes start folded, the rest start open.
+      const open = (LANES_FOLDED.has(key) ? folded.has(key) : !folded.has(key)) || !!ntFilter.value.trim();
       return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
         + `${DISCLOSE}${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span></button>`
         + `<div class="fe-nt-gbody"${open ? '' : ' hidden'}>${list.map(row).join('')}</div>`;
@@ -596,7 +604,10 @@ export function initSidebar(app: App): void {
     // A redraw while the keyboard is on a row must not drop it.
     const heldRel = (document.activeElement as HTMLElement | null)?.matches('.fe-si-link') ? (document.activeElement as HTMLElement).closest<HTMLElement>('.fe-nt-item')?.dataset.rel : undefined;
     ntList.innerHTML = shown.length
-      ? (pinned.length ? group('pinned', 'Pinned', pinned) + group('all', 'All notes', rest) : shown.map(row).join(''))
+      ? (pinned.length || agents.length || expired.length
+          ? (pinned.length ? group('pinned', 'Pinned', pinned) : '') + (pinned.length || rest.length ? group('all', 'All notes', rest) : '')
+            + (agents.length ? group('agents', 'Agents', agents) : '') + (expired.length ? group('expired', 'Expired', expired) : '')
+          : shown.map(row).join(''))
       : allNotes.length
         ? emptyHtml('filtered', `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] })
         : emptyHtml('empty', 'No notes yet', { inline: true, hintHtml: 'Press <kbd>n</kbd> or + to write one' });
@@ -761,7 +772,14 @@ export function initSidebar(app: App): void {
     const colour = new Map(getTags().map(t => [t.name, t.color]));
     const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span class="fe-nt-tag"><i style="--dot:${esc(colour.get(t) ?? 'var(--dm)')}"></i>${esc(t)}</span>`).join('')}</span>` : '';
     const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : '';
-    return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
+    const rs = reminderState(n);
+    const marks = [
+      n.agent ? `<span class="fe-nt-mark agent" title="Made or last edited by ${esc(n.agent)}">${UI_ICON.ai}<span>${esc(n.agent)}</span></span>` : '',
+      rs !== 'none' ? `<span class="fe-nt-mark rem${rs === 'missed' ? ' missed' : ''}" title="${rs === 'missed' ? 'This reminder passed and was not dismissed' : 'Reminder'}${n.remindOn === 'phone' ? ' (rings on the phone)' : ''}">${UI_ICON.clock}<span>${rs === 'missed' ? 'Missed ' : ''}${esc(whenShort(n.remindAt!))}</span></span>` : '',
+      n.url ? `<span class="fe-nt-mark url" title="${esc(n.url)}">${UI_ICON.link}</span>` : '',
+    ].join('');
+    const marked = marks ? `<span class="fe-nt-marks">${marks}</span>` : '';
+    return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}${marked}</span>${pin}`;
   }
   const noteName = (n: NoteMeta) => n.title || noteTitle(n.rel);
   const notePath = (root: string, rel: string) => root.replace(/\/$/, '') + '/' + rel;

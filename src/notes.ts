@@ -4,7 +4,9 @@
 
 import { parseNote, parseTagList, hasClash, settle, validId, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
 
-export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean }
+export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean;
+  /** The header fields bfb shows beyond title, colour, pin and tags (spec: agent, url, device, expires, reminders). */
+  agent?: string; url?: string; device?: string; expires?: string; remindAt?: string; remindRepeat?: string; remindOn?: string; remindPersist?: boolean }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
 export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
@@ -239,7 +241,11 @@ export function colorName(v: string | undefined): NoteColor | null {
 }
 
 /// `pos` is the shared order key, kept as the raw text on the line (`no`, `1e5` and `null` are all just strings).
-export interface NoteProps { title: string; color: NoteColor | null; pinned: boolean; tags: string[]; pos?: string }
+export interface NoteProps {
+  title: string; color: NoteColor | null; pinned: boolean; tags: string[]; pos?: string;
+  agent?: string; url?: string; device?: string; expires?: string;
+  remindAt?: string; remindRepeat?: 'daily' | 'weekly' | 'monthly'; remindOn?: 'mac' | 'phone'; remindPersist?: boolean;
+}
 
 /// Frontmatter keys in the order the spec writes them (notefmt.KNOWN_KEYS).
 const KEY_ORDER: readonly string[] = KNOWN_KEYS;
@@ -268,7 +274,12 @@ function fmLines(head: string): string[] {
 /// The properties a note's header holds: title as noteTitle reads it, colour, pin, tags and place.
 export function readProps(rel: string, text: string): NoteProps {
   const p = parseNote(text, rel.split('/').pop()!.replace(/\.md$/i, ''));
-  return { title: p.title, color: colorName(p.color ?? undefined), pinned: p.pinned, tags: p.tags, ...(p.pos ? { pos: p.pos } : {}) };
+  return {
+    title: p.title, color: colorName(p.color ?? undefined), pinned: p.pinned, tags: p.tags, ...(p.pos ? { pos: p.pos } : {}),
+    ...(p.agent ? { agent: p.agent } : {}), ...(p.url ? { url: p.url } : {}), ...(p.device ? { device: p.device } : {}), ...(p.expires ? { expires: p.expires } : {}),
+    ...(p.remindAt ? { remindAt: p.remindAt } : {}), ...(p.remindRepeat ? { remindRepeat: p.remindRepeat as NoteProps['remindRepeat'] } : {}),
+    ...(p.remindOn ? { remindOn: p.remindOn as NoteProps['remindOn'] } : {}), ...(p.remindPersist ? { remindPersist: true } : {}),
+  };
 }
 
 // `a, b` and the YAML flow list `[a, b]` read the same, as in notes_host.py.
@@ -382,7 +393,9 @@ export function arrangeWrites(order: { rel: string; pos?: string }[], rel: strin
   return out;
 }
 
-export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[] }
+/// A reminder to set: when it rings (ISO 8601 UTC), how it repeats, which device rings it (the Mac when left out), and whether it keeps ringing.
+export interface Reminder { at: string; repeat?: 'daily' | 'weekly' | 'monthly'; on?: 'mac' | 'phone'; persist?: boolean }
+export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[]; remind?: Reminder | null }
 
 /// Applies chip changes to a note's text: only the changed fields' lines are touched.
 export function applyChange(text: string, c: PropChange): string {
@@ -390,12 +403,56 @@ export function applyChange(text: string, c: PropChange): string {
   if (c.color !== undefined) t = setColor(t, c.color);
   if (c.pinned !== undefined) t = setPinned(t, c.pinned);
   if (c.tags !== undefined) t = setTags(t, c.tags);
+  if (c.remind !== undefined) t = setReminder(t, c.remind);
   return t;
 }
 
+/// The header lines a reminder owns. `reminder_id` is the ringing device's own handle, so it goes when the reminder does.
+export const REMIND_KEYS = ['remind_at', 'remind_repeat', 'remind_on', 'remind_persist', 'reminder_id'] as const;
+
+/// Set a reminder, or with null clear it. The Mac is the default device, so `remind_on` is written only for the phone.
+export function setReminder(text: string, r: Reminder | null): string {
+  let t = text;
+  for (const k of REMIND_KEYS) t = setField(t, k, null);
+  if (!r) return t;
+  t = setField(t, 'remind_at', r.at);
+  if (r.repeat) t = setField(t, 'remind_repeat', r.repeat);
+  if (r.on === 'phone') t = setField(t, 'remind_on', 'phone');
+  if (r.persist) t = setField(t, 'remind_persist', 'true');
+  return t;
+}
+
+/// What happens when a reminder is dismissed: a one-off is cleared; a repeating one moves to its next time after `now`.
+export function dismissReminder(text: string, now = new Date()): string {
+  const p = readProps('x.md', text);
+  if (!p.remindAt) return text;
+  if (!p.remindRepeat) return setReminder(text, null);
+  const next = nextRing(p.remindAt, p.remindRepeat, now);
+  return setReminder(text, { at: next, repeat: p.remindRepeat, on: p.remindOn, persist: p.remindPersist });
+}
+
+/// The next ring of a repeating reminder: one period on from `at`, and further if that has also passed by `now`.
+export function nextRing(at: string, repeat: 'daily' | 'weekly' | 'monthly', now = new Date()): string {
+  const d = new Date(at);
+  const step = () => { if (repeat === 'daily') d.setUTCDate(d.getUTCDate() + 1); else if (repeat === 'weekly') d.setUTCDate(d.getUTCDate() + 7); else d.setUTCMonth(d.getUTCMonth() + 1); };
+  step();
+  for (let i = 0; i < 4000 && d <= now; i++) step();
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/// Where a note's reminder stands: coming up, missed (past and never dismissed), or none.
+export function reminderState(p: { remindAt?: string }, now = Date.now()): 'none' | 'upcoming' | 'missed' {
+  if (!p.remindAt) return 'none';
+  const t = Date.parse(p.remindAt);
+  return !isFinite(t) ? 'none' : t > now ? 'upcoming' : 'missed';
+}
+
+/// Whether a note's `expires` time has passed. It stays in the folder, shown under Expired.
+export const isExpired = (p: { expires?: string }, now = Date.now()): boolean => { const t = Date.parse(p.expires ?? ''); return isFinite(t) && t <= now; };
+
 /// The frontmatter keys a change writes.
 export function changedKeys(c: PropChange): string[] {
-  return (['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined);
+  return [...(['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined), ...(c.remind !== undefined ? REMIND_KEYS : [])];
 }
 
 /// The path of a new picture or file under attachments/, named `<id>-<stamp>.<ext>` by the spec.
