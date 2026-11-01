@@ -309,12 +309,15 @@ export function frontmatterDrift(before: string, after: string, allowed: Iterabl
 /// The shared note order (specs/order.md): pinned first, then notes never arranged (newest created first),
 /// then arranged notes by `pos` in byte order; the file name breaks ties. Editing a note does not move it.
 export function sharedOrder<T extends { rel: string; pinned?: boolean; pos?: string; created?: number; mtime: number }>(list: T[]): T[] {
-  const made = (n: T) => n.created ?? n.mtime;
+  // A note with no `created` counts as the oldest; the id (file name without .md) breaks ties, in byte order.
+  const made = (n: T) => n.created ?? 0;
+  const id = (n: T) => n.rel.replace(/\.md$/i, '');
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return [...list].sort((x, y) => {
     if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
     if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
-    if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
-    return x.pos! < y.pos! ? -1 : x.pos! > y.pos! ? 1 : (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
+    if (!x.pos) return made(y) - made(x) || cmp(id(x), id(y));
+    return cmp(x.pos!, y.pos!) || cmp(id(x), id(y));
   });
 }
 

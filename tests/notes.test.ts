@@ -152,10 +152,11 @@ describe('properties', () => {
     ];
     expect(sharedOrder(l).map(n => n.rel)).toEqual(['f', 'e', 'b', 'a', 'd', 'g', 'c']);
   });
-  it('sharedOrder: editing (a newer mtime) does not move a note, and absent created falls back to mtime', () => {
+  it('sharedOrder: editing (a newer mtime) does not move a note, and absent created counts as the oldest', () => {
     const l = [{ rel: 'x', mtime: 100, created: 1 }, { rel: 'y', mtime: 1, created: 2 }];
     expect(sharedOrder(l).map(n => n.rel)).toEqual(['y', 'x']);
-    expect(sharedOrder([{ rel: 'p', mtime: 1 }, { rel: 'q', mtime: 9 }]).map(n => n.rel)).toEqual(['q', 'p']);
+    expect(sharedOrder([{ rel: 'p', mtime: 99 }, { rel: 'q', mtime: 9, created: 1 }]).map(n => n.rel)).toEqual(['q', 'p']);
+    expect(sharedOrder([{ rel: 'b.md', mtime: 1 }, { rel: 'a-b.md', mtime: 1 }, { rel: 'a.md', mtime: 1 }]).map(n => n.rel)).toEqual(['a.md', 'a-b.md', 'b.md']);
   });
   it('a valid pos is read back as written, an invalid one as none', () => {
     for (const v of ['no', '1e5', 'null', 'i']) {

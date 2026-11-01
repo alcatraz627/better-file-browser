@@ -930,6 +930,188 @@
     }
   }
 
+  // src/notefmt.ts
+  var KNOWN_KEYS = [
+    "title",
+    "created",
+    "tags",
+    "expires",
+    "remind_at",
+    "remind_repeat",
+    "remind_on",
+    "remind_persist",
+    "reminder_id",
+    "pinned",
+    "color",
+    "agent",
+    "source",
+    "url",
+    "device",
+    "pos"
+  ];
+  var COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
+  var REPEATS = ["daily", "weekly", "monthly"];
+  var DEVICES = ["mac", "phone"];
+  var POS_RE = /^[0-9a-z]{0,31}[1-9a-z]$/;
+  var ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+  var KEY_TO_FIELD = {
+    title: "title",
+    created: "created",
+    tags: "tags",
+    expires: "expires",
+    remind_at: "remindAt",
+    remind_repeat: "remindRepeat",
+    remind_on: "remindOn",
+    remind_persist: "remindPersist",
+    reminder_id: "reminderId",
+    pinned: "pinned",
+    color: "color",
+    agent: "agent",
+    source: "source",
+    url: "url",
+    device: "device",
+    pos: "pos"
+  };
+  var normalise = (text) => text.replace(/\r\n/g, "\n");
+  var isOpener = (line2) => line2.startsWith("<<<<<<< ") || line2 === "<<<<<<<";
+  var isCloser = (line2) => line2.startsWith(">>>>>>> ") || line2 === ">>>>>>>";
+  var hasClash = (text) => normalise(text).split("\n").some(isOpener);
+  var validPos = (s) => !!s && POS_RE.test(s);
+  var validId = (s) => ID_RE.test(s);
+  function unquote(raw) {
+    const v = raw.trim();
+    if (v.length >= 2 && v[0] === '"') {
+      try {
+        const out = JSON.parse(v);
+        if (typeof out === "string") return out;
+      } catch {
+      }
+      return v;
+    }
+    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
+    return v;
+  }
+  function parseTagList(raw) {
+    let s = unquote(raw).trim();
+    if (s.startsWith("[") && s.endsWith("]")) s = s.slice(1, -1);
+    const out = [];
+    for (let part of s.split(",")) {
+      part = part.trim();
+      if (part.length >= 2 && part[0] === part[part.length - 1] && `"'`.includes(part[0])) part = part.slice(1, -1).trim();
+      if (part) out.push(part);
+    }
+    return out;
+  }
+  function deriveTitle(body, name2) {
+    for (const line2 of body.split("\n")) {
+      if (line2.trim()) {
+        const t = line2.replace(/^[#> ]+/, "").trim();
+        return t || name2;
+      }
+    }
+    return name2;
+  }
+  function emptyNote(name2) {
+    return {
+      title: name2,
+      body: "",
+      tags: [],
+      color: null,
+      pinned: false,
+      pos: null,
+      url: null,
+      device: null,
+      agent: null,
+      source: null,
+      expires: null,
+      created: null,
+      remindAt: null,
+      remindRepeat: null,
+      remindOn: null,
+      remindPersist: false,
+      reminderId: null,
+      conflicted: false,
+      extraLines: []
+    };
+  }
+  function splitHeader(text) {
+    const lines = text.split("\n");
+    if (lines[0] !== "---") return { header: null, body: text };
+    for (let i3 = 1; i3 < lines.length; i3++) {
+      if (lines[i3] === "---") return { header: lines.slice(1, i3), body: lines.slice(i3 + 1).join("\n") };
+    }
+    return { header: null, body: text };
+  }
+  function parseNote(rawText, name2) {
+    const text = normalise(rawText);
+    const note2 = emptyNote(name2);
+    if (hasClash(text)) {
+      note2.conflicted = true;
+      note2.body = text;
+      return note2;
+    }
+    const { header, body } = splitHeader(text);
+    note2.body = body;
+    let titleSeen = false;
+    const set2 = note2;
+    for (const line2 of header ?? []) {
+      if (line2 === "") continue;
+      const idx = line2.indexOf(":");
+      const key = idx >= 0 ? line2.slice(0, idx) : null;
+      if (key === null || !Object.prototype.hasOwnProperty.call(KEY_TO_FIELD, key)) {
+        note2.extraLines.push(line2);
+        continue;
+      }
+      const raw = line2.slice(idx + 1);
+      const val = unquote(raw);
+      const field = KEY_TO_FIELD[key];
+      if (key === "title") {
+        note2.title = val.trim();
+        titleSeen = true;
+      } else if (key === "tags") note2.tags = parseTagList(raw);
+      else if (key === "pinned" || key === "remind_persist") set2[field] = val === "true";
+      else if (key === "color") set2[field] = COLORS.includes(val) ? val : null;
+      else if (key === "remind_repeat") set2[field] = REPEATS.includes(val) ? val : null;
+      else if (key === "remind_on") set2[field] = DEVICES.includes(val) ? val : null;
+      else if (key === "pos") set2[field] = validPos(val) ? val : null;
+      else set2[field] = val !== "" ? val : null;
+    }
+    if (!titleSeen) note2.title = deriveTitle(body, name2);
+    return note2;
+  }
+  function settle(text, choice) {
+    const lines = normalise(text).split("\n");
+    const out = [];
+    let i3 = 0;
+    const n = lines.length;
+    while (i3 < n) {
+      if (!isOpener(lines[i3])) {
+        out.push(lines[i3]);
+        i3++;
+        continue;
+      }
+      const first = [], second = [];
+      let side = first, j = i3 + 1, closed = false;
+      while (j < n) {
+        const l = lines[j];
+        if (side === first && l === "=======") side = second;
+        else if (isCloser(l)) {
+          closed = true;
+          break;
+        } else side.push(l);
+        j++;
+      }
+      if (!closed) {
+        out.push(...first, ...second);
+        break;
+      }
+      out.push(...choice === "first" ? first : choice === "second" ? second : [...first, ...second]);
+      i3 = j + 1;
+    }
+    return out.join("\n");
+  }
+  var isoNow = (now = /* @__PURE__ */ new Date()) => now.toISOString().replace(/\.\d{3}Z$/, "Z");
+
   // src/notes.ts
   var NotesError = class extends Error {
     constructor(code, message) {
@@ -1028,37 +1210,12 @@
     const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
     return (s || "untitled") + ".md";
   }
-  function unquoteYaml(v) {
-    if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
-      try {
-        return JSON.parse(v);
-      } catch {
-        return v.slice(1, -1);
-      }
-    }
-    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-    return v;
-  }
   function noteTitle(rel, text) {
-    if (text) {
-      const fm = text.match(/^---\n([\s\S]*?)\n---/);
-      const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
-      const t = raw && unquoteYaml(raw).trim();
-      if (t) return t;
-      const first = splitNote(text).body.trim().split("\n")[0].replace(/^#+/, "").trim();
-      if (first) return first;
-    }
-    return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
+    const name2 = rel.split("/").pop().replace(/\.md$/i, "");
+    return (text ? parseNote(text, name2).title : "") || name2;
   }
   function setTitle(text, title) {
-    const m = text.match(/^---\n([\s\S]*?)\n---/);
-    if (!m) return null;
-    const line2 = `title: ${JSON.stringify(title)}`;
-    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line2) : `${line2}
-${m[1]}`;
-    return text.replace(m[0], () => `---
-${fm}
----`);
+    return splitNote(text).head ? setField(text, "title", JSON.stringify(title)) : null;
   }
   function setFirstLine(text, title) {
     const m = text.match(/^(\s*)([^\n]*)/);
@@ -1079,41 +1236,15 @@ ${fm}
     if (lined !== null) return head + lined;
     return head ? setTitle(text, title) : null;
   }
-  function settleClash(text, keep) {
-    const out = [];
-    let first = [], second = [];
-    let part = "out";
-    for (const line2 of text.split("\n")) {
-      if (part === "out" && (line2.startsWith("<<<<<<< ") || line2 === "<<<<<<<")) {
-        part = "first";
-        first = [];
-        second = [];
-      } else if (part === "out") out.push(line2);
-      else if (part === "first" && line2 === "=======") part = "second";
-      else if (part === "first") first.push(line2);
-      else if (line2.startsWith(">>>>>>> ") || line2 === ">>>>>>>") {
-        part = "out";
-        out.push(...keep === "second" ? second : keep === "first" ? first : [...first, ...second]);
-      } else second.push(line2);
-    }
-    if (part !== "out") out.push(...first, ...second);
-    return out.join("\n");
-  }
+  var settleClash = (text, keep) => settle(text, keep);
   function clashSides(text) {
     const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
     if (!a || !b) return null;
-    const name2 = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
+    const name2 = (m) => m === "HEAD" ? "this Mac's" : m === "origin/main" ? "the other device's" : m === "github" ? "the saved version's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
     return [name2(a.trim()), name2(b.trim())];
   }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
-    const m = text.match(/^---\n([\s\S]*?)\n---/);
-    if (!m) return text;
-    const iso = now.toISOString();
-    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `
-updated: ${iso}`;
-    return text.replace(m[0], () => `---
-${fm}
----`);
+    return splitNote(text).head ? setField(text, "updated", now.toISOString()) : text;
   }
   var NOTE_COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
   var LEGACY_COLORS = { indigo: "purple", mint: "green", brown: "orange", gray: "blue", cyan: "teal" };
@@ -1122,50 +1253,29 @@ ${fm}
     const n = LEGACY_COLORS[v] ?? v;
     return NOTE_COLORS.includes(n) ? n : null;
   }
-  var KEY_ORDER = [
-    "title",
-    "created",
-    "tags",
-    "expires",
-    "remind_at",
-    "remind_repeat",
-    "remind_on",
-    "reminder_id",
-    "pinned",
-    "color",
-    "agent",
-    "source",
-    "url",
-    "pos"
-  ];
-  var FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
+  var KEY_ORDER = KNOWN_KEYS;
   function splitNote(text) {
-    const m = text.match(FM_RE);
-    if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: "", body: text };
-    return { head: m[0], body: text.slice(m[0].length) };
+    if (!text.startsWith("---\n") || hasClash(text)) return { head: "", body: text };
+    let at = 4;
+    for (; ; ) {
+      const nl = text.indexOf("\n", at);
+      const line2 = nl < 0 ? text.slice(at) : text.slice(at, nl);
+      if (line2 === "---") {
+        const end = nl < 0 ? text.length : nl + 1;
+        return { head: text.slice(0, end), body: text.slice(end) };
+      }
+      if (nl < 0) return { head: "", body: text };
+      at = nl + 1;
+    }
   }
   function fmLines(head) {
-    const m = head.match(FM_RE);
-    return m && m[1] !== void 0 ? m[1].split("\n") : [];
+    if (!head) return [];
+    const lines = head.replace(/\n$/, "").split("\n");
+    return lines.slice(1, -1);
   }
   function readProps(rel, text) {
-    const { head } = splitNote(text);
-    const f = {};
-    for (const line2 of fmLines(head)) {
-      const i3 = line2.indexOf(":");
-      if (i3 > 0) f[line2.slice(0, i3).trim()] = unquoteYaml(line2.slice(i3 + 1).trim());
-    }
-    return {
-      title: noteTitle(rel, text),
-      color: colorName(f.color),
-      pinned: f.pinned === "true",
-      tags: parseTags2(f.tags),
-      ...f.pos ? { pos: f.pos } : {}
-    };
-  }
-  function parseTags2(v) {
-    const s = (v ?? "").trim();
-    return (s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1) : s).split(",").map((t) => t.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
+    const p = parseNote(text, rel.split("/").pop().replace(/\.md$/i, ""));
+    return { title: p.title, color: colorName(p.color ?? void 0), pinned: p.pinned, tags: p.tags, ...p.pos ? { pos: p.pos } : {} };
   }
   function setField(text, key, value) {
     const line2 = value === null ? null : `${key}: ${value}`;
@@ -1175,7 +1285,7 @@ ${line2}
 ---
 ${text}`;
     const lines = fmLines(head);
-    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)).trim() === key);
+    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)) === key);
     if (at >= 0) {
       if (line2 === null) lines.splice(at, 1);
       else lines[at] = line2;
@@ -1184,7 +1294,7 @@ ${text}`;
       let pos = lines.length;
       if (rank >= 0) {
         const later = lines.findIndex((l) => {
-          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)).trim());
+          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)));
           return r < 0 || r > rank;
         });
         if (later >= 0) pos = later;
@@ -1207,12 +1317,14 @@ ${body}`;
     return a.length === b.length && a.every((l, i3) => l === b[i3]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
   function sharedOrder(list3) {
-    const made = (n) => n.created ?? n.mtime;
+    const made = (n) => n.created ?? 0;
+    const id = (n) => n.rel.replace(/\.md$/i, "");
+    const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
     return [...list3].sort((x2, y) => {
       if (!!x2.pinned !== !!y.pinned) return x2.pinned ? -1 : 1;
       if (!x2.pos !== !y.pos) return x2.pos ? 1 : -1;
-      if (!x2.pos) return made(y) - made(x2) || (x2.rel < y.rel ? -1 : x2.rel > y.rel ? 1 : 0);
-      return x2.pos < y.pos ? -1 : x2.pos > y.pos ? 1 : x2.rel < y.rel ? -1 : x2.rel > y.rel ? 1 : 0;
+      if (!x2.pos) return made(y) - made(x2) || cmp(id(x2), id(y));
+      return cmp(x2.pos, y.pos) || cmp(id(x2), id(y));
     });
   }
   function filterNotes(list3, query) {
@@ -1272,6 +1384,12 @@ ${body}`;
   }
   function changedKeys(c) {
     return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
+  }
+  function attachmentRel(noteRel, ext2, now = Date.now()) {
+    const base2 = noteRel.split("/").pop().replace(/\.md$/i, "");
+    const id = validId(base2) ? base2 : base2.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^[^A-Za-z0-9]+/, "").slice(0, 64) || "note";
+    const clean2 = ext2.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+    return `attachments/${id}-${now.toString(36)}.${clean2}`;
   }
 
   // src/resize.ts
@@ -3829,7 +3947,7 @@ ${body}`;
   var LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
   function frontMatterRows(lines) {
     const rows = [];
-    const unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
+    const unquote2 = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
     for (const l of lines) {
       const kv = /^([\w.-]+)\s*:\s*(.*)$/.exec(l);
       const item2 = /^\s+-\s+(.*)$/.exec(l);
@@ -3837,9 +3955,9 @@ ${body}`;
       if (kv) {
         const v = kv[2].trim();
         const flow = /^\[(.*)\]$/.exec(v);
-        rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote).filter(Boolean) } : { key: kv[1], value: unquote(v) });
+        rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote2).filter(Boolean) } : { key: kv[1], value: unquote2(v) });
       } else if (item2 && last) {
-        (last.items ??= []).push(unquote(item2[1]));
+        (last.items ??= []).push(unquote2(item2[1]));
       } else if (/^\s+\S/.test(l) && last && !last.items) {
         last.value = (/^[|>][-+]?$/.test(last.value) ? "" : last.value + " ") + l.trim();
       }
@@ -4770,14 +4888,14 @@ ${body}
   function llmAvailability() {
     return new Promise((resolve) => {
       let done = false;
-      const settle = (res) => {
+      const settle2 = (res) => {
         if (done) return;
         done = true;
         resolve(res);
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ kind: "unavailable", reason: "extension messaging unavailable" });
+        settle2({ kind: "unavailable", reason: "extension messaging unavailable" });
         return;
       }
       const timer2 = setTimeout(() => {
@@ -4785,7 +4903,7 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle({ kind: "unavailable", reason: "status check timed out" });
+        settle2({ kind: "unavailable", reason: "status check timed out" });
       }, 5e3);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
@@ -4795,16 +4913,16 @@ ${body}
         } catch {
         }
         if (msg.t === "status" && msg.data?.server === "up") {
-          settle({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
+          settle2({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
         } else if (msg.t === "status") {
-          settle({ kind: "down", status: msg.data });
+          settle2({ kind: "down", status: msg.data });
         } else {
-          settle({ kind: "unavailable", reason: msg.message || "lm host not found" });
+          settle2({ kind: "unavailable", reason: msg.message || "lm host not found" });
         }
       });
       port.onDisconnect.addListener(() => {
         clearTimeout(timer2);
-        settle({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
+        settle2({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
       });
       port.postMessage({ op: "status" });
     });
@@ -4822,7 +4940,7 @@ ${body}
   function llmModels() {
     return new Promise((resolve) => {
       let done = false;
-      const settle = (r) => {
+      const settle2 = (r) => {
         if (!done) {
           done = true;
           resolve(r);
@@ -4830,7 +4948,7 @@ ${body}
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ tiers: [], gemini: [], gpt: [] });
+        settle2({ tiers: [], gemini: [], gpt: [] });
         return;
       }
       const timer2 = setTimeout(() => {
@@ -4838,7 +4956,7 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle({ tiers: [], gemini: [], gpt: [] });
+        settle2({ tiers: [], gemini: [], gpt: [] });
       }, 2e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
@@ -4847,11 +4965,11 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
+        settle2(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
       });
       port.onDisconnect.addListener(() => {
         clearTimeout(timer2);
-        settle({ tiers: [], gemini: [], gpt: [] });
+        settle2({ tiers: [], gemini: [], gpt: [] });
       });
       port.postMessage({ op: "models" });
     });
@@ -4976,7 +5094,7 @@ ${body}
   function llmWarm(on) {
     return new Promise((resolve) => {
       let done = false;
-      const settle = (r) => {
+      const settle2 = (r) => {
         if (!done) {
           done = true;
           resolve(r);
@@ -4984,7 +5102,7 @@ ${body}
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ ok: false, message: "AI host not installed" });
+        settle2({ ok: false, message: "AI host not installed" });
         return;
       }
       const timer2 = setTimeout(() => {
@@ -4992,7 +5110,7 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle({ ok: false, message: "timed out" });
+        settle2({ ok: false, message: "timed out" });
       }, 3e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "warm" && msg?.t !== "error" && msg?.t !== "native-gone") return;
@@ -5001,11 +5119,11 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
+        settle2(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
       });
       port.onDisconnect.addListener(() => {
         clearTimeout(timer2);
-        settle({ ok: false, message: chrome.runtime.lastError?.message });
+        settle2({ ok: false, message: chrome.runtime.lastError?.message });
       });
       port.postMessage({ op: "warm", on });
     });
@@ -5136,7 +5254,7 @@ ${body}
     history.replaceState(null, "", hash);
   }
 
-  // node_modules/yaml/browser/dist/nodes/identity.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -5172,7 +5290,7 @@ ${body}
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // node_modules/yaml/browser/dist/visit.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -5322,7 +5440,7 @@ ${body}
     }
   }
 
-  // node_modules/yaml/browser/dist/doc/directives.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5485,7 +5603,7 @@ ${body}
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // node_modules/yaml/browser/dist/doc/anchors.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5545,7 +5663,7 @@ ${body}
     };
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -5589,7 +5707,7 @@ ${body}
     return reviver.call(obj, key, val);
   }
 
-  // node_modules/yaml/browser/dist/nodes/toJS.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -5612,7 +5730,7 @@ ${body}
     return value;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -5644,7 +5762,7 @@ ${body}
     }
   };
 
-  // node_modules/yaml/browser/dist/nodes/Alias.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -5735,7 +5853,7 @@ ${body}
     return 1;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -5755,7 +5873,7 @@ ${body}
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // node_modules/yaml/browser/dist/doc/createNode.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -5822,7 +5940,7 @@ ${body}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Collection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -5954,7 +6072,7 @@ ${body}
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -5963,7 +6081,7 @@ ${body}
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -6090,7 +6208,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6365,7 +6483,7 @@ ${indent}`);
     return res;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringify.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6478,7 +6596,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -6601,7 +6719,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // node_modules/yaml/browser/dist/log.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -6611,7 +6729,7 @@ ${ctx.indent}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -6658,7 +6776,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -6711,7 +6829,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // node_modules/yaml/browser/dist/nodes/Pair.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -6740,7 +6858,7 @@ ${ctx.indent}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -6875,7 +6993,7 @@ ${indent}${end}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -7006,7 +7124,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/map.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -7020,7 +7138,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -7124,7 +7242,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // node_modules/yaml/browser/dist/schema/common/seq.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -7138,7 +7256,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/common/string.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -7150,7 +7268,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/null.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -7161,7 +7279,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // node_modules/yaml/browser/dist/schema/core/bool.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -7178,7 +7296,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -7199,7 +7317,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // node_modules/yaml/browser/dist/schema/core/float.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7235,7 +7353,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/core/int.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -7271,7 +7389,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/core/schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -7286,7 +7404,7 @@ ${indent}${end}`;
     float
   ];
 
-  // node_modules/yaml/browser/dist/schema/json/schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -7344,7 +7462,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7400,7 +7518,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7466,7 +7584,7 @@ ${cn.comment}` : item2.comment;
     createNode: createPairs
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7532,7 +7650,7 @@ ${cn.comment}` : item2.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -7556,7 +7674,7 @@ ${cn.comment}` : item2.comment;
     stringify: boolStringify
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7595,7 +7713,7 @@ ${cn.comment}` : item2.comment;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -7664,7 +7782,7 @@ ${cn.comment}` : item2.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -7743,7 +7861,7 @@ ${cn.comment}` : item2.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -7822,7 +7940,7 @@ ${cn.comment}` : item2.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -7847,7 +7965,7 @@ ${cn.comment}` : item2.comment;
     timestamp
   ];
 
-  // node_modules/yaml/browser/dist/schema/tags.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -7918,7 +8036,7 @@ ${cn.comment}` : item2.comment;
     }, []);
   }
 
-  // node_modules/yaml/browser/dist/schema/Schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -7939,7 +8057,7 @@ ${cn.comment}` : item2.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -8010,7 +8128,7 @@ ${cn.comment}` : item2.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/Document.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -8302,7 +8420,7 @@ ${cn.comment}` : item2.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // node_modules/yaml/browser/dist/errors.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name2, pos, code, message) {
       super();
@@ -8358,7 +8476,7 @@ ${pointer}
     }
   };
 
-  // node_modules/yaml/browser/dist/compose/resolve-props.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8488,7 +8606,7 @@ ${pointer}
     };
   }
 
-  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8524,7 +8642,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8535,7 +8653,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8544,7 +8662,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -8640,7 +8758,7 @@ ${pointer}
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -8682,7 +8800,7 @@ ${pointer}
     return seq2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-end.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -8719,7 +8837,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -8899,7 +9017,7 @@ ${pointer}
     return coll;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-collection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -8951,7 +9069,7 @@ ${pointer}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -9127,7 +9245,7 @@ ${pointer}
     return lines;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -9338,7 +9456,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9409,7 +9527,7 @@ ${pointer}
     return tag;
   }
 
-  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9434,7 +9552,7 @@ ${pointer}
     return offset;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-node.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9522,7 +9640,7 @@ ${pointer}
     return alias;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-doc.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -9555,7 +9673,7 @@ ${pointer}
     return doc;
   }
 
-  // node_modules/yaml/browser/dist/compose/composer.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -9746,7 +9864,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/cst-visit.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -9802,7 +9920,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item2, path) : ctrl;
   }
 
-  // node_modules/yaml/browser/dist/parse/cst.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -9867,7 +9985,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // node_modules/yaml/browser/dist/parse/lexer.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10439,7 +10557,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/line-counter.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10464,7 +10582,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/parser.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -11310,7 +11428,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/public-api.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
@@ -12163,7 +12281,7 @@ ${end.comment}` : end.comment;
     nameEl.hidden = true;
     document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
   }
-  var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  var stripFrontMatter = (t) => splitNote(t).body;
   function noteAction(name2) {
     if (!edit?.actions) return false;
     if (name2 === "rename") edit.actions.rename(edit.rel, true);
@@ -12338,7 +12456,7 @@ ${end.comment}` : end.comment;
       const st2 = edit;
       if (!st2 || st2.root !== root) return;
       const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const rel = `attachments/${slugForTitle(noteTitle(st2.rel, st2.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
+      const rel = attachmentRel(st2.rel, ext2);
       const b64 = await new Promise((res) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1] || "");
@@ -12473,7 +12591,7 @@ ${end.comment}` : end.comment;
     });
     const st = edit;
     const change = (fn, keys2) => {
-      if (/^<{7} /m.test(st.text)) {
+      if (hasClash(st.text)) {
         editHeader("settle the two versions before changing properties");
         return false;
       }
@@ -12523,8 +12641,13 @@ ${end.comment}` : end.comment;
     }
     st.saving = true;
     const version = st.version;
+    if (st.base === "" && !st.head && /^untitled-/.test(st.rel.split("/").pop()) && st.ta?.value.trim()) {
+      st.head = setField(st.head, "created", isoNow());
+      st.touched.add("created");
+      st.text = st.head + st.ta.value;
+    }
     let text = stampUpdated(st.text);
-    if (frontmatterDrift(st.base, text, st.touched).length) {
+    if (!hasClash(st.base) && frontmatterDrift(st.base, text, st.touched).length) {
       if (st.ta && !st.head) {
         st.ta.value = "\n" + st.ta.value;
         st.text = st.head + st.ta.value;
@@ -31096,9 +31219,9 @@ ${rows.join("\n")}`, name: subject };
     };
     async function paint() {
       const all = await strip.closedSets();
-      const settle = 2500;
-      const young = all.filter((s) => Date.now() - s.at < settle);
-      if (young.length) later(settle - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
+      const settle2 = 2500;
+      const young = all.filter((s) => Date.now() - s.at < settle2);
+      if (young.length) later(settle2 - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
       const own2 = strip.closedTabs().slice(0, 8);
       const ownRows = own2.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
