@@ -426,10 +426,21 @@ def op_restore(root, trashed, to):
         os.replace(src + COMPANION, dst + COMPANION)
     return {'t': 'restored', 'rel': os.path.relpath(dst, root), 'trashed': trashed}
 
+def in_repo(root):
+    """Whether the notes folder is a git repository or sits inside one, as mnt-sync's notes/ does."""
+    here = os.path.abspath(root)
+    while True:
+        if os.path.exists(os.path.join(here, '.git')):
+            return True
+        parent = os.path.dirname(here)
+        if parent == here:
+            return False
+        here = parent
+
 def git_out(root, args):
-    """git's output in the notes folder, or None when the folder is not a repository or git says no."""
+    """git's output in the notes folder, or None when the folder is not in a repository or git says no."""
     import subprocess
-    if not os.path.isdir(os.path.join(root, '.git')):
+    if not in_repo(root):
         return None
     try:
         r = subprocess.run(['git', '-C', root] + args, capture_output=True, text=True, timeout=10,
@@ -447,7 +458,7 @@ def op_history(root, rel):
         parts = line.split('\t', 2)
         if len(parts) == 3 and parts[1].isdigit():
             versions.append({'sha': parts[0], 'when': int(parts[1]) * 1000, 'reason': parts[2]})
-    return {'t': 'history', 'rel': rel, 'versions': versions, 'repo': os.path.isdir(os.path.join(root, '.git'))}
+    return {'t': 'history', 'rel': rel, 'versions': versions, 'repo': in_repo(root)}
 
 def renamed_paths(root, rel, sha):
     """The file names a note had at one commit, found by following its renames."""
@@ -464,7 +475,8 @@ def op_version(root, rel, sha):
         raise NotesError('notes_bad_path', 'a version is named by its commit hash')
     text = git_out(root, ['show', f'{sha}:{rel}'])
     if text is None:
-        # A version from before a rename lives under the note's older file name.
+        # A version from before a rename lives under the note's older file name, and git
+        # names that from the top of the repository, which also finds a folder inside one.
         for old in renamed_paths(root, rel, sha):
             text = git_out(root, ['show', f'{sha}:{old}'])
             if text is not None:
