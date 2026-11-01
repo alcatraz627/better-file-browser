@@ -19,7 +19,9 @@ import { errorText } from './errors';
 import { addPaletteSource, bind } from './commands';
 import { bareLabel, closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
-import { jsonPref, textPref } from './storage';
+import { jsonPref, textPref, getSaved } from './storage';
+import { filterSaved } from './places';
+import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { checkHtml, ddHtml, upgradeControls, type DropdownEl, type Opt } from './controls';
 import { renderMarkdown } from './renderers';
@@ -92,14 +94,23 @@ function initSearch(app: App): void {
     if (cancelled()) return;
     const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
     const total = hits.reduce((n, [, h]) => n + h.count, 0);
+    // Saves and comments are searched too, wherever they are kept, and listed after the files.
+    const saves = filterSaved(getSaved(), term).slice(0, 30);
+    const threads = await notes.commentsSearch(term).catch(() => []);
+    if (cancelled()) return;
+    const elsewhere = [saves.length ? `${saves.length} saved` : '', threads.length ? `${threads.length} comment${threads.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ');
     status.textContent = (hits.length
       ? `${total} match${total === 1 ? '' : 'es'} in ${hits.length} file${hits.length === 1 ? '' : 's'}`
-      : `No file here contains "${term}".`) + (limit ? ` (${limit})` : '');
+      : `No file here contains "${term}".`) + (elsewhere ? `; also ${elsewhere}` : '') + (limit ? ` (${limit})` : '');
+    const extra = (saves.length ? `<div class="sect fe-srch-sect" data-level="group">Saved<span class="fe-grp-n">${saves.length}</span></div>` + saves.map(p =>
+        `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${p.path.endsWith('/') ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map(t => '#' + t).join(' ') || p.path)}</span></span></a>`).join('') : '')
+      + (threads.length ? `<div class="sect fe-srch-sect" data-level="group">Comments<span class="fe-grp-n">${threads.length}</span></div>` + threads.map(t =>
+        `<a class="row fe-si fe-srch-hit fe-srch-comment" href="${esc(pageHref(fileHref(t.doc)))}" title="${esc(t.doc)}">${UI_ICON.opinion}<span class="fe-srch-tx"><span class="fe-sl">${esc(t.doc.split('/').pop() ?? t.doc)}${t.status === 'done' ? ' (done)' : ''}</span><span class="fe-srch-snip">${esc(t.line)}</span></span></a>`).join('') : '');
     list.innerHTML = hits.map(([href, h]) => {
       const name = relativeName(href, root);
       const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
       return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
-    }).join('');
+    }).join('') + extra;
     remember(term, { status: status.textContent ?? '', html: list.innerHTML });
   }
   q.addEventListener('keydown', e => {

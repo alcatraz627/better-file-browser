@@ -1282,6 +1282,8 @@
     sendThread: (root2, rel, thread, to) => call({ op: "sendThread", root: root2, rel, thread, to }),
     /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
     phone: (action = "status") => call({ op: "phone", action }),
+    /// Comment threads, across every document in the comment index, whose text holds every word typed.
+    commentsSearch: (query) => call({ op: "commentsSearch", query }).then((f) => f.hits ?? []),
     /// What Switchboard last reported about syncing this folder (read from the repo's state file); see sync-state.ts.
     syncState: (root2) => call({ op: "syncState", root: root2 }),
     /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
@@ -19052,6 +19054,7 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-nt-marks{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:2px}.fe-nt-mark{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);color:var(--dm)}.fe-nt-mark svg{width:11px;height:11px;flex:none}.fe-nt-mark.rem.missed{color:var(--gold)}.fe-nt-mark.agent{color:var(--nc-purple)}
 .fe-chip-rem.missed,.fe-chip-exp.expired{color:var(--gold)}.fe-chip-url-t{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
+.fe-hp-wait.faded{opacity:.55}.fe-hp-wait[data-kind="reminder"] .fe-hp-link-tags i{color:var(--gold)}
 .fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"],.fe-where[data-state="trouble"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
@@ -29621,12 +29624,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (cancelled()) return;
       const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
-      status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (limit ? ` (${limit})` : "");
+      const saves = filterSaved(getSaved(), term).slice(0, 30);
+      const threads = await notes.commentsSearch(term).catch(() => []);
+      if (cancelled()) return;
+      const elsewhere = [saves.length ? `${saves.length} saved` : "", threads.length ? `${threads.length} comment${threads.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
+      status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (elsewhere ? `; also ${elsewhere}` : "") + (limit ? ` (${limit})` : "");
+      const extra = (saves.length ? `<div class="sect fe-srch-sect" data-level="group">Saved<span class="fe-grp-n">${saves.length}</span></div>` + saves.map((p) => `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${p.path.endsWith("/") ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map((t) => "#" + t).join(" ") || p.path)}</span></span></a>`).join("") : "") + (threads.length ? `<div class="sect fe-srch-sect" data-level="group">Comments<span class="fe-grp-n">${threads.length}</span></div>` + threads.map((t) => `<a class="row fe-si fe-srch-hit fe-srch-comment" href="${esc(pageHref(fileHref(t.doc)))}" title="${esc(t.doc)}">${UI_ICON.opinion}<span class="fe-srch-tx"><span class="fe-sl">${esc(t.doc.split("/").pop() ?? t.doc)}${t.status === "done" ? " (done)" : ""}</span><span class="fe-srch-snip">${esc(t.line)}</span></span></a>`).join("") : "");
       list3.innerHTML = hits.map(([href, h]) => {
         const name2 = relativeName(href, root2);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
         return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name2)}, line ${h.lineNumber}">${icoFile(extOf(name2))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name2)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
-      }).join("");
+      }).join("") + extra;
       remember(term, { status: status.textContent ?? "", html: list3.innerHTML });
     }
     q.addEventListener("keydown", (e) => {
@@ -31327,6 +31335,35 @@ ${rows.join("\n")}`, name: subject };
     });
   }
 
+  // src/waiting.ts
+  var FADE_DAYS = 7;
+  var DAY = 864e5;
+  var isUnclaimedCapture = (n) => !!n.source && !(n.tags ?? []).length && !n.pinned && !n.agent;
+  var noteTitle2 = (n) => n.title || n.rel.replace(/\.md$/, "");
+  var forMe2 = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
+  function buildWaiting(i3, seen, now = Date.now()) {
+    const keep = {};
+    const items = [];
+    const add = (kind, key, title, why, path, never = false) => {
+      const since = seen[key] ?? now;
+      keep[key] = since;
+      items.push({ kind, key, title, why, path, since, faded: !never && now - since >= FADE_DAYS * DAY });
+    };
+    for (const n of i3.notes) {
+      const path = `${i3.root}/${n.rel}`;
+      if (reminderState(n, now) === "missed") add("reminder", `reminder:${n.rel}`, noteTitle2(n), `Missed reminder${n.remindOn === "phone" ? " (it rings on the phone)" : ""}`, path, true);
+      else if (n.agent && !n.pinned) add("agent", `agent:${n.rel}`, noteTitle2(n), `New note from ${n.agent}`, path);
+      else if (isUnclaimedCapture(n)) add("capture", `capture:${n.rel}`, noteTitle2(n), `Captured from ${n.source}, not sorted yet`, path);
+    }
+    for (const d of i3.docs) {
+      if (d.exists !== false && d.open > 0 && forMe2(d)) add("comment", `comment:${d.doc}`, d.name, `${d.open} open comment${d.open === 1 ? "" : "s"} for you`, d.doc);
+    }
+    for (const p of i3.pages) if (p.state === "waiting") add("decision", `decision:${p.slug}`, p.title ?? p.slug, "Decision page waiting", p.path);
+    const order = ["reminder", "comment", "decision", "capture", "agent"];
+    items.sort((a, b) => Number(a.faded) - Number(b.faded) || order.indexOf(a.kind) - order.indexOf(b.kind) || b.since - a.since);
+    return { items, seen: keep };
+  }
+
   // src/home-model.ts
   function summarizeRepo(doc, now = /* @__PURE__ */ new Date()) {
     const root2 = document.createElement("div");
@@ -31368,6 +31405,7 @@ ${rows.join("\n")}`, name: subject };
   // src/home-lens.ts
   var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
   var foldedPref = jsonPref("bfb-home-folded-v1", [], Array.isArray);
+  var waitSeenPref = jsonPref("bfb-waiting-seen-v1", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v));
   var SIDE_CHATS = 5;
   var PAGE_CHATS = 8;
   var LINKS = 8;
@@ -31433,10 +31471,10 @@ ${rows.join("\n")}`, name: subject };
     notes: { icon: UI_ICON.notes, tone: "var(--nc-green)", to: "Open Notes in the sidebar" }
   };
   var tile2 = (icon2, tone) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon2}</span>`;
-  var DAY = (i3) => i3 === 6 ? "today" : i3 === 5 ? "yesterday" : `${6 - i3} days ago`;
+  var DAY2 = (i3) => i3 === 6 ? "today" : i3 === 5 ? "yesterday" : `${6 - i3} days ago`;
   var bars = (series) => {
     const top = Math.max(1, ...series);
-    return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i3) => `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? "" : ' class="nil"'} title="${DAY(i3)}: ${v}"></i>`).join("")}</span>`;
+    return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i3) => `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? "" : ' class="nil"'} title="${DAY2(i3)}: ${v}"></i>`).join("")}</span>`;
   };
   var statCell = (s) => `<button type="button" class="fe-hp-stat${s.hot ? " hot" : ""}" data-stat="${s.id}" title="${esc(STAT_LOOK[s.id].to)}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<span class="fe-hp-stat-tx"><span class="fe-hp-stat-top"><b>${esc(s.value)}</b>${s.series ? bars(s.series) : ""}</span><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></span></button>`;
   var ACTIONS = [
@@ -31470,6 +31508,13 @@ ${rows.join("\n")}`, name: subject };
     const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural3(older.length, "older page")} in Decisions</button>` : "";
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
     const links = (id, o, list3, empty) => card4(id, { ...o, n: list3.length }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>` : none(empty), folded);
+    const waitRow = (w) => w.kind === "decision" ? `<div class="fe-hp-wait${w.faded ? " faded" : ""}" data-kind="decision">${pageRow(d.pages.find((p) => p.slug === w.key.slice(9)) ?? { slug: w.title, path: w.path, mtime: w.since / 1e3, state: "waiting" }, true)}</div>` : `<div class="fe-hp-link fe-hp-wait${w.faded ? " faded" : ""}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? " (waiting more than a week)" : ""}">${w.kind === "reminder" ? UI_ICON.clock : w.kind === "comment" ? UI_ICON.opinion : w.kind === "agent" ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
+    const waitingCard = card4(
+      "waiting",
+      { icon: UI_ICON.opinion, tone: "var(--nc-red)", title: "Waiting on you", sub: "Missed reminders, comments, decisions, captures and agent notes", n: d.waiting.length },
+      d.waiting.length ? d.waiting.map(waitRow).join("") : `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`,
+      folded
+    );
     return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today("long"))}</span></div>
@@ -31487,6 +31532,7 @@ ${rows.join("\n")}`, name: subject };
     <div class="fe-hp-stats">${d.stats.map(statCell).join("")}</div>
     <div class="fe-hp-body">
       <div class="fe-hp-main">
+        ${waitingCard}
         <div class="fe-hp-pair">
           ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
           ${card4("repos", { icon: UI_ICON.contents, tone: "var(--nc-teal)", title: "Directions", sub: "Each repo\u2019s plan, asks on you first", n: d.repos.length }, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"), folded)}
@@ -31524,16 +31570,19 @@ ${rows.join("\n")}`, name: subject };
     const load = async () => {
       const mine = ++seq2;
       const root2 = notesRoot();
-      const [pages, docs, noteList, tools, sync] = await Promise.all([
+      const [pages, docs, noteList, tools, sync, docRows2] = await Promise.all([
         notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
         notes.directionsDocs().catch(() => []),
         layout2 === "page" && root2 ? notes.list(root2).catch(() => keptNotesList(root2) ?? []) : Promise.resolve([]),
         layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([]),
-        layout2 === "page" && root2 ? notes.syncState(root2).then(describeSync, () => null) : Promise.resolve(null)
+        layout2 === "page" && root2 ? notes.syncState(root2).then(describeSync, () => null) : Promise.resolve(null),
+        layout2 === "page" ? notes.docsIndex().catch(() => []) : Promise.resolve([])
       ]);
       if (mine !== seq2) return;
       const chats = allChats();
       const open = openPages(pages.rows, new Set(archivedPref2.get()));
+      const wait = buildWaiting({ root: root2, notes: noteList, docs: docRows2, pages: open }, waitSeenPref.get());
+      if (layout2 === "page") waitSeenPref.set(wait.seen);
       const repos = sortRepos(docs.map((doc) => summarizeRepo(doc)));
       data = {
         chats,
@@ -31552,6 +31601,7 @@ ${rows.join("\n")}`, name: subject };
         notes: noteLinks(noteList),
         tools,
         sync,
+        waiting: wait.items,
         ...quick()
       };
       render2();

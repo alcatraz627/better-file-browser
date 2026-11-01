@@ -125,7 +125,7 @@ def note_props(full):
         return props
     props.update(color=n['color'] or '', pinned=n['pinned'], tags=n['tags'], pos=n['pos'] or '')
     props.update(conflicted=n['conflicted'])
-    for key in ('agent', 'url', 'device', 'expires', 'remindAt', 'remindRepeat', 'remindOn', 'remindPersist'):
+    for key in ('agent', 'source', 'url', 'device', 'expires', 'remindAt', 'remindRepeat', 'remindOn', 'remindPersist'):
         if n[key]:
             props[key] = n[key]
     if n['created']:
@@ -604,6 +604,35 @@ def op_docs_index():
     for comp, row in _docs().read_index().get('docs', {}).items():
         rows.append({**row, 'companion': comp, 'exists': os.path.exists(row.get('doc', ''))})
     return {'t': 'docsIndex', 'docs': rows}
+
+def op_comments_search(query):
+    """Comment threads, in every document the comment index knows, whose text holds every word of the query.
+    Each hit names the document, the words commented on, and the matching line; newest document first, at most 100."""
+    words = [w for w in (query or '').lower().split() if w]
+    hits = []
+    if not words:
+        return {'t': 'commentsSearch', 'hits': hits}
+    store = _docs()
+    rows = sorted(store.read_index().get('docs', {}).values(), key=lambda r: r.get('updated') or '', reverse=True)
+    for row in rows:
+        doc = row.get('doc', '')
+        if not doc or not os.path.exists(doc):
+            continue
+        try:
+            data = store.load(doc)[0]
+        except Exception:
+            continue
+        block = (data or {}).get('comments')
+        for th in (block.get('threads', []) if isinstance(block, dict) else []):
+            texts = [c.get('text', '') for c in th.get('comments', []) if not c.get('deleted')]
+            hay = ' '.join(texts + [(th.get('anchor') or {}).get('exact', '')]).lower()
+            if all(w in hay for w in words):
+                line = next((t for t in texts if any(w in t.lower() for w in words)), texts[0] if texts else '')
+                hits.append({'doc': doc, 'thread': th.get('id'), 'anchor': (th.get('anchor') or {}).get('exact', '')[:120],
+                             'line': line.replace('\n', ' ')[:160], 'status': th.get('status', 'open')})
+                if len(hits) >= 100:
+                    return {'t': 'commentsSearch', 'hits': hits}
+    return {'t': 'commentsSearch', 'hits': hits}
 
 DP_VERBS = ('compose', 'submit', 'seen', 'parse')
 # BFB_DP_BIN overrides gcc's command (the tests point it at a stub).
@@ -1119,6 +1148,7 @@ def handle_unlocked(msg):
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'), msg.get('kind'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
     if op == 'docsIndex': return op_docs_index()
+    if op == 'commentsSearch': return op_comments_search(msg.get('query'))
     if op == 'dpPages': return op_dp_pages()
     root = resolve_root(msg.get('root'))
     if op == 'stat':   return op_stat(root)

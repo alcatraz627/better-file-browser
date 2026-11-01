@@ -6,7 +6,7 @@ import { parseNote, parseTagList, hasClash, settle, validId, newId, KNOWN_KEYS, 
 
 export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean;
   /** The header fields bfb shows beyond title, colour, pin and tags (spec: agent, url, device, expires, reminders). */
-  agent?: string; url?: string; device?: string; expires?: string; remindAt?: string; remindRepeat?: string; remindOn?: string; remindPersist?: boolean }
+  agent?: string; source?: string; url?: string; device?: string; expires?: string; remindAt?: string; remindRepeat?: string; remindOn?: string; remindPersist?: boolean }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
 export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
@@ -132,6 +132,8 @@ export const notes = {
   sendThread: (root: string, rel: string, thread: string, to: string) => call({ op: 'sendThread', root, rel, thread, to }),
   /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
   phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
+  /// Comment threads, across every document in the comment index, whose text holds every word typed.
+  commentsSearch: (query: string) => call({ op: 'commentsSearch', query }).then(f => (f as unknown as { hits: { doc: string; thread: string; anchor: string; line: string; status: string }[] }).hits ?? []),
   /// What Switchboard last reported about syncing this folder (read from the repo's state file); see sync-state.ts.
   syncState: (root: string) => call({ op: 'syncState', root }) as unknown as Promise<import('./sync-state').SyncReply>,
   /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.

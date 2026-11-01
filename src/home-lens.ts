@@ -5,6 +5,7 @@
 // can be edited, forgotten, or opened elsewhere. Lists refresh when shown and
 // every 15 seconds while in view.
 import { describeSync, type SyncView } from './sync-state';
+import { buildWaiting, type WaitItem } from './waiting';
 import { notes, type NoteMeta, type ServiceState } from './notes';
 import { esc, whenText, fileHref, pageHref } from './utils';
 import { UI_ICON, LINE_ICON, line } from './control-icons';
@@ -23,13 +24,15 @@ import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
 interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[]; sync: SyncView | null }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[]; sync: SyncView | null; waiting: WaitItem[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
 const archivedPref = jsonPref<string[]>('bfb-dp-archived-v1', [], Array.isArray);
 // The page's cards the owner folded shut, by card id.
 const foldedPref = jsonPref<string[]>('bfb-home-folded-v1', [], Array.isArray);
+// When each waiting item first showed up here, so an old one can fade.
+const waitSeenPref = jsonPref<Record<string, number>>('bfb-waiting-seen-v1', {}, v => !!v && typeof v === 'object' && !Array.isArray(v));
 const SIDE_CHATS = 5, PAGE_CHATS = 8, LINKS = 8;
 /** Waiting pages older than this many days are counted, not listed. */
 const FRESH_DAYS = 14;
@@ -167,6 +170,12 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
     : (fresh.map(r => pageRow(r, true)).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
   const links = (id: string, o: { icon: string; tone: string; title: string; sub: string }, list: QuickLink[], empty: string) =>
     card(id, { ...o, n: list.length }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>` : none(empty), folded);
+  // Everything waiting on the owner, from decisions to a note an agent left: missed reminders and comments first.
+  const waitRow = (w: WaitItem) => w.kind === 'decision'
+    ? `<div class="fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="decision">${pageRow(d.pages.find(p => p.slug === w.key.slice(9)) ?? { slug: w.title, path: w.path, mtime: w.since / 1000, state: 'waiting' }, true)}</div>`
+    : `<div class="fe-hp-link fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? ' (waiting more than a week)' : ''}">${w.kind === 'reminder' ? UI_ICON.clock : w.kind === 'comment' ? UI_ICON.opinion : w.kind === 'agent' ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
+  const waitingCard = card('waiting', { icon: UI_ICON.opinion, tone: 'var(--nc-red)', title: 'Waiting on you', sub: 'Missed reminders, comments, decisions, captures and agent notes', n: d.waiting.length },
+    d.waiting.length ? d.waiting.map(waitRow).join('') : `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`, folded);
   return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today('long'))}</span></div>
@@ -184,6 +193,7 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
     <div class="fe-hp-stats">${d.stats.map(statCell).join('')}</div>
     <div class="fe-hp-body">
       <div class="fe-hp-main">
+        ${waitingCard}
         <div class="fe-hp-pair">
           ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
           ${card('repos', { icon: UI_ICON.contents, tone: 'var(--nc-teal)', title: 'Directions', sub: 'Each repo’s plan, asks on you first', n: d.repos.length }, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'), folded)}
@@ -227,16 +237,19 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
   const load = async () => {
     const mine = ++seq;
     const root = notesRoot();
-    const [pages, docs, noteList, tools, sync] = await Promise.all([
+    const [pages, docs, noteList, tools, sync, docRows] = await Promise.all([
       notes.dpPages().then(rows => ({ rows, failed: false }), () => ({ rows: [] as DpRow[], failed: true })),
       notes.directionsDocs().catch(() => []),
       layout === 'page' && root ? notes.list(root).catch(() => keptNotesList<NoteMeta>(root) ?? []) : Promise.resolve([] as NoteMeta[]),
       layout === 'page' ? notes.services().catch(() => [] as ServiceState[]) : Promise.resolve([] as ServiceState[]),
       layout === 'page' && root ? notes.syncState(root).then(describeSync, () => null) : Promise.resolve(null),
+      layout === 'page' ? notes.docsIndex().catch(() => []) : Promise.resolve([]),
     ]);
     if (mine !== seq) return;
     const chats = allChats();
     const open = openPages(pages.rows, new Set(archivedPref.get()));
+    const wait = buildWaiting({ root, notes: noteList, docs: docRows, pages: open }, waitSeenPref.get());
+    if (layout === 'page') waitSeenPref.set(wait.seen);
     const repos = sortRepos(docs.map(doc => summarizeRepo(doc)));
     data = {
       chats, pages: open, pagesFailed: pages.failed, repos,
@@ -246,7 +259,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
         chats, recents: getRecents(), saved: getSaved(), notes: noteList,
       }),
       notes: noteLinks(noteList),
-      tools, sync,
+      tools, sync, waiting: wait.items,
       ...quick(),
     };
     render();
