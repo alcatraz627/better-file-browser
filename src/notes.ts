@@ -4,7 +4,7 @@
 
 import { parseNote, parseTagList, hasClash, settle, validId, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
 
-export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number }
+export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
 export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
@@ -130,6 +130,8 @@ export const notes = {
   sendThread: (root: string, rel: string, thread: string, to: string) => call({ op: 'sendThread', root, rel, thread, to }),
   /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
   phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
+  /// What Switchboard last reported about syncing this folder (read from the repo's state file); see sync-state.ts.
+  syncState: (root: string) => call({ op: 'syncState', root }) as unknown as Promise<import('./sync-state').SyncReply>,
   /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
   savedList: (root: string) => call({ op: 'savedList', root }) as unknown as Promise<{ exists: boolean; items: { key: string; text: string; mtime: number }[]; tags: Record<string, string> | null }>,
   /// Write and remove save files and merge tag colours in one locked batch; createOnly leaves existing files alone.

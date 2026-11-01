@@ -1276,6 +1276,8 @@
     sendThread: (root2, rel, thread, to) => call({ op: "sendThread", root: root2, rel, thread, to }),
     /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
     phone: (action = "status") => call({ op: "phone", action }),
+    /// What Switchboard last reported about syncing this folder (read from the repo's state file); see sync-state.ts.
+    syncState: (root2) => call({ op: "syncState", root: root2 }),
     /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
     savedList: (root2) => call({ op: "savedList", root: root2 }),
     /// Write and remove save files and merge tag colours in one locked batch; createOnly leaves existing files alone.
@@ -25482,6 +25484,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
         <button id="fe-nt-trash" class="btn fe-lens-ib" data-icon data-size="lg" aria-pressed="false" title="Trash: notes you deleted" aria-label="Trash: notes you deleted">${UI_ICON.trash}</button>
       </div>
+      <div id="fe-nt-where" class="fe-where" hidden></div>
       <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-nt-list"></div>
@@ -27985,6 +27988,41 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     document.addEventListener("pointerdown", hideHints, true);
   }
 
+  // src/sync-state.ts
+  var STALE_SECONDS = 10 * 60;
+  var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+  function ago3(seconds) {
+    const m = Math.floor(seconds / 60);
+    if (m < 1) return "less than a minute ago";
+    if (m < 60) return `${plural2(m, "minute")} ago`;
+    const h = Math.floor(m / 60);
+    if (h < 48) return `${plural2(h, "hour")} ago`;
+    return `${plural2(Math.floor(h / 24), "day")} ago`;
+  }
+  function describeSync(r) {
+    const none2 = { clashes: 0, cameBack: [] };
+    if (!r.repo) return { level: "off", text: "Not synced: this notes folder is not in a synced repository, so it stays on this Mac.", ...none2 };
+    const s = r.state;
+    if (!s) return { level: "off", text: "Sync is not running: Switchboard has not reported on this folder yet.", ...none2 };
+    if (s.unreadable) return { level: "trouble", text: "Sync status could not be read: the state file is damaged.", ...none2 };
+    const at = s.at ? Date.parse(s.at) / 1e3 : NaN;
+    const clashes = s.clashes ?? 0, cameBack = s.cameBack ?? [];
+    if (!isFinite(at) || r.now - at > STALE_SECONDS) {
+      const when2 = isFinite(at) ? ` Its last report was ${ago3(r.now - at)}.` : "";
+      return { level: "off", text: `Sync is not running.${when2} Notes still save here, but they are not reaching other devices.`, clashes, cameBack };
+    }
+    if (s.ok === false) {
+      return { level: "trouble", text: `Sync has a problem: ${s.problem || "it did not say what"}.`, clashes, cameBack };
+    }
+    const parts2 = [];
+    if (clashes) parts2.push(`${plural2(clashes, "note")} hold${clashes === 1 ? "s" : ""} two versions, so settle ${clashes === 1 ? "it" : "them"}`);
+    if (s.behind) parts2.push(`${plural2(s.behind, "change")} from other devices ${s.behind === 1 ? "is" : "are"} waiting here`);
+    if (s.ahead) parts2.push(`${plural2(s.ahead, "change")} here ${s.ahead === 1 ? "has" : "have"} not been sent yet`);
+    if (cameBack.length) parts2.push(`${plural2(cameBack.length, "deleted note")} came back because it was edited elsewhere`);
+    if (!parts2.length) return { level: "ok", text: `Synced ${ago3(r.now - at)}.`, clashes, cameBack };
+    return { level: clashes ? "trouble" : "waiting", text: parts2.join("; ").replace(/^./, (c) => c.toUpperCase()) + ".", clashes, cameBack };
+  }
+
   // src/saved-files.ts
   function placeUrl(path) {
     const at = path.indexOf("#");
@@ -29002,6 +29040,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const same = JSON.stringify(next) === JSON.stringify(allNotes);
         allNotes = next;
         keepNotes(root2, next);
+        paintSync();
         if (!same || !ntList.querySelector(".fe-nt-item, .fe-empty")) renderNotes(root2);
       }).catch((err) => {
         ntHint.textContent = errorText(err, "Listing the notes");
@@ -29252,6 +29291,33 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     el("fe-nt-add").addEventListener("click", () => app.newNote());
     refreshNotes();
+    const ntWhere = el("fe-nt-where");
+    let syncTimer = null;
+    const paintSync = () => {
+      const root2 = notesRoot();
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+      }
+      if (!root2) {
+        ntWhere.hidden = true;
+        return;
+      }
+      notes.syncState(root2).then((r) => {
+        const v = describeSync(r);
+        const here = allNotes.filter((n) => n.conflicted).length;
+        const extra = here && !v.clashes ? ` ${here} ${here === 1 ? "note holds" : "notes hold"} two versions here.` : "";
+        ntWhere.hidden = false;
+        ntWhere.dataset.state = v.level;
+        ntWhere.textContent = v.text + extra;
+      }, () => {
+        ntWhere.hidden = false;
+        ntWhere.dataset.state = "off";
+        ntWhere.textContent = "Sync status unavailable: the notes helper did not answer.";
+      });
+      syncTimer = setTimeout(paintSync, 6e4);
+    };
+    app.paintSync = paintSync;
     startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
     const svWhere = el("fe-sv-where");
     const paintWhere = () => {
@@ -31083,7 +31149,7 @@ ${rows.join("\n")}`, name: subject };
   }
   function homeStats(o, now = Date.now()) {
     const n = (v) => v.toLocaleString("en-US");
-    const plural3 = (v, one, many = one + "s") => `${n(v)} ${v === 1 ? one : many}`;
+    const plural4 = (v, one, many = one + "s") => `${n(v)} ${v === 1 ? one : many}`;
     const asked = lastSevenDays(o.chats.flatMap((c) => c.chat.turns.map((t) => t.at)), now);
     const opened2 = lastSevenDays(o.recents.map((r) => r.ts), now);
     const tags = new Set(o.saved.flatMap((s) => s.tags ?? []));
@@ -31092,10 +31158,10 @@ ${rows.join("\n")}`, name: subject };
     const sum = (a) => a.reduce((s, v) => s + v, 0);
     return [
       { id: "waiting", label: "waiting on you", value: n(o.waiting), sub: o.waiting ? "pages to answer" : "nothing to answer", hot: o.waiting > 0 },
-      { id: "asks", label: "asks on you", value: n(o.asks), sub: o.asks ? `in ${plural3(o.askRepos, "repo")}` : "no repo needs you", hot: o.asks > 0 },
+      { id: "asks", label: "asks on you", value: n(o.asks), sub: o.asks ? `in ${plural4(o.askRepos, "repo")}` : "no repo needs you", hot: o.asks > 0 },
       { id: "asked", label: "questions", value: n(sum(asked)), sub: "this week", series: asked },
       { id: "opened", label: "places opened", value: n(opened2[6]), sub: "today", series: opened2 },
-      { id: "saved", label: "saved", value: n(o.saved.length), sub: tags.size ? plural3(tags.size, "tag") : "no tags yet" },
+      { id: "saved", label: "saved", value: n(o.saved.length), sub: tags.size ? plural4(tags.size, "tag") : "no tags yet" },
       { id: "notes", label: "notes", value: n(o.notes.length), sub: `${n(changed)} changed this week` }
     ];
   }
@@ -31113,7 +31179,7 @@ ${rows.join("\n")}`, name: subject };
   var LINKS = 8;
   var FRESH_DAYS = 14;
   var name = (p) => p.split("/").filter(Boolean).pop() || "/";
-  var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+  var plural3 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
   var today = (month = "short") => (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month, day: "numeric" });
   var greeting = () => {
     const h = (/* @__PURE__ */ new Date()).getHours();
@@ -31127,7 +31193,7 @@ ${rows.join("\n")}`, name: subject };
     const ans = lastAnswer(c.chat);
     return `<button type="button" class="row fe-home-row${ans ? " has-p" : ""}" data-chat="${esc(c.chat.id)}" data-subject="${esc(c.subject)}" title="${esc(c.chat.title)} \xB7 ${esc(c.subject)}">
     <span class="fe-row-ico">${UI_ICON.ai}</span>
-    <span class="fe-home-tx"><span class="fe-home-t">${esc(c.chat.title)}</span><span class="fe-home-s">${esc(name(c.subject))} \xB7 ${plural2(c.chat.turns.length, "turn")}</span>${ans ? `<span class="fe-home-p">${esc(ans)}</span>` : ""}</span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(c.chat.title)}</span><span class="fe-home-s">${esc(name(c.subject))} \xB7 ${plural3(c.chat.turns.length, "turn")}</span>${ans ? `<span class="fe-home-p">${esc(ans)}</span>` : ""}</span>
     <span class="fe-home-age" title="${esc(whenText(c.chat.at))}">${esc(ago(c.chat.at / 1e3))}</span>
   </button>`;
   };
@@ -31138,7 +31204,7 @@ ${rows.join("\n")}`, name: subject };
     return `<button type="button" class="row fe-home-row${unseen ? " unseen" : ""}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}">
     <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
     <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-home-s">${esc(sub)}</span>` : ""}</span>
-    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural2(r.items, "question")}">${r.items}</span>` : ""}
+    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural3(r.items, "question")}">${r.items}</span>` : ""}
     <span class="fe-home-age" title="${esc(whenText(r.mtime * 1e3))}">${esc(ago(r.mtime))}</span>
   </button>`;
   };
@@ -31147,7 +31213,7 @@ ${rows.join("\n")}`, name: subject };
     return `<button type="button" class="row fe-home-row" data-doc="${esc(r.path)}" title="Open ${esc(r.repo)}'s directions">
     <span class="fe-row-ico">${UI_ICON.contents}</span>
     <span class="fe-home-tx"><span class="fe-home-t">${esc(r.repo)}</span><span class="fe-home-s">${esc(sub)}</span></span>
-    ${r.onYou ? `<span class="fe-home-you" title="${plural2(r.onYou, "item")} in this doc wait on you">${r.onYou} on you</span>` : ""}
+    ${r.onYou ? `<span class="fe-home-you" title="${plural3(r.onYou, "item")} in this doc wait on you">${r.onYou} on you</span>` : ""}
   </button>`;
   };
   var none = (text) => `<p class="fe-home-none">${esc(text)}</p>`;
@@ -31207,7 +31273,7 @@ ${rows.join("\n")}`, name: subject };
   function paintPage(d, allShown, folded) {
     const { recent: fresh, older } = splitByAge(d.pages.filter((p) => p.state === "waiting"), FRESH_DAYS);
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
-    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural2(older.length, "older page")} in Decisions</button>` : "";
+    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural3(older.length, "older page")} in Decisions</button>` : "";
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
     const links = (id, o, list3, empty) => card4(id, { ...o, n: list3.length }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>` : none(empty), folded);
     return `<div class="fe-hp">
@@ -31235,7 +31301,7 @@ ${rows.join("\n")}`, name: subject };
       </div>
       <aside class="fe-hp-rail">
         ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
-        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: "Latest first" }, d.notes, "Notes you write show up here")}
+        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: d.sync ? d.sync.text : "Latest first" }, d.notes, "Notes you write show up here")}
         ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "Newest first" }, d.recent, "Places you open show up here")}
         ${d.tools.length ? card4("tools", { icon: UI_ICON.terminal, tone: "var(--nc-teal)", title: "Local tools", sub: "Start on click, stop when idle", n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join("")}</div>`, folded) : ""}
       </aside>
@@ -31264,11 +31330,12 @@ ${rows.join("\n")}`, name: subject };
     const load = async () => {
       const mine = ++seq2;
       const root2 = notesRoot();
-      const [pages, docs, noteList, tools] = await Promise.all([
+      const [pages, docs, noteList, tools, sync] = await Promise.all([
         notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
         notes.directionsDocs().catch(() => []),
         layout2 === "page" && root2 ? notes.list(root2).catch(() => keptNotesList(root2) ?? []) : Promise.resolve([]),
-        layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([])
+        layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([]),
+        layout2 === "page" && root2 ? notes.syncState(root2).then(describeSync, () => null) : Promise.resolve(null)
       ]);
       if (mine !== seq2) return;
       const chats = allChats();
@@ -31290,6 +31357,7 @@ ${rows.join("\n")}`, name: subject };
         }),
         notes: noteLinks(noteList),
         tools,
+        sync,
         ...quick()
       };
       render2();
@@ -31555,7 +31623,7 @@ ${rows.join("\n")}`, name: subject };
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
     const section = box.closest(".fe-sec");
-    const ago3 = (at) => {
+    const ago4 = (at) => {
       const m = Math.round((Date.now() - at) / 6e4);
       return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
     };
@@ -31574,7 +31642,7 @@ ${rows.join("\n")}`, name: subject };
       const ownRows = own2.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
       box.innerHTML = ownRows + sets.map((s) => {
         const n = s.labels.length;
-        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago3(s.at)}</span></button>`;
+        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago4(s.at)}</span></button>`;
       }).join("");
       section.hidden = !(visible2 && (sets.length || own2.length));
     }
@@ -31645,7 +31713,7 @@ ${rows.join("\n")}`, name: subject };
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
     if (!homeMode) pushRecent(rawPath);
-    const ago3 = (ts) => {
+    const ago4 = (ts) => {
       if (!ts) return "";
       const m = Math.round((Date.now() - ts) / 6e4);
       return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
@@ -31654,7 +31722,7 @@ ${rows.join("\n")}`, name: subject };
       const name2 = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
       const ext2 = name2.includes(".") ? name2.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago3(r.ts)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago4(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
@@ -31777,6 +31845,8 @@ ${rows.join("\n")}`, name: subject };
       refreshNotes: () => {
       },
       newNote: () => {
+      },
+      paintSync: () => {
       },
       pickNotesFolder: () => {
       },

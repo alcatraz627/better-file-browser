@@ -972,6 +972,28 @@ def op_send_thread(root, rel, thread_id, to):
 
 
 
+STATE_FILE = 'mnt-sync-state.json'
+
+def op_sync_state(root):
+    """What Switchboard last reported about syncing this notes folder, read from <repo>/.git/mnt-sync-state.json
+    so any app can show it without running sync. `repo` is false when the folder sits in no repository."""
+    repo = repo_root_of(root)
+    now = int(time.time())
+    if repo is None:
+        return {'t': 'syncState', 'repo': False, 'state': None, 'now': now}
+    path = os.path.join(repo, '.git', STATE_FILE)
+    state = None
+    if os.path.isfile(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as fh:
+                got = json.load(fh)
+            if isinstance(got, dict):
+                state = got
+        except (OSError, ValueError):
+            state = {'unreadable': True}
+    return {'t': 'syncState', 'repo': True, 'state': state, 'now': now}
+
+
 SAVED_DIR = '.saved'
 META_TAGS = os.path.join('.meta', 'tags.json')
 
@@ -1111,6 +1133,7 @@ def handle_unlocked(msg):
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
+    if op == 'syncState': return op_sync_state(root)
     if op == 'savedList': return op_saved_list(root)
     if op == 'savedSync': return op_saved_sync(root, msg.get('writes'), msg.get('removes'), msg.get('tags'), bool(msg.get('createOnly')))
     if op == 'search':    return op_search(root, msg.get('query'))

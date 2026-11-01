@@ -11,6 +11,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
+import { describeSync } from './sync-state';
 import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
 import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
@@ -745,6 +746,7 @@ export function initSidebar(app: App): void {
       const same = JSON.stringify(next) === JSON.stringify(allNotes);
       allNotes = next;
       keepNotes(root, next);
+      paintSync();
       if (!same || !ntList.querySelector('.fe-nt-item, .fe-empty')) renderNotes(root);
     }).catch((err: NotesError) => {
       ntHint.textContent = errorText(err, 'Listing the notes');
@@ -943,6 +945,22 @@ export function initSidebar(app: App): void {
   };
   el('fe-nt-add').addEventListener('click', () => app.newNote());
   refreshNotes();
+  // One plain line above the notes: whether they are reaching other devices, how far behind, and what is wrong.
+  const ntWhere = el('fe-nt-where');
+  let syncTimer: ReturnType<typeof setTimeout> | null = null;
+  const paintSync = (): void => {
+    const root = notesRoot();
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+    if (!root) { ntWhere.hidden = true; return; }
+    notes.syncState(root).then(r => {
+      const v = describeSync(r);
+      const here = allNotes.filter(n => n.conflicted).length;
+      const extra = here && !v.clashes ? ` ${here} ${here === 1 ? 'note holds' : 'notes hold'} two versions here.` : '';
+      ntWhere.hidden = false; ntWhere.dataset.state = v.level; ntWhere.textContent = v.text + extra;
+    }, () => { ntWhere.hidden = false; ntWhere.dataset.state = 'off'; ntWhere.textContent = 'Sync status unavailable: the notes helper did not answer.'; });
+    syncTimer = setTimeout(paintSync, 60_000);
+  };
+  app.paintSync = paintSync;
   startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
   // One plain line under the Saved filter: where this list is kept, and what is wrong when it cannot reach the folder.
   const svWhere = el('fe-sv-where');

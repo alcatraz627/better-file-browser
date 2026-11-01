@@ -4,6 +4,7 @@
 // thing itself. The page adds a path bar, usage numbers and quick links that
 // can be edited, forgotten, or opened elsewhere. Lists refresh when shown and
 // every 15 seconds while in view.
+import { describeSync, type SyncView } from './sync-state';
 import { notes, type NoteMeta, type ServiceState } from './notes';
 import { esc, whenText, fileHref, pageHref } from './utils';
 import { UI_ICON, LINE_ICON, line } from './control-icons';
@@ -22,7 +23,7 @@ import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
 interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[] }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[]; sync: SyncView | null }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
@@ -191,7 +192,7 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
       </div>
       <aside class="fe-hp-rail">
         ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here')}
-        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: 'Latest first' }, d.notes, 'Notes you write show up here')}
+        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: d.sync ? d.sync.text : 'Latest first' }, d.notes, 'Notes you write show up here')}
         ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: 'Newest first' }, d.recent, 'Places you open show up here')}
         ${d.tools.length ? card('tools', { icon: UI_ICON.terminal, tone: 'var(--nc-teal)', title: 'Local tools', sub: 'Start on click, stop when idle', n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join('')}</div>`, folded) : ''}
       </aside>
@@ -226,11 +227,12 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
   const load = async () => {
     const mine = ++seq;
     const root = notesRoot();
-    const [pages, docs, noteList, tools] = await Promise.all([
+    const [pages, docs, noteList, tools, sync] = await Promise.all([
       notes.dpPages().then(rows => ({ rows, failed: false }), () => ({ rows: [] as DpRow[], failed: true })),
       notes.directionsDocs().catch(() => []),
       layout === 'page' && root ? notes.list(root).catch(() => keptNotesList<NoteMeta>(root) ?? []) : Promise.resolve([] as NoteMeta[]),
       layout === 'page' ? notes.services().catch(() => [] as ServiceState[]) : Promise.resolve([] as ServiceState[]),
+      layout === 'page' && root ? notes.syncState(root).then(describeSync, () => null) : Promise.resolve(null),
     ]);
     if (mine !== seq) return;
     const chats = allChats();
@@ -244,7 +246,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
         chats, recents: getRecents(), saved: getSaved(), notes: noteList,
       }),
       notes: noteLinks(noteList),
-      tools,
+      tools, sync,
       ...quick(),
     };
     render();

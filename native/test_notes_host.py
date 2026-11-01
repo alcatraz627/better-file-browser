@@ -555,5 +555,17 @@ check(any(f.endswith('.saved%2F62e5caffb1fb.md') for f in os.listdir(os.path.joi
 r = call({'op': 'list', 'root': sroot})
 check(r['notes'] == [], 'saves never show in the note list')
 
+# Sync state: read from <repo>/.git/mnt-sync-state.json, never written here.
+r = call({'op': 'syncState', 'root': root})
+check(r['t'] == 'syncState' and r['repo'] is False and r['state'] is None, f'a folder in no repository says so: {r}')
+r = call({'op': 'syncState', 'root': lroot})
+check(r['repo'] is True and r['state'] is None, f'a repo with no state file has no state: {r}')
+st = {'at': '2026-11-01T14:00:00Z', 'ok': True, 'problem': None, 'ahead': 0, 'behind': 2, 'clashes': 1, 'cameBack': ['x'], 'lastOk': '2026-11-01T14:00:00Z'}
+with open(os.path.join(lockrepo, '.git', 'mnt-sync-state.json'), 'w') as fh: json.dump(st, fh)
+r = call({'op': 'syncState', 'root': lroot})
+check(r['state'] == st and abs(r['now'] - time.time()) < 5, 'the state file comes back as written, with the host clock beside it')
+with open(os.path.join(lockrepo, '.git', 'mnt-sync-state.json'), 'w') as fh: fh.write('{broken')
+check(call({'op': 'syncState', 'root': lroot})['state'] == {'unreadable': True}, 'a damaged state file is reported as damaged, not as no file')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)
