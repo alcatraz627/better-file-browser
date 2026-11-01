@@ -24271,6 +24271,44 @@ ${d.message}` : d.message;
     };
   }
 
+  // src/address.ts
+  function filePathOf(href) {
+    const m = /^file:\/\/(\/[^?#]*)(.*)$/i.exec(href.trim());
+    if (!m) return null;
+    try {
+      return decodeURI(m[1]) + m[2];
+    } catch {
+      return m[1] + m[2];
+    }
+  }
+  function fileHrefOf(path) {
+    const at = path.indexOf("#");
+    const base2 = at < 0 ? path : path.slice(0, at);
+    return "file://" + encodeURI(base2).replace(/\?/g, "%3F").replace(/#/g, "%23") + (at < 0 ? "" : path.slice(at));
+  }
+  function pathOnPhoneBase(href, phoneBase) {
+    if (!phoneBase || !href.startsWith(phoneBase.replace(/\/$/, "") + "/")) return null;
+    try {
+      return decodeURI(href.slice(phoneBase.replace(/\/$/, "").length));
+    } catch {
+      return null;
+    }
+  }
+  function routeLink(href, ctx) {
+    if (ctx.onPhone) {
+      const p2 = filePathOf(href);
+      if (p2 === null) return { to: null };
+      const at = p2.indexOf("#");
+      return { to: ctx.origin + (at < 0 ? p2 : p2.slice(0, at)).split("/").map(encodeURIComponent).join("/") + (at < 0 ? "" : p2.slice(at)) };
+    }
+    const p = pathOnPhoneBase(href, ctx.phoneBase);
+    return p === null ? { to: null } : { to: fileHrefOf(p) };
+  }
+  function copyTarget(path, ctx) {
+    if (ctx.phoneLink) return { text: ctx.phoneLink, say: ctx.onPhone ? "Link copied" : "Link copied. It opens on this Mac and on your phone." };
+    return { text: fileHrefOf(path), say: "Link copied. Phone access is off, so it opens only on this Mac. Turn it on in Settings, Data." };
+  }
+
   // src/phone.ts
   var URL_KEY = "bfb-phone-url";
   var ON_KEY = "bfb-phone-on";
@@ -24278,6 +24316,23 @@ ${d.message}` : d.message;
   function phoneLink(path) {
     const base2 = onPhone() ? location.origin : kvGet(ON_KEY) === "1" ? kvGet(URL_KEY) || "" : "";
     return base2 ? base2 + path.split("/").map(encodeURIComponent).join("/") : "";
+  }
+  async function copyLink(path, toast) {
+    const { text, say } = copyTarget(path, { onPhone: onPhone(), phoneLink: phoneLink(path) });
+    toast(await copyToClipboard(text) ? say : "Copy failed");
+  }
+  function initAddressRouting() {
+    document.addEventListener("click", (e) => {
+      if (e.defaultPrevented || e.button !== 0) return;
+      const a = e.target.closest("a[href]");
+      const href = a?.getAttribute("href") ?? "";
+      if (!a || !/^(file|https?):\/\//i.test(href)) return;
+      const r = routeLink(href, { onPhone: onPhone(), origin: location.origin, phoneBase: onPhone() ? "" : kvGet(ON_KEY) === "1" ? kvGet(URL_KEY) || "" : "" });
+      if (!r.to || r.to === href) return;
+      e.preventDefault();
+      if (a.target === "_blank" || e.metaKey || e.ctrlKey) window.open(r.to, "_blank", "noopener");
+      else location.assign(r.to);
+    }, true);
   }
   async function copyPhoneLink(path, toast) {
     const url = phoneLink(path);
@@ -28313,7 +28368,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       setWhere("unreachable", e instanceof NotesError ? e.message : String(e));
       return "none";
     }
-    if (!got.exists) return migrateSaved(r);
+    if (!got.exists) {
+      if (onPhone()) {
+        setWhere("folder");
+        return "none";
+      }
+      return migrateSaved(r);
+    }
     if (savedUnsent()) {
       await pushSaved(r);
       hooks?.refresh();
@@ -29319,7 +29380,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
-        `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
       ].join("");
@@ -29353,8 +29414,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         case "cp-title":
           void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then((ok) => toast(ok ? "Copied title" : "Copy failed"));
           break;
-        case "cp-phone":
-          void copyPhoneLink(notePath(root2, rel), toast);
+        case "cp-link":
+          void copyLink(notePath(root2, rel), toast);
           break;
         case "delete":
           deleteNote(root2, rel);
@@ -32072,6 +32133,7 @@ ${rows.join("\n")}`, name: subject };
     initSettingsUi(app);
     initPhoneSeed();
     initPhoneButtons(rawPath, app.toast);
+    initAddressRouting();
     initToolLenses(app);
     watchConnection();
     initSidebar(app);

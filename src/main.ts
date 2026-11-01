@@ -51,7 +51,7 @@ import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { setLinkHome } from './renderers';
 import { errorText } from './errors';
-import { initPhoneSeed, initPhoneButtons } from './phone';
+import { initPhoneSeed, initPhoneButtons, initAddressRouting } from './phone';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -317,6 +317,7 @@ loadKv().catch(() => {}).then(function () {
   initSettingsUi(app);
   initPhoneSeed();
   initPhoneButtons(rawPath, app.toast);
+  initAddressRouting();
   initToolLenses(app);
   watchConnection();
   initSidebar(app);

@@ -5,7 +5,7 @@ import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml, fileHref, whenText, fileBase, isFileUrl } from './utils';
-import { copyPhoneLink } from './phone';
+import { copyLink } from './phone';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
@@ -882,7 +882,7 @@ export function initSidebar(app: App): void {
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
-      `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+      `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
     ].join('');
@@ -904,7 +904,7 @@ export function initSidebar(app: App): void {
       case 'props': if (row) openProps(root, rel, row.querySelector<HTMLElement>('.fe-nt-props')!); break;
       case 'cp-path': void copyToClipboard(notePath(root, rel)).then(ok => toast(ok ? 'Copied path' : 'Copy failed')); break;
       case 'cp-title': void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then(ok => toast(ok ? 'Copied title' : 'Copy failed')); break;
-      case 'cp-phone': void copyPhoneLink(notePath(root, rel), toast); break;
+      case 'cp-link': void copyLink(notePath(root, rel), toast); break;
       case 'delete': deleteNote(root, rel); break;
     }
   });

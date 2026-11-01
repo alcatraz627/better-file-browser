@@ -78,6 +78,13 @@ try {
   const refused = await status('/', 'example.com'), tail = await status('/_bfb/seed.json', 'bfb-mac.tail1234.ts.net');
   check(refused === 421 && tail === 200, `the server answers a tailnet name and refuses any other host: other ${refused}, tailnet ${tail}`);
 
+  // One address: a file:// link in a doc opens, on the phone, through this server, never as a file:// address.
+  writeFileSync(join(fixture, 'jump.md'), `# Jump\n\n[to the notes](file://${fixture}/notes.txt)\n`);
+  await page.goto(`${BASE}${fixture}/jump.md`, { waitUntil: 'load' });
+  await page.waitForSelector('#fe-page .fe-md a[href^="file://"]');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.tap('#fe-page .fe-md a[href^="file://"]')]);
+  check(page.url() === `${BASE}${fixture}/notes.txt`, `a file:// link opens through the phone server: ${page.url().replace(fixture, '<fixture>')}`);
+
   // A markdown file: rendered, its diagram drawn by the viewer.
   await page.goto(`${BASE}${fixture}/readme.md`, { waitUntil: 'load' });
   await page.waitForSelector('#fe-page .fe-md h1');
