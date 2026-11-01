@@ -613,7 +613,7 @@ function editHeader(status: string): void {
   document.getElementById('fe-ql-meta')!.textContent = `${edit.dirty ? '● ' : ''}${edit.rel} · ${status}`;
 }
 
-const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
+const stripFrontMatter = (t: string) => splitNote(t).body;
 
 /// What the editor's prev, next, rename and delete buttons do; the sidebar owns the list they act on.
 /// `rename`'s `now` is for a key press, which has no pointer click left to wait out.

@@ -39,6 +39,9 @@ import bisect
 import sys, os, re, json, struct, time, shutil, subprocess
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import notefmt
+
 def read_msg():
     raw = sys.stdin.buffer.read(4)
     if len(raw) < 4: return None
@@ -99,78 +102,41 @@ def list_notes(root):
     out.sort(key=lambda n: -n['mtime'])
     return out
 
-def note_props(full):
-    """The colour, pin and tags a note's frontmatter holds, read the way Switchboard reads them."""
-    props = {'color': '', 'pinned': False, 'tags': [], 'pos': '', 'created': None}
+def parsed_note(full):
+    """One note read by the shared spec rules (notefmt.py), or None when it cannot be opened.
+    A clash file is not parsed for a header, so its title is its file name."""
     try:
-        with open(full, 'r', encoding='utf-8', errors='replace') as fh:
-            lines = fh.read(4096).split('\n')
+        with open(full, 'r', encoding='utf-8', errors='replace', newline='') as fh:
+            text = fh.read(2 * 1024 * 1024)
     except OSError:
+        return None
+    name = os.path.basename(full)
+    if name.lower().endswith('.md'):
+        name = name[:-3]
+    return notefmt.parse(text, name)
+
+def note_props(full):
+    """The colour, pin, tags and place a note's header holds, read by the spec rules."""
+    props = {'color': '', 'pinned': False, 'tags': [], 'pos': '', 'created': None}
+    n = parsed_note(full)
+    if n is None:
         return props
-    if not lines or lines[0].strip() != '---':
-        return props
-    for line in lines[1:]:
-        if line.strip() == '---':
-            break
-        key, sep, value = line.partition(':')
-        if not sep:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
-            try:
-                value = json.loads(value) if value[0] == '"' else value[1:-1].replace("''", "'")
-            except ValueError:
-                value = value[1:-1]
-        key = key.strip()
-        if key == 'color':
-            props['color'] = value
-        elif key == 'pinned':
-            props['pinned'] = value == 'true'
-        elif key == 'tags':
-            # `a, b` and the YAML flow list `[a, b]` read the same
-            if value.startswith('[') and value.endswith(']'):
-                value = value[1:-1]
-            tags = [t.strip() for t in value.split(',')]
-            props['tags'] = [t[1:-1] if len(t) >= 2 and t[0] == t[-1] and t[0] in '"\'' else t for t in tags if t]
-        elif key == 'pos':
-            props['pos'] = value   # raw text: `no`, `1e5` and `null` stay strings
-        elif key == 'created':
-            try:
-                props['created'] = int(datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp() * 1000)
-            except ValueError:
-                pass
+    props.update(color=n['color'] or '', pinned=n['pinned'], tags=n['tags'], pos=n['pos'] or '')
+    props.update(conflicted=n['conflicted'])
+    for key in ('agent', 'url', 'device', 'expires', 'remindAt', 'remindRepeat', 'remindOn', 'remindPersist'):
+        if n[key]:
+            props[key] = n[key]
+    if n['created']:
+        try:
+            props['created'] = int(datetime.fromisoformat(n['created'].replace('Z', '+00:00')).timestamp() * 1000)
+        except ValueError:
+            pass
     return props
 
 def note_title(full):
-    """What the sidebar calls a note: its frontmatter title, else its first heading, else its first line; empty when none."""
-    try:
-        with open(full, 'r', encoding='utf-8', errors='replace') as fh:
-            head = fh.read(4096)
-    except OSError:
-        return ''
-    lines = head.split('\n')
-    body_start = 0
-    if lines and lines[0].strip() == '---':
-        for i in range(1, len(lines)):
-            if lines[i].strip() == '---':
-                body_start = i + 1
-                break
-            if lines[i].startswith('title:'):
-                value = lines[i][6:].strip()
-                if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
-                    try:
-                        value = json.loads(value) if value[0] == '"' else value[1:-1].replace("''", "'")
-                    except ValueError:
-                        value = value[1:-1]
-                # a quoted title keeps its padding in YAML; no app shows it padded
-                value = value.strip()
-                if value:
-                    return value
-    for line in lines[body_start:]:
-        s = line.strip()
-        if s and not s.startswith('>'):
-            return s.lstrip('#').strip()
-    return ''
+    """What the sidebar calls a note, by the spec: its title key, else its first body line, else its file name."""
+    n = parsed_note(full)
+    return n['title'] if n else ''
 
 def op_read(root, rel):
     full = resolve_rel(root, rel)

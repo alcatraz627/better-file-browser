@@ -31,12 +31,12 @@ describe('noteTitle', () => {
     expect(noteTitle('a.md', 'intro\n# Heading\n')).toBe('intro');
     expect(noteTitle('a.md', '## Heading\nbody')).toBe('Heading');
     expect(noteTitle('untitled-123.md', 'Weekly plan\n\nDetails')).toBe('Weekly plan');
-    expect(noteTitle('sub/weekly-plan_v2.md')).toBe('weekly plan v2');
+    expect(noteTitle('sub/weekly-plan_v2.md')).toBe('weekly-plan_v2');
   });
   it('a chips-only block names the note by its first body line, as Switchboard does', () => {
     expect(noteTitle('a.md', '---\ncolor: red\n---\nplain first line\n# later heading')).toBe('plain first line');
-    expect(noteTitle('a.md', '---\ncolor: red\n---\n\n> quoted\n')).toBe('> quoted');
-    expect(noteTitle('my-note.md', '---\ncolor: red\n---\n')).toBe('my note');
+    expect(noteTitle('a.md', '---\ncolor: red\n---\n\n> quoted\n')).toBe('quoted');
+    expect(noteTitle('my-note.md', '---\ncolor: red\n---\n')).toBe('my-note');
   });
 });
 
@@ -103,7 +103,7 @@ describe('properties', () => {
   });
   it('readProps reads the title, colour, pin and tags', () => {
     expect(readProps('a.md', sb)).toEqual({ title: 'v6 sor', color: 'purple', pinned: true, tags: ['ops', 'later'] });
-    expect(readProps('a.md', '---\ncolor: indigo\n---\n').color).toBe('purple');
+    expect(readProps('a.md', '---\ncolor: indigo\n---\n').color).toBeNull();   // the spec's eight names only
     expect(readProps('a.md', '---\ncolor: plaid\n---\n').color).toBeNull();
     expect(readProps('a.md', '# x').pinned).toBe(false);
   });
@@ -157,10 +157,11 @@ describe('properties', () => {
     expect(sharedOrder(l).map(n => n.rel)).toEqual(['y', 'x']);
     expect(sharedOrder([{ rel: 'p', mtime: 1 }, { rel: 'q', mtime: 9 }]).map(n => n.rel)).toEqual(['q', 'p']);
   });
-  it('pos is read back as the raw text', () => {
-    for (const v of ['no', '1e5', 'null', 'i', '0']) {
+  it('a valid pos is read back as written, an invalid one as none', () => {
+    for (const v of ['no', '1e5', 'null', 'i']) {
       expect(readProps('n.md', `---\ntitle: T\npos: ${v}\n---\nbody`).pos).toBe(v);
     }
+    expect(readProps('n.md', '---\ntitle: T\npos: 0\n---\nbody').pos).toBeUndefined();
     expect(readProps('n.md', '---\ntitle: T\n---\nbody').pos).toBeUndefined();
   });
   it('KEY_ORDER puts remind_on after remind_repeat and pos last, and a pin edit keeps pos', () => {

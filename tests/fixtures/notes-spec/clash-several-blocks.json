@@ -1,0 +1,21 @@
+{
+  "title": "clash-several-blocks",
+  "body": "a\n<<<<<<< HEAD\n1\n=======\n2\n>>>>>>> x\nb\n<<<<<<< HEAD\n3\n=======\n4\n>>>>>>> x\nc\n",
+  "tags": [],
+  "color": null,
+  "pinned": false,
+  "pos": null,
+  "url": null,
+  "device": null,
+  "agent": null,
+  "source": null,
+  "expires": null,
+  "created": null,
+  "remindAt": null,
+  "remindRepeat": null,
+  "remindOn": null,
+  "remindPersist": false,
+  "reminderId": null,
+  "conflicted": true,
+  "extraLines": []
+}

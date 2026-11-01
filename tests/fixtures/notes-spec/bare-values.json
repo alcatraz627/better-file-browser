@@ -1,0 +1,21 @@
+{
+  "title": "Bare title",
+  "body": "Text\n",
+  "tags": [],
+  "color": "blue",
+  "pinned": false,
+  "pos": null,
+  "url": null,
+  "device": "mac",
+  "agent": "bot",
+  "source": null,
+  "expires": null,
+  "created": null,
+  "remindAt": null,
+  "remindRepeat": null,
+  "remindOn": null,
+  "remindPersist": false,
+  "reminderId": null,
+  "conflicted": false,
+  "extraLines": []
+}

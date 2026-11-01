@@ -1,0 +1,21 @@
+{
+  "title": "A \"quoted\" title",
+  "body": "Body\n",
+  "tags": [],
+  "color": null,
+  "pinned": false,
+  "pos": null,
+  "url": null,
+  "device": null,
+  "agent": "claude-1",
+  "source": "import: notes.app",
+  "expires": null,
+  "created": "2026-11-01T10:00:00Z",
+  "remindAt": null,
+  "remindRepeat": null,
+  "remindOn": null,
+  "remindPersist": false,
+  "reminderId": null,
+  "conflicted": false,
+  "extraLines": []
+}

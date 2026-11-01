@@ -2,6 +2,8 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
+import { parseNote, parseTagList, hasClash, settle, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
+
 export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
 export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
@@ -147,39 +149,19 @@ export function slugForTitle(title: string): string {
   return (s || 'untitled') + '.md';
 }
 
-// A frontmatter value as written: JSON-quoted (Switchboard, setTitle), YAML single-quoted
-// ('' is a literal quote), or bare. Matches notes_host.py and the Pi.
-function unquoteYaml(v: string): string {
-  if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
-    try { return JSON.parse(v) as string; } catch { return v.slice(1, -1); }
-  }
-  if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-  return v;
-}
-
-// The title a note shows, derived as Switchboard does: front matter title, else the
-// first body line with its leading # stripped, else the file name without extension.
+// The title a note shows, by the one spec rule (notefmt.parseNote): the `title` key, else the
+// first non-empty body line with leading #, > and spaces removed, else the file name.
+// A file holding a clash is not parsed for a header, so its title is its file name.
 export function noteTitle(rel: string, text?: string): string {
-  if (text) {
-    const fm = text.match(/^---\n([\s\S]*?)\n---/);
-    const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
-    const t = raw && unquoteYaml(raw).trim();
-    if (t) return t;
-    const first = splitNote(text).body.trim().split('\n')[0].replace(/^#+/, '').trim();
-    if (first) return first;
-  }
-  return rel.split('/').pop()!.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
+  const name = rel.split('/').pop()!.replace(/\.md$/i, '');
+  return (text ? parseNote(text, name).title : '') || name;
 }
 
 // Set the title field inside existing front matter, JSON-quoted as Switchboard
 // writes it. Returns null for a note without front matter: the contract never
 // adds front matter, so such a note is renamed by its file name instead.
 export function setTitle(text: string, title: string): string | null {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return null;
-  const line = `title: ${JSON.stringify(title)}`;
-  const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}\n${m[1]}`;
-  return text.replace(m[0], () => `---\n${fm}\n---`);
+  return splitNote(text).head ? setField(text, 'title', JSON.stringify(title)) : null;
 }
 
 // For a note without front matter the title is its first line. A rename
@@ -217,41 +199,22 @@ export function retitle(text: string, title: string): string | null {
 
 // A note edited in two places holds both sides between git-style markers. settleClash keeps
 // the first side, the second, or both (first then second); same rules as Switchboard and the Pi.
-export type Keep = 'first' | 'second' | 'both';
-export function settleClash(text: string, keep: Keep): string {
-  const out: string[] = []; let first: string[] = [], second: string[] = [];
-  let part: 'out' | 'first' | 'second' = 'out';
-  for (const line of text.split('\n')) {
-    if (part === 'out' && (line.startsWith('<<<<<<< ') || line === '<<<<<<<')) { part = 'first'; first = []; second = []; }
-    else if (part === 'out') out.push(line);
-    else if (part === 'first' && line === '=======') part = 'second';
-    else if (part === 'first') first.push(line);
-    else if (line.startsWith('>>>>>>> ') || line === '>>>>>>>') {
-      part = 'out';
-      out.push(...(keep === 'second' ? second : keep === 'first' ? first : [...first, ...second]));
-    } else second.push(line);
-  }
-  if (part !== 'out') out.push(...first, ...second);   // an unclosed block loses nothing
-  return out.join('\n');
-}
+export type Keep = FmtKeep;
+export const settleClash = (text: string, keep: Keep): string => settle(text, keep);
 
-// The two sides of a note's first clash, named as a person says them; null when there is none.
+/// The two sides of a note's first clash, named as a person says them; null when there is none.
 export function clashSides(text: string): [string, string] | null {
   const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
   if (!a || !b) return null;
-  const name = (m: string) => m === 'HEAD' ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === 'phone' ? "the phone's" : `${m}'s`;
+  const name = (m: string) => m === 'HEAD' ? "this Mac's" : m === 'origin/main' ? "the other device's" : m === 'github' ? "the saved version's"
+    : /^pi\b|csync/.test(m) ? "the Pi's" : m === 'phone' ? "the phone's" : `${m}'s`;
   return [name(a.trim()), name(b.trim())];
 }
 
 // Refresh `updated` inside existing front matter; a note without front
 // matter is left exactly as written (contract: never add front matter).
 export function stampUpdated(text: string, now = new Date()): string {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return text;
-  const iso = now.toISOString();
-  // Function replacements: a `$&` or `$$` in any property value must stay literal.
-  const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `\nupdated: ${iso}`;
-  return text.replace(m[0], () => `---\n${fm}\n---`);
+  return splitNote(text).head ? setField(text, 'updated', now.toISOString()) : text;
 }
 
 // ── Properties: title, colour, pin and tags, read and written the way Switchboard does ──
@@ -271,44 +234,38 @@ export function colorName(v: string | undefined): NoteColor | null {
 /// `pos` is the shared order key, kept as the raw text on the line (`no`, `1e5` and `null` are all just strings).
 export interface NoteProps { title: string; color: NoteColor | null; pinned: boolean; tags: string[]; pos?: string }
 
-/// Frontmatter keys in the order Switchboard writes them (csync notes_store.py KEY_ORDER).
-const KEY_ORDER = ['title', 'created', 'tags', 'expires', 'remind_at', 'remind_repeat', 'remind_on', 'reminder_id',
-                   'pinned', 'color', 'agent', 'source', 'url', 'pos'];
+/// Frontmatter keys in the order the spec writes them (notefmt.KNOWN_KEYS).
+const KEY_ORDER: readonly string[] = KNOWN_KEYS;
 
-// The frontmatter block at the top of a note, closing fence and its newline included.
-// A block holding git clash markers is not frontmatter: it stays visible as text.
-const FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
-
-/// Splits a note into its frontmatter block (exactly as written, or '') and the body.
-/// head + body is always the original text.
+/// Splits a note into its header block (exactly as written, closing fence and its newline included, or '')
+/// and the body; head + body is always the original text. The fence is a line that is exactly `---`.
+/// A file holding a clash is not parsed for a header: the whole file is its body.
 export function splitNote(text: string): { head: string; body: string } {
-  const m = text.match(FM_RE);
-  if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: '', body: text };
-  return { head: m[0], body: text.slice(m[0].length) };
+  if (!text.startsWith('---\n') || hasClash(text)) return { head: '', body: text };
+  let at = 4;
+  for (;;) {
+    const nl = text.indexOf('\n', at);
+    const line = nl < 0 ? text.slice(at) : text.slice(at, nl);
+    if (line === '---') { const end = nl < 0 ? text.length : nl + 1; return { head: text.slice(0, end), body: text.slice(end) }; }
+    if (nl < 0) return { head: '', body: text };
+    at = nl + 1;
+  }
 }
 
 function fmLines(head: string): string[] {
-  const m = head.match(FM_RE);
-  return m && m[1] !== undefined ? m[1].split('\n') : [];
+  if (!head) return [];
+  const lines = head.replace(/\n$/, '').split('\n');
+  return lines.slice(1, -1);
 }
 
-/// The properties a note's frontmatter holds: title as noteTitle reads it, colour, pin, tags.
+/// The properties a note's header holds: title as noteTitle reads it, colour, pin, tags and place.
 export function readProps(rel: string, text: string): NoteProps {
-  const { head } = splitNote(text);
-  const f: Record<string, string> = {};
-  for (const line of fmLines(head)) {
-    const i = line.indexOf(':');
-    if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
-  }
-  return { title: noteTitle(rel, text), color: colorName(f.color), pinned: f.pinned === 'true',
-           tags: parseTags(f.tags), ...(f.pos ? { pos: f.pos } : {}) };
+  const p = parseNote(text, rel.split('/').pop()!.replace(/\.md$/i, ''));
+  return { title: p.title, color: colorName(p.color ?? undefined), pinned: p.pinned, tags: p.tags, ...(p.pos ? { pos: p.pos } : {}) };
 }
 
 // `a, b` and the YAML flow list `[a, b]` read the same, as in notes_host.py.
-export function parseTags(v: string | undefined): string[] {
-  const s = (v ?? '').trim();
-  return (s.startsWith('[') && s.endsWith(']') ? s.slice(1, -1) : s).split(',').map(t => t.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
-}
+export const parseTags = parseTagList;
 
 /// Set (string) or remove (null) one frontmatter field, touching only that line.
 /// A new line goes where Switchboard would put it; a note with no frontmatter gets
@@ -318,14 +275,14 @@ export function setField(text: string, key: string, value: string | null): strin
   const { head, body } = splitNote(text);
   if (!head) return line === null ? text : `---\n${line}\n---\n${text}`;
   const lines = fmLines(head);
-  const at = lines.findIndex(l => l.slice(0, Math.max(l.indexOf(':'), 0)).trim() === key);
+  const at = lines.findIndex(l => l.slice(0, Math.max(l.indexOf(':'), 0)) === key);
   if (at >= 0) { if (line === null) lines.splice(at, 1); else lines[at] = line; }
   else if (line !== null) {
     const rank = KEY_ORDER.indexOf(key);
     let pos = lines.length;
     if (rank >= 0) {
       // Known keys come in KEY_ORDER, unknown ones (like `updated`) after them all.
-      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0)).trim()); return r < 0 || r > rank; });
+      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0))); return r < 0 || r > rank; });
       if (later >= 0) pos = later;
     }
     lines.splice(pos, 0, line);
