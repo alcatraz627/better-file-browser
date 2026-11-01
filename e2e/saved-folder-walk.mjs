@@ -114,6 +114,17 @@ try {
   check(!(await ledger(page)).some(r => r.label === 'Photos'), 'the row left the lens');
   await shot(page, 'saved-folder-hover-edit');
 
+  // 4b. Tag colour cycling: a click on a group's dot moves it to the next colour, in the cache and in .meta/tags.json.
+  const dotBefore = await page.$eval('#fe-sv-list .fe-sv-dot[data-tag="work"]', d => getComputedStyle(d).backgroundColor);
+  await page.click('#fe-sv-list .fe-sv-dot[data-tag="work"]');
+  await sleep(1200);
+  const dotAfter = await page.$eval('#fe-sv-list .fe-sv-dot[data-tag="work"]', d => getComputedStyle(d).backgroundColor);
+  const reg = await h.store.json('bfb-tags-v1', []);
+  const colourOnDisk = JSON.parse(readFileSync(join(store, '.meta', 'tags.json'), 'utf8')).work;
+  check(dotAfter !== dotBefore && reg.find(t => t.name === 'work')?.color === '#3fb950' && colourOnDisk === '#3fb950', `clicking a tag dot cycles its colour (blue to green) in the cache and in tags.json: ${dotBefore} -> ${dotAfter}, disk ${colourOnDisk}`);
+  await reopen(page); await sleep(800);
+  check(await page.$eval('#fe-sv-list .fe-sv-dot[data-tag="work"]', d => getComputedStyle(d).backgroundColor) === dotAfter, 'and the colour survives a reload, read back from the folder');
+
   // 5. Dragging: dropping Work above Reading rewrites that row's pos only.
   const posBefore = Object.fromEntries(files().map(f => [f, text(f).match(/^pos: (.+)$/m)[1]]));
   const drag = async (fromLabel, toLabel) => page.evaluate((a, b) => {

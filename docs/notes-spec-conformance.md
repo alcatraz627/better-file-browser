@@ -37,6 +37,14 @@ Switchboard writes `.git/mnt-sync-state.json` inside the repo. The Notes lens an
 
 A note's `url` shows as a chip with open and copy buttons. Notes with an `agent` line sit in a folded **Agents** lane, and notes past their `expires` time in a folded **Expired** lane; neither lane deletes anything. A reminder can be set, changed, dismissed and cleared from the editor's **Remind** chip. Dismissing a one-off clears the `remind_*` lines, and dismissing a repeating one moves it to its next time. `remind_on` is written only for the phone, since the Mac is the default. A reminder time that passed shows as missed. bfb never rings a reminder: the device named in `remind_on` does.
 
-## Not yet in this extension
+## One address, search and the waiting list
 
-One address for a note or save across devices and the phone's open route, search and the Home waiting list reaching saves and comments, and the phone build's writable comments and real Saved are still to do.
+- **Copy link** on a note row copies the phone address when phone access is on (it opens on this Mac and on the phone) and a `file://` link when it is off, and says which. On the phone, a `file://` link in a note opens the same path through the phone server. On the Mac, a link to the phone server opens the file locally. The logic is in `src/address.ts` and `src/phone.ts`.
+- The Search lens lists matching saves and matching comment threads after the file hits. The host searches comments through `commentsSearch`.
+- Home has a **Waiting on you** card for missed reminders, comments that mention you, decision pages, unsorted captures and notes an agent left. The spec has no field for either of two things, so these are this app's choices:
+  - A capture is a note with a `source`, no tags, no pin and no `agent`.
+  - An item fades 7 days after it first appeared, kept in `bfb-waiting-seen-v1`. A missed reminder never fades.
+
+## The phone build
+
+Saved is read from and written to the notes folder through the Mac, so a save made on the phone is a file in `.saved/` and a save the Mac adds shows on the phone. The seed from the Mac no longer replaces Saved the phone has not sent, and the phone never makes the first move of Saved. Comments were already writable on the phone (the walk covers it). The server answers only localhost and tailnet host names, over plain HTTP. Ask chats still reach the phone as the Mac's copy at each load, because Ask itself is not on the phone.
