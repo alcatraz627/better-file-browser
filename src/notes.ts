@@ -2,7 +2,7 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-import { parseNote, parseTagList, hasClash, settle, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
+import { parseNote, parseTagList, hasClash, settle, validId, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
 
 export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
@@ -386,4 +386,14 @@ export function applyChange(text: string, c: PropChange): string {
 /// The frontmatter keys a change writes.
 export function changedKeys(c: PropChange): string[] {
   return (['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined);
+}
+
+/// The path of a new picture or file under attachments/, named `<id>-<stamp>.<ext>` by the spec.
+/// A note whose file name is not a valid id (older names with spaces or dots) lends a cleaned-up
+/// form of its name instead; nothing ties the file to the note afterwards.
+export function attachmentRel(noteRel: string, ext: string, now = Date.now()): string {
+  const base = noteRel.split('/').pop()!.replace(/\.md$/i, '');
+  const id = validId(base) ? base : (base.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '').slice(0, 64) || 'note');
+  const clean = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+  return `attachments/${id}-${now.toString(36)}.${clean}`;
 }

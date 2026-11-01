@@ -20,7 +20,7 @@ import {
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
 import { closeOpenFence, splitThinking } from './ask-quote';
-import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
+import { notes, NotesError, attachmentRel, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
 import {
@@ -788,7 +788,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   const addImage = async (file: File) => {
     const st = edit; if (!st || st.root !== root) return;
     const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-    const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, '')}-${Date.now().toString(36)}.${ext}`;
+    const rel = attachmentRel(st.rel, ext);
     const b64 = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(file); });
     try {
       await notes.writeBinary(root, rel, b64);

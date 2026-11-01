@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos, attachmentRel } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -235,5 +235,16 @@ describe('arranging notes by drag', () => {
 
   it('setPos writes the pos line and keeps the rest', () => {
     expect(setPos('---\ntitle: T\n---\nbody', 'i')).toBe('---\ntitle: T\npos: i\n---\nbody');
+  });
+});
+
+describe('attachmentRel', () => {
+  it('names a picture <id>-<stamp>.<ext> under attachments/', () => {
+    expect(attachmentRel('20261101-120000-ab12.md', 'png', 36)).toBe('attachments/20261101-120000-ab12-10.png');
+    expect(attachmentRel('sub/A_b-c.md', 'JPG', 1)).toBe('attachments/A_b-c-1.jpg');
+  });
+  it('an older name with spaces lends a cleaned-up id, never the title', () => {
+    const rel = attachmentRel('weekly plan v2.md', 'png', 1);
+    expect(rel).toBe('attachments/weekly-plan-v2-1.png');
   });
 });
