@@ -788,6 +788,9 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   // attachments/ and referenced by relative path, per the contract.
   const addImage = async (file: File) => {
     const st = edit; if (!st || st.root !== root) return;
+    // Spec: up to 20 MB a file, and a warning over 5 MB because a file stays in history for good.
+    if (file.size > 20 * 1024 * 1024) { editHeader('Adding the image: over 20 MB, so it is not added'); return; }
+    if (file.size > 5 * 1024 * 1024) deps.toast?.('That picture is over 5 MB and stays in the notes history for good');
     const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
     const rel = attachmentRel(st.rel, ext);
     const b64 = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(file); });

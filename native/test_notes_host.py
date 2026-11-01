@@ -509,5 +509,29 @@ for bad in ['../../evil', '70000', '0', 'x']:
     r = call({'op': 'svc_seen', 'port': bad})
     check(r['t'] == 'error' and sorted(os.listdir(touch_dir)) == ['.browser', '5124'], f'a bad port writes nothing: {bad}')
 
+# The one-writer lock: a note folder inside a repo takes <repo>/.git/mnt-sync.lock for every write.
+lockrepo = tempfile.mkdtemp(prefix='bfb-lock-')
+subprocess.run(['git', 'init', '-q', lockrepo], check=True)
+os.makedirs(os.path.join(lockrepo, 'notes'))
+lroot = os.path.join(lockrepo, 'notes')
+LOCKPY = os.path.join(os.path.dirname(HOST), 'notes_lock.py')
+holder = subprocess.Popen([sys.executable, LOCKPY, lockrepo, '--', 'sleep', '2.5'])
+time.sleep(0.6)
+os.environ['BFB_LOCK_WAIT'] = '0.3'
+r = call({'op': 'write', 'root': lroot, 'rel': 'a.md', 'text': 'x'})
+check(r['t'] == 'error' and r['code'] == 'notes_busy', f'a write while another writer holds the lock is notes_busy: {r}')
+check(not os.path.exists(os.path.join(lroot, 'a.md')), 'a refused write leaves nothing behind')
+r = call({'op': 'read', 'root': lroot, 'rel': 'a.md'})
+check(r['code'] == 'notes_missing', 'reads never wait for the lock')
+os.environ['BFB_LOCK_WAIT'] = '5'
+t0 = time.time()
+r = call({'op': 'write', 'root': lroot, 'rel': 'a.md', 'text': 'x'})
+check(r['t'] == 'written' and time.time() - t0 > 0.8, f'a write waits for the lock to clear, then lands: {r["t"]} after {time.time() - t0:.1f}s')
+holder.wait()
+del os.environ['BFB_LOCK_WAIT']
+check(not [f for f in os.listdir(lroot) if '.tmp-' in f], 'no temp file is left beside the note')
+r = call({'op': 'write', 'root': root, 'rel': 'nolock.md', 'text': 'y'})
+check(r['t'] == 'written', 'a folder outside a repo writes with no lock')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

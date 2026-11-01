@@ -36,11 +36,13 @@ notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out.
 """
 import bisect
+import contextlib
 import sys, os, re, json, struct, time, shutil, subprocess
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import notefmt
+import notes_lock
 
 def read_msg():
     raw = sys.stdin.buffer.read(4)
@@ -148,14 +150,25 @@ def op_read(root, rel):
 
 def atomic_write(full, text):
     """Replace a file's text in one step, keeping its permission bits (an
-    executable script stays executable)."""
+    executable script stays executable). The new text is written to a hidden
+    temp file beside it and synced, so a crash leaves the old file or the new
+    one, never half of either."""
+    write_bytes_atomic(full, text.encode('utf-8'), newline_ok=True)
+
+def write_bytes_atomic(full, data, newline_ok=False):
     os.makedirs(os.path.dirname(full), exist_ok=True)
-    tmp = full + '.tmp-' + str(os.getpid())
-    with open(tmp, 'w', encoding='utf-8', newline='') as fh:
-        fh.write(text)
-    if os.path.exists(full):
-        os.chmod(tmp, os.stat(full).st_mode & 0o7777)
-    os.replace(tmp, full)
+    tmp = os.path.join(os.path.dirname(full), '.' + os.path.basename(full) + '.tmp-' + str(os.getpid()))
+    try:
+        with open(tmp, 'wb') as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        if os.path.exists(full):
+            os.chmod(tmp, os.stat(full).st_mode & 0o7777)
+        os.replace(tmp, full)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 def check_editable(full, raw):
     """Refuse files an edit would damage: read-only ones, and ones that are not
@@ -297,13 +310,9 @@ def op_write_binary(root, rel, b64):
         data = base64.b64decode(b64 or '', validate=True)
     except Exception:
         raise NotesError('notes_bad_path', 'attachment payload is not base64')
-    if len(data) > 25 * 1024 * 1024:
-        raise NotesError('notes_io', 'attachment over 25 MB')
-    os.makedirs(os.path.dirname(full), exist_ok=True)
-    tmp = full + '.tmp-' + str(os.getpid())
-    with open(tmp, 'wb') as fh:
-        fh.write(data)
-    os.replace(tmp, full)
+    if len(data) > 20 * 1024 * 1024:
+        raise NotesError('notes_io', 'attachment over 20 MB')
+    write_bytes_atomic(full, data)
     return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
 
 def op_rename(root, rel, to):
@@ -962,7 +971,43 @@ def op_send_thread(root, rel, thread_id, to):
     return {'t': 'sent', 'to': to, 'thread': thread_id}
 
 
+WRITE_OPS = {'write', 'create', 'rename', 'delete', 'restore', 'writeBinary', 'fileWrite', 'commentsWrite'}
+
+def repo_root_of(root):
+    """The git repository (with a .git folder) a notes folder sits in, or None."""
+    here = os.path.abspath(root)
+    while True:
+        if os.path.isdir(os.path.join(here, '.git')):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return None
+        here = parent
+
+@contextlib.contextmanager
+def writer_lock(root):
+    """The one-writer-at-a-time lock the notes spec asks every writer on the Mac to hold
+    (<repo>/.git/mnt-sync.lock, waiting up to 5 seconds). A folder outside a repo has none.
+    BFB_LOCK_WAIT shortens the wait for tests."""
+    repo = repo_root_of(root)
+    if repo is None:
+        yield
+        return
+    try:
+        wait = float(os.environ.get('BFB_LOCK_WAIT') or notes_lock.WAIT_SECONDS)
+        with notes_lock.repo_lock(repo, wait):
+            yield
+    except notes_lock.LockTimeout:
+        raise NotesError('notes_busy', 'another app is writing the notes folder; try again in a moment')
+
 def handle(msg):
+    op = msg.get('op')
+    if op in WRITE_OPS and isinstance(msg.get('root'), str):
+        with writer_lock(resolve_root(msg.get('root'))):
+            return handle_unlocked(msg)
+    return handle_unlocked(msg)
+
+def handle_unlocked(msg):
     op = msg.get('op')
     if op == 'phone': return op_phone(msg.get('action') or 'status')
     if op == 'svc_seen': return op_svc_seen(msg.get('port'))
