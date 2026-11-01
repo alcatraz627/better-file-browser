@@ -3,22 +3,26 @@
 // (spec: one file per link, so two devices saving one link make one file).
 // Nothing here touches the disk or the DOM; saved-sync.ts does that.
 import type { Place } from './types';
-import { parseNote, renderNote, saveKey, normaliseUrl, isoNow, sortNotes, validPos, type ParsedNote } from './notefmt';
+import { parseNote, renderNote, saveKey, normaliseUrl, isoNow, sortNotes, settle, validPos, hasClash, type ParsedNote } from './notefmt';
 import { keyBetween } from './notes';
+import { isWebPath } from './places';
 
-/** The `file://` address of a saved path. A saved view keeps its `#...` part as written. */
+/** The address a saved path is kept under: a web link as it is, a Mac path as `file://` (a saved view keeps its `#...` part). */
 export function placeUrl(path: string): string {
+  if (isWebPath(path)) return path;
   const at = path.indexOf('#');
   const base = at < 0 ? path : path.slice(0, at), hash = at < 0 ? '' : path.slice(at);
   return 'file://' + encodeURI(base).replace(/\?/g, '%3F').replace(/#/g, '%23') + hash;
 }
 
-/** The saved path a `file://` address stands for, or null when it is not one. */
+/** The saved path an address stands for: a Mac path for `file://`, the link itself for the web, null for anything else. */
 export function urlPlace(url: string): string | null {
-  const m = /^file:\/\/(\/[^#]*)(#.*)?$/i.exec(url.trim());
+  const u = url.trim();
+  if (isWebPath(u)) return u;
+  const m = /^file:\/\/(\/[^#]*)(#.*)?$/i.exec(u);
   if (!m) return null;
   let base: string;
-  try { base = decodeURI(m[1]).replace(/%3F/gi, '?').replace(/%23/gi, '#'); } catch { base = m[1]; }
+  try { base = decodeURIComponent(m[1]); } catch { base = m[1]; }
   return base + (m[2] ?? '');
 }
 
@@ -60,25 +64,29 @@ export function placeText(place: Place, pos: string, existing: string | null, no
   note.title = place.label;
   note.tags = place.tags ?? [];
   note.url = placeUrl(place.path);
-  note.device = 'mac';
+  // `device` says which device a file:// link opens on; a web link opens anywhere.
+  note.device = isWebPath(place.path) ? (note.device ?? undefined) : 'mac';
   note.pos = pos;
   note.created = note.created ?? place.created ?? now;
   note.body = note.body ?? '';
   return renderNote(note);
 }
 
-/** A Saved row from a save file, or null when the file is not a save this Mac opens
- *  (no url, not a `file://` link, or a link for the phone). */
+/** A Saved row from a save file, or null when the file is not a save this Mac shows: no url, or a `file://`
+ *  link made for the phone. A web link shows on every device. A file holding a clash is read from
+ *  whichever side still has a url, and the row carries `clash` (the file's name) until it is settled. */
 export function textPlace(text: string, key: string): Place | null {
-  const n = parseNote(text, key);
-  if (n.conflicted || !n.url || (n.device && n.device !== 'mac')) return null;
+  const clash = hasClash(text);
+  const src = clash ? [settle(text, 'first'), settle(text, 'second')].find(t => parseNote(t, key).url) ?? '' : text;
+  const n = parseNote(src, key);
+  if (!n.url) return null;
   const path = urlPlace(n.url);
-  if (path === null) return null;
-  return { path, label: n.title || path.replace(/\/$/, '').split('/').pop() || path, ...(n.tags.length ? { tags: n.tags } : {}),
-           ...(n.pos ? { pos: n.pos } : {}), ...(n.created ? { created: n.created } : {}) };
+  if (path === null || (!isWebPath(path) && n.device && n.device !== 'mac')) return null;
+  return { path, label: n.title || path.replace(/\/$/, '').split('/').pop() || path, key, ...(n.tags.length ? { tags: n.tags } : {}),
+           ...(n.pos ? { pos: n.pos } : {}), ...(n.created ? { created: n.created } : {}), ...(clash ? { clash: key } : {}) };
 }
 
-/** The saved list as the folder says it: Mac saves in the shared order. */
+/** The saved list as the folder says it, in the shared order. */
 export function placesFromFiles(files: { key: string; text: string }[]): Place[] {
   const rows: { id: string; pos: string | null; created: string | null; place: Place }[] = [];
   for (const f of files) {
@@ -95,11 +103,23 @@ function sameSave(a: string, b: string, key: string): boolean {
     && x.tags.join('\n') === y.tags.join('\n') && x.body === y.body;
 }
 
-export interface SavedPlan { writes: { key: string; text: string }[]; removes: string[]; placed: Place[] }
+export interface SavedPlan {
+  writes: { key: string; text: string }[];
+  /** Files to remove: only keys this browser knew and the person has since taken out. */
+  removes: string[];
+  /** The list with positions and dates filled in. */
+  placed: Place[];
+  /** The keys the list stands for: what this browser now knows to be in the folder. */
+  keys: string[];
+}
 
-/** What to write so the folder holds exactly `list`: changed or new files, and the files of
- *  Mac saves that left the list. Saves that are not this Mac's (other devices, web links) are never touched. */
-export async function planSaved(list: Place[], files: { key: string; text: string }[], now = isoNow()): Promise<SavedPlan> {
+/**
+ * What to write so the folder holds what `list` says. `known` is the set of files this browser had seen when
+ * it last read or wrote the folder; only a known file that has left the list is removed, so a save another
+ * device added since is never taken for a removal. Pass null to remove nothing. A row holding a clash is
+ * never rewritten or removed.
+ */
+export async function planSaved(list: Place[], files: { key: string; text: string }[], known: Set<string> | null = null, now = isoNow()): Promise<SavedPlan> {
   const byKey = new Map(files.map(f => [f.key, f.text]));
   // A file that holds a link under another name (an older app) is kept under that name, not rewritten.
   const keyOfUrl = new Map<string, string>();
@@ -109,14 +129,15 @@ export async function planSaved(list: Place[], files: { key: string; text: strin
   const wanted = new Set<string>();
   const placed: Place[] = [];
   for (let i = 0; i < list.length; i++) {
-    const key = keyOfUrl.get(normaliseUrl(placeUrl(list[i].path))) ?? await placeKey(list[i].path);
+    const key = list[i].clash ?? keyOfUrl.get(normaliseUrl(placeUrl(list[i].path))) ?? await placeKey(list[i].path);
     if (wanted.has(key)) continue;
     wanted.add(key);
+    if (list[i].clash) { placed.push({ ...list[i], key }); continue; }
     const text = placeText(list[i], poss[i], byKey.get(key) ?? null, now);
     const was = byKey.get(key);
     if (was === undefined || !sameSave(was, text, key)) writes.push({ key, text });
-    placed.push({ ...list[i], pos: poss[i], created: parseNote(text, key).created ?? undefined });
+    placed.push({ ...list[i], key, pos: poss[i], created: parseNote(text, key).created ?? undefined });
   }
-  const removes = files.filter(f => !wanted.has(f.key) && textPlace(f.text, f.key)).map(f => f.key);
-  return { writes, removes, placed };
+  const removes = known ? [...known].filter(k => !wanted.has(k) && byKey.has(k)) : [];
+  return { writes, removes, placed, keys: [...wanted] };
 }

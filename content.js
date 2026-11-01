@@ -260,6 +260,7 @@
   }
 
   // src/places.ts
+  var isWebPath = (path) => /^[a-z][a-z0-9+.-]*:\/\//i.test(path) && !/^file:/i.test(path);
   function samePlace(a, b) {
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
@@ -1305,7 +1306,9 @@
   }
   function noteTitle(rel, text) {
     const name2 = rel.split("/").pop().replace(/\.md$/i, "");
-    return (text ? parseNote(text, name2).title : "") || name2;
+    if (!text) return name2;
+    const p = parseNote(text, name2);
+    return p.title || (p.conflicted ? name2 : deriveTitle(p.body, name2));
   }
   function setTitle(text, title) {
     return splitNote(text).head ? setField(text, "title", JSON.stringify(title)) : null;
@@ -1331,9 +1334,9 @@
   }
   var settleClash = (text, keep) => settle(text, keep);
   function clashSides(text) {
-    const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
-    if (!a || !b) return null;
-    const name2 = (m) => m === "HEAD" ? "this Mac's" : m === "origin/main" ? "the other device's" : m === "github" ? "the saved version's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
+    if (!hasClash(text)) return null;
+    const a = text.match(/^<<<<<<< (.+)$/m)?.[1] ?? "the first version", b = text.match(/^>>>>>>> (.+)$/m)?.[1] ?? "the second version";
+    const name2 = (m) => m === "the first version" || m === "the second version" ? m : m === "HEAD" ? "this Mac's" : m === "origin/main" ? "the other device's" : m === "github" ? "the saved version's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
     return [name2(a.trim()), name2(b.trim())];
   }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
@@ -6439,27 +6442,27 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return true;
   }
   function doubleQuotedString(value, ctx) {
-    const json = JSON.stringify(value);
+    const json2 = JSON.stringify(value);
     if (ctx.options.doubleQuotedAsJSON)
-      return json;
+      return json2;
     const { implicitKey } = ctx;
     const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
     const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
     let str = "";
     let start = 0;
-    for (let i3 = 0, ch = json[i3]; ch; ch = json[++i3]) {
-      if (ch === " " && json[i3 + 1] === "\\" && json[i3 + 2] === "n") {
-        str += json.slice(start, i3) + "\\ ";
+    for (let i3 = 0, ch = json2[i3]; ch; ch = json2[++i3]) {
+      if (ch === " " && json2[i3 + 1] === "\\" && json2[i3 + 2] === "n") {
+        str += json2.slice(start, i3) + "\\ ";
         i3 += 1;
         start = i3;
         ch = "\\";
       }
       if (ch === "\\")
-        switch (json[i3 + 1]) {
+        switch (json2[i3 + 1]) {
           case "u":
             {
-              str += json.slice(start, i3);
-              const code = json.substr(i3 + 2, 4);
+              str += json2.slice(start, i3);
+              const code = json2.substr(i3 + 2, 4);
               switch (code) {
                 case "0000":
                   str += "\\0";
@@ -6489,23 +6492,23 @@ ${indent}${text.slice(fold + 1, end2)}`;
                   if (code.substr(0, 2) === "00")
                     str += "\\x" + code.substr(2);
                   else
-                    str += json.substr(i3, 6);
+                    str += json2.substr(i3, 6);
               }
               i3 += 5;
               start = i3 + 1;
             }
             break;
           case "n":
-            if (implicitKey || json[i3 + 2] === '"' || json.length < minMultiLineLength) {
+            if (implicitKey || json2[i3 + 2] === '"' || json2.length < minMultiLineLength) {
               i3 += 1;
             } else {
-              str += json.slice(start, i3) + "\n\n";
-              while (json[i3 + 2] === "\\" && json[i3 + 3] === "n" && json[i3 + 4] !== '"') {
+              str += json2.slice(start, i3) + "\n\n";
+              while (json2[i3 + 2] === "\\" && json2[i3 + 3] === "n" && json2[i3 + 4] !== '"') {
                 str += "\n";
                 i3 += 2;
               }
               str += indent;
-              if (json[i3 + 2] === " ")
+              if (json2[i3 + 2] === " ")
                 str += "\\";
               i3 += 1;
               start = i3 + 1;
@@ -6515,7 +6518,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
             i3 += 1;
         }
     }
-    str = start ? str + json.slice(start) : json;
+    str = start ? str + json2.slice(start) : json2;
     return implicitKey ? str : foldFlowLines(str, indent, FOLD_QUOTED, getFoldOptions(ctx, false));
   }
   function singleQuotedString(value, ctx) {
@@ -8584,11 +8587,11 @@ ${cn.comment}` : item2.comment;
         throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
     }
     // json & jsonArg are only used from toJSON()
-    toJS({ json, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+    toJS({ json: json2, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
       const ctx = {
         anchors: /* @__PURE__ */ new Map(),
         doc: this,
-        keep: !json,
+        keep: !json2,
         mapAsMap: mapAsMap === true,
         mapKeyWarned: false,
         maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
@@ -19055,6 +19058,7 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-chip-rem.missed,.fe-chip-exp.expired{color:var(--gold)}.fe-chip-url-t{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
 .fe-hp-wait.faded{opacity:.55}.fe-hp-wait[data-kind="reminder"] .fe-hp-link-tags i{color:var(--gold)}
+.fe-clash-btn{color:var(--gold);flex:none}.fe-pl-item.fe-clash .fe-pl-label{color:var(--gold)}.fe-clash-menu{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}
 .fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"],.fe-where[data-state="trouble"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
@@ -21077,7 +21081,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
     let base2 = doc.text;
     let saving = false;
-    let failed = "";
+    let failed2 = "";
     const saved = modePref.get();
     let mode = fmt && saved && MODES.some((m) => m.id === saved) ? saved : "raw";
     if (mode === "split" && matchMedia("(max-width:760px)").matches) mode = "raw";
@@ -21268,9 +21272,9 @@ and ${diags.length - 12} more` : "");
     };
     const paint = () => {
       const dirty = isDirty();
-      state.innerHTML = saving ? "Saving\u2026" : failed && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
-      state.className = saving ? "busy" : failed && dirty ? "failed" : dirty ? "dirty" : "saved";
-      state.title = failed && dirty ? failed : "";
+      state.innerHTML = saving ? "Saving\u2026" : failed2 && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
+      state.className = saving ? "busy" : failed2 && dirty ? "failed" : dirty ? "dirty" : "saved";
+      state.title = failed2 && dirty ? failed2 : "";
       renderView();
     };
     let shown = "";
@@ -21323,7 +21327,7 @@ and ${diags.length - 12} more` : "");
         const r = await notes.fileWrite(host.root, host.rel, text, expect);
         doc = { text, mtime: r.mtime };
         base2 = text;
-        failed = "";
+        failed2 = "";
         banner.hidden = true;
         diffBox.hidden = true;
         host.saved(text);
@@ -21336,8 +21340,8 @@ and ${diags.length - 12} more` : "");
             retryAt = now.mtime;
           } else showConflict();
         } else {
-          failed = errorText(e, "Saving");
-          host.status(failed);
+          failed2 = errorText(e, "Saving");
+          host.status(failed2);
         }
       } finally {
         saving = false;
@@ -21850,7 +21854,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     let notesLine = [];
     let filter = filterPref.get();
     let active = "";
-    let loaded = false, failed = "";
+    let loaded = false, failed2 = "";
     let lastCompanion = null, lastText = "";
     let draft = null;
     let editing = "";
@@ -21908,7 +21912,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
       r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
       threads = r.threads;
-      failed = "";
+      failed2 = "";
       loaded = true;
     };
     const load = async () => {
@@ -21925,7 +21929,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         take(r);
         notesLine = r.notes;
       } catch (e) {
-        failed = errorText(e, "Reading the comments");
+        failed2 = errorText(e, "Reading the comments");
         loaded = true;
       }
       paint();
@@ -22115,8 +22119,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         o.box.innerHTML = emptyHtml("loading", "Loading comments\u2026");
         return;
       }
-      if (failed) {
-        o.box.innerHTML = emptyHtml("failed", "Comments could not be read", { icon: UI_ICON.info, hint: failed, actions: [{ a: "retry", label: "Try again", title: "Read the comments again" }] });
+      if (failed2) {
+        o.box.innerHTML = emptyHtml("failed", "Comments could not be read", { icon: UI_ICON.info, hint: failed2, actions: [{ a: "retry", label: "Try again", title: "Read the comments again" }] });
         return;
       }
       const list3 = visible2();
@@ -22590,7 +22594,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return;
       }
       if (a === "retry") {
-        failed = "";
+        failed2 = "";
         loaded = false;
         paint();
         void load();
@@ -25366,7 +25370,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
   async function searchContents(files, read2, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
     const hits = /* @__PURE__ */ new Map();
-    let scanned = 0, failed = 0, next = 0;
+    let scanned = 0, failed2 = 0, next = 0;
     const worker = async () => {
       while (next < files.length && !isCancelled()) {
         const f = files[next++];
@@ -25377,7 +25381,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           if (isCancelled()) break;
           if (hit) hits.set(f.href, hit);
         } catch {
-          failed++;
+          failed2++;
         }
         if (isCancelled()) break;
         scanned++;
@@ -25385,7 +25389,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       }
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
-    return { hits, scanned, failed, cancelled: isCancelled() };
+    return { hits, scanned, failed: failed2, cancelled: isCancelled() };
   }
   function findToHash(q) {
     return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
@@ -25509,16 +25513,20 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     if (!saved.length) return emptyHtml("filtered", "No saved item matches", { inline: true, actions: [CLEAR] });
     const VIEW_ICON = `${GLYPH.filter}`;
     const row2 = (p) => {
-      const n = p.tags?.length ?? 0, hit = hits.get(p.path);
+      const n = p.tags?.length ?? 0, hit = hits.get(p.path), web = isWebPath(p.path);
+      const href = web ? esc(p.path) : isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path);
+      const icon2 = web ? UI_ICON.link : isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder;
+      const name2 = p.label || (web ? p.path.replace(/^[a-z]+:\/\//i, "") : p.path.split("/").filter(Boolean).pop() || "/");
       return `
-    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
+    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}${web ? " fe-web" : ""}${p.clash ? " fe-clash" : ""}" draggable="true" data-path="${esc(p.path)}"${p.clash ? ` data-clash="${esc(p.clash)}"` : ""}>
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
-        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
+      <a href="${href}"${web ? ' target="_blank" rel="noopener noreferrer"' : ""} class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
+        ${icon2}<span class="fe-sl fe-pl-label">${esc(name2)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>
+      ${web ? "" : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
@@ -28050,8 +28058,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       sub: (p.tags ?? []).map((t) => "#" + t).join(" ") || "saved",
       group: "Saved",
       icon: PI.bm,
-      run: () => app.strip.go(p.path),
-      runAlt: () => app.strip.open(p.path, true)
+      run: () => isWebPath(p.path) ? void window.open(p.path, "_blank", "noopener") : app.strip.go(p.path),
+      runAlt: () => isWebPath(p.path) ? void window.open(p.path, "_blank", "noopener") : app.strip.open(p.path, true)
     })));
     addPaletteSource(() => getRecents().slice(0, 30).map((r) => ({
       title: r.path.split("/").filter(Boolean).pop() || "/",
@@ -28205,16 +28213,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
   // src/saved-files.ts
   function placeUrl(path) {
+    if (isWebPath(path)) return path;
     const at = path.indexOf("#");
     const base2 = at < 0 ? path : path.slice(0, at), hash = at < 0 ? "" : path.slice(at);
     return "file://" + encodeURI(base2).replace(/\?/g, "%3F").replace(/#/g, "%23") + hash;
   }
   function urlPlace(url) {
-    const m = /^file:\/\/(\/[^#]*)(#.*)?$/i.exec(url.trim());
+    const u = url.trim();
+    if (isWebPath(u)) return u;
+    const m = /^file:\/\/(\/[^#]*)(#.*)?$/i.exec(u);
     if (!m) return null;
     let base2;
     try {
-      base2 = decodeURI(m[1]).replace(/%3F/gi, "?").replace(/%23/gi, "#");
+      base2 = decodeURIComponent(m[1]);
     } catch {
       base2 = m[1];
     }
@@ -28262,23 +28273,27 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     note2.title = place.label;
     note2.tags = place.tags ?? [];
     note2.url = placeUrl(place.path);
-    note2.device = "mac";
+    note2.device = isWebPath(place.path) ? note2.device ?? void 0 : "mac";
     note2.pos = pos;
     note2.created = note2.created ?? place.created ?? now;
     note2.body = note2.body ?? "";
     return renderNote(note2);
   }
   function textPlace(text, key) {
-    const n = parseNote(text, key);
-    if (n.conflicted || !n.url || n.device && n.device !== "mac") return null;
+    const clash = hasClash(text);
+    const src = clash ? [settle(text, "first"), settle(text, "second")].find((t) => parseNote(t, key).url) ?? "" : text;
+    const n = parseNote(src, key);
+    if (!n.url) return null;
     const path = urlPlace(n.url);
-    if (path === null) return null;
+    if (path === null || !isWebPath(path) && n.device && n.device !== "mac") return null;
     return {
       path,
       label: n.title || path.replace(/\/$/, "").split("/").pop() || path,
+      key,
       ...n.tags.length ? { tags: n.tags } : {},
       ...n.pos ? { pos: n.pos } : {},
-      ...n.created ? { created: n.created } : {}
+      ...n.created ? { created: n.created } : {},
+      ...clash ? { clash: key } : {}
     };
   }
   function placesFromFiles(files) {
@@ -28293,7 +28308,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const x2 = parseNote(a, key), y = parseNote(b, key);
     return !x2.conflicted && x2.title === y.title && x2.url === y.url && x2.device === y.device && x2.pos === y.pos && x2.tags.join("\n") === y.tags.join("\n") && x2.body === y.body;
   }
-  async function planSaved(list3, files, now = isoNow()) {
+  async function planSaved(list3, files, known = null, now = isoNow()) {
     const byKey = new Map(files.map((f) => [f.key, f.text]));
     const keyOfUrl = /* @__PURE__ */ new Map();
     for (const f of files) {
@@ -28305,26 +28320,33 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const wanted2 = /* @__PURE__ */ new Set();
     const placed = [];
     for (let i3 = 0; i3 < list3.length; i3++) {
-      const key = keyOfUrl.get(normaliseUrl(placeUrl(list3[i3].path))) ?? await placeKey(list3[i3].path);
+      const key = list3[i3].clash ?? keyOfUrl.get(normaliseUrl(placeUrl(list3[i3].path))) ?? await placeKey(list3[i3].path);
       if (wanted2.has(key)) continue;
       wanted2.add(key);
+      if (list3[i3].clash) {
+        placed.push({ ...list3[i3], key });
+        continue;
+      }
       const text = placeText(list3[i3], poss[i3], byKey.get(key) ?? null, now);
       const was = byKey.get(key);
       if (was === void 0 || !sameSave(was, text, key)) writes.push({ key, text });
-      placed.push({ ...list3[i3], pos: poss[i3], created: parseNote(text, key).created ?? void 0 });
+      placed.push({ ...list3[i3], key, pos: poss[i3], created: parseNote(text, key).created ?? void 0 });
     }
-    const removes = files.filter((f) => !wanted2.has(f.key) && textPlace(f.text, f.key)).map((f) => f.key);
-    return { writes, removes, placed };
+    const removes = known ? [...known].filter((k) => !wanted2.has(k) && byKey.has(k)) : [];
+    return { writes, removes, placed, keys: [...wanted2] };
   }
 
   // src/saved-sync.ts
   var BACKUP_SAVED = "bfb-saved-premigration-v1";
   var BACKUP_TAGS = "bfb-tags-premigration-v1";
   var OFF_KEY = "bfb-saved-folder-off-v1";
+  var MOVED_KEY = "bfb-saved-moved-v1";
+  var KNOWN_KEY = "bfb-saved-known-v1";
+  var COLOURS_KEY = "bfb-saved-colours-v1";
   var where = "unknown";
   var whereWhy = "";
   var watchers2 = [];
-  var savedWhere = () => ({ where, why: whereWhy });
+  var savedWhere = () => ({ where, why: whereWhy, clashes: getSaved().filter((p) => p.clash).length, backup: kvGet(BACKUP_SAVED) !== null && kvGet(OFF_KEY) !== "1" });
   var onSavedWhere = (fn) => {
     watchers2.push(fn);
   };
@@ -28332,27 +28354,55 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     if (w !== where || why !== whereWhy) {
       where = w;
       whereWhy = why;
-      watchers2.forEach((f) => f());
     }
+    watchers2.forEach((f) => f());
   }
   var hooks = null;
   var root = () => (getSettings().notesRoot || "").replace(/\/$/, "");
-  var coloursOf = (tags) => Object.fromEntries(tags.map((t) => [t.name, t.color]));
+  var json = (key, fallback) => {
+    try {
+      return JSON.parse(kvGet(key) ?? "null") ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  var isMoved = (r) => json(MOVED_KEY, {}).root === r;
+  var markMoved = (r) => kvSet(MOVED_KEY, JSON.stringify({ root: r, at: Date.now() }));
+  var knownKeys = (r) => {
+    const k = json(KNOWN_KEY, {});
+    return new Set(k.root === r ? k.keys ?? [] : []);
+  };
+  var setKnown = (r, keys2) => kvSet(KNOWN_KEY, JSON.stringify({ root: r, keys: keys2 }));
+  var knownColours = (r) => {
+    const k = json(COLOURS_KEY, {});
+    return k.root === r ? k.colours ?? {} : {};
+  };
+  var setColours = (r, colours) => kvSet(COLOURS_KEY, JSON.stringify({ root: r, colours }));
   async function pushSaved(r = root(), createOnly = false) {
     const cur = await notes.savedList(r);
     const list3 = getSaved();
     const snapshot2 = JSON.stringify(list3);
-    const plan = await planSaved(list3, cur.items);
-    const colours = coloursOf(getTags());
-    const known = cur.tags ?? {};
-    const tags = Object.fromEntries(Object.entries(colours).filter(([n, c]) => known[n] !== c));
-    const batch = await notes.savedSync(r, { writes: plan.writes, removes: createOnly ? [] : plan.removes, tags, createOnly });
+    const plan = await planSaved(list3, cur.items, createOnly ? null : knownKeys(r));
+    const was = knownColours(r), folderTags = cur.tags ?? {};
+    const tags = Object.fromEntries(getTags().filter((t) => was[t.name] === void 0 ? folderTags[t.name] === void 0 : t.color !== was[t.name]).map((t) => [t.name, t.color]));
+    const batch = await notes.savedSync(r, { writes: plan.writes, removes: plan.removes, tags, createOnly });
+    setKnown(r, plan.keys);
+    setColours(r, { ...folderTags, ...tags });
     if (JSON.stringify(getSaved()) === snapshot2) {
       setSavedQuiet(plan.placed);
       markSavedSent();
     }
     setWhere("folder");
     return { written: batch.written.length, removed: batch.removed.length };
+  }
+  function adopt(r, got) {
+    const next = placesFromFiles(got.items);
+    const before = JSON.stringify(getSaved()), regBefore = kvGet(TAGS_KEY);
+    setSavedFromFolder(next, got.tags ?? void 0);
+    setKnown(r, next.map((p) => p.key));
+    setColours(r, got.tags ?? {});
+    setWhere("folder");
+    if (JSON.stringify(getSaved()) !== before || kvGet(TAGS_KEY) !== regBefore) hooks?.refresh();
   }
   async function pullSaved() {
     const r = root();
@@ -28371,66 +28421,98 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       setWhere("unreachable", e instanceof NotesError ? e.message : String(e));
       return "none";
     }
-    if (!got.exists) {
+    if (!isMoved(r)) {
       if (onPhone()) {
-        setWhere("folder");
-        return "none";
+        if (!got.exists && !savedUnsent()) {
+          setWhere("folder");
+          return "none";
+        }
+        if (savedUnsent()) await pushSaved(r, true);
+        markMoved(r);
+        adopt(r, await notes.savedList(r));
+        return "pulled";
       }
-      return migrateSaved(r);
+      return firstMove(r, got);
     }
     if (savedUnsent()) {
       await pushSaved(r);
-      hooks?.refresh();
+      adopt(r, await notes.savedList(r));
       return "pushed";
     }
-    const next = placesFromFiles(got.items);
-    const before = JSON.stringify(getSaved()), regBefore = kvGet(TAGS_KEY);
-    setSavedFromFolder(next, got.tags ?? void 0);
-    setWhere("folder");
-    if (JSON.stringify(getSaved()) !== before || kvGet(TAGS_KEY) !== regBefore) hooks?.refresh();
+    adopt(r, got);
     return "pulled";
   }
-  async function migrateSaved(r) {
+  async function firstMove(r, got) {
     const rows = getSaved();
     if (!rows.length) {
-      await notes.savedSync(r, {});
-      setWhere("folder");
-      return "none";
+      markMoved(r);
+      adopt(r, got);
+      return "pulled";
     }
     if (kvGet(BACKUP_SAVED) === null) {
       kvSet(BACKUP_SAVED, kvGet(SAVED_KEY) ?? "[]");
       kvSet(BACKUP_TAGS, kvGet(TAGS_KEY) ?? "[]");
     }
     const done = await pushSaved(r, true);
+    markMoved(r);
+    const after = await notes.savedList(r);
+    adopt(r, after);
     hooks?.refresh();
-    hooks?.toast(`Saved now lives in your notes folder: ${done.written} ${done.written === 1 ? "save" : "saves"} in .saved/`, 12e3, { label: "undo", run: () => void undoMigration(r) });
+    const joined = after.items.length - done.written > 0 ? `, beside ${after.items.length - done.written} already there` : "";
+    hooks?.toast(`Saved now lives in your notes folder: ${done.written} ${done.written === 1 ? "save" : "saves"} written to .saved/${joined}`, 12e3, { label: "undo", run: () => void undoMigration(r) });
     return "migrated";
   }
   async function undoMigration(r = root()) {
     const savedBackup = kvGet(BACKUP_SAVED), tagsBackup = kvGet(BACKUP_TAGS);
     if (savedBackup === null || !r) return;
     const cur = await notes.savedList(r);
-    const mine = (await planSaved(JSON.parse(savedBackup), [])).writes.map((w) => w.key);
-    const gone = cur.items.map((i3) => i3.key).filter((k) => mine.includes(k));
-    await notes.savedSync(r, { removes: gone });
+    const mine = (await planSaved(JSON.parse(savedBackup), cur.items)).keys;
+    await notes.savedSync(r, { removes: cur.items.map((i3) => i3.key).filter((k) => mine.includes(k)) });
     kvSet(SAVED_KEY, savedBackup);
     if (tagsBackup !== null) kvSet(TAGS_KEY, tagsBackup);
     markSavedSent();
     kvRemove(BACKUP_SAVED);
     kvRemove(BACKUP_TAGS);
+    kvRemove(MOVED_KEY);
+    kvRemove(KNOWN_KEY);
+    kvRemove(COLOURS_KEY);
     kvSet(OFF_KEY, "1");
     setWhere("browser", "Saved was moved back to this browser.");
     hooks?.refresh();
     hooks?.toast("Saved is back where it was");
   }
+  async function restoreBackup() {
+    const savedBackup = kvGet(BACKUP_SAVED);
+    if (savedBackup === null) return;
+    const old = JSON.parse(savedBackup), now = getSaved();
+    const back = old.filter((o) => !now.some((n) => samePlace(n.path, o.path)));
+    const tagsBackup = json(BACKUP_TAGS, []), reg = json(TAGS_KEY, []);
+    kvSet(TAGS_KEY, JSON.stringify([...reg, ...tagsBackup.filter((t) => !reg.some((x2) => x2.name === t.name))]));
+    kvSet(SAVED_KEY, JSON.stringify([...now, ...back]));
+    kvSet(SAVED_DIRTY_KEY, "1");
+    hooks?.refresh();
+    schedulePush();
+    hooks?.toast(back.length ? `Brought back ${back.length} ${back.length === 1 ? "row" : "rows"} from before the move` : "Every row from before the move is already here");
+  }
+  async function settleSave(key, keep) {
+    const r = root();
+    const cur = await notes.savedList(r);
+    const item2 = cur.items.find((i3) => i3.key === key);
+    if (!item2) return;
+    await notes.savedSync(r, { writes: [{ key, text: settle(item2.text, keep) }] });
+    await pullSavedNow();
+    hooks?.refresh();
+  }
   var timer2 = null;
   var busy = Promise.resolve();
+  var failed = (e) => setWhere("unreachable", e instanceof NotesError ? e.message : String(e));
   function schedulePush() {
-    if (!root() || kvGet(OFF_KEY) === "1") return;
+    const r = root();
+    if (!r || kvGet(OFF_KEY) === "1") return;
     if (timer2) clearTimeout(timer2);
     timer2 = setTimeout(() => {
       timer2 = null;
-      busy = busy.then(() => pushSaved().catch((e) => setWhere("unreachable", e instanceof NotesError ? e.message : String(e))));
+      busy = busy.then(() => (isMoved(r) ? pushSaved() : pullSaved()).then(() => void 0).catch(failed));
     }, 300);
   }
   var lastPull = 0;
@@ -28452,7 +28534,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   var pullSavedNow = () => busy = busy.then(() => pullSaved().catch(() => void 0));
   function enableSavedFolder() {
     kvRemove(OFF_KEY);
-    kvSet(SAVED_DIRTY_KEY, "1");
     return pullSavedNow();
   }
 
@@ -28792,6 +28873,27 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           tagsEl.textContent = (getSaved().find((p) => p.path === path)?.tags ?? []).join(", ");
           tagsEl.classList.add("show");
           inlineEdit(tagsEl, (val) => saveSaved(setTags(getSaved(), path, parseTags(val))));
+        });
+      });
+      els(".fe-clash-btn", svList).forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const key = btn.dataset.key;
+          const menu = document.createElement("div");
+          menu.className = "fe-pmenu fe-clash-menu";
+          menu.innerHTML = `<div class="fe-pm-lbl">Keep</div>
+          <button class="btn" data-size="sm" data-keep="first" role="menuitem">The first version</button>
+          <button class="btn" data-size="sm" data-keep="second" role="menuitem">The second version</button>
+          <button class="btn" data-size="sm" data-keep="both" role="menuitem">Both</button>`;
+          let layer = null;
+          menu.addEventListener("click", (ev) => {
+            const k = ev.target.closest("[data-keep]")?.dataset.keep;
+            if (!k) return;
+            layer?.close("pick");
+            void settleSave(key, k).then(() => toast("Settled"), (err) => toast(errorText(err, "Settling the save")));
+          });
+          layer = openLayer(menu, { kind: "popover", anchor: btn, role: "menu", group: "menu" });
         });
       });
       els(".fe-sv-dot", svList).forEach((dot) => {
@@ -29151,7 +29253,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const words = q.split(/\s+/);
       insideTimer = setTimeout(async () => {
         const found = /* @__PURE__ */ new Map();
-        await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path)).map(async (p) => {
+        await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path) && !isWebPath(p.path)).map(async (p) => {
           const name2 = (await namesIn2(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
           if (name2) found.set(p.path, name2);
         }));
@@ -29518,11 +29620,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
     const svWhere = el("fe-sv-where");
     const paintWhere = () => {
-      const { where: where2, why } = savedWhere();
+      const { where: where2, why, clashes, backup } = savedWhere();
       svWhere.hidden = where2 === "unknown";
       svWhere.dataset.state = where2;
-      svWhere.innerHTML = where2 === "folder" ? "Kept in your notes folder" : where2 === "unreachable" ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ""}` : `Kept only in this browser. ${esc(why)}${why.includes("moved back") ? ' <button type="button" class="btn" data-size="sm" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ""}`;
+      const two = clashes ? ` ${clashes} ${clashes === 1 ? "save holds" : "saves hold"} two versions after a merge: choose which to keep.` : "";
+      const back = backup ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Put back the rows this browser had before Saved moved to the folder, beside what is there now">Bring back my earlier rows</button>' : "";
+      svWhere.innerHTML = where2 === "folder" ? `Kept in your notes folder.${two}${back}` : where2 === "unreachable" ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ""}` : `Kept only in this browser. ${esc(why)}${why.includes("moved back") ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ""}`;
       document.getElementById("fe-sv-where-on")?.addEventListener("click", () => void enableSavedFolder());
+      document.getElementById("fe-sv-where-back")?.addEventListener("click", () => void restoreBackup());
     };
     onSavedWhere(paintWhere);
     paintWhere();
@@ -29629,7 +29734,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (cancelled()) return;
       const elsewhere = [saves.length ? `${saves.length} saved` : "", threads.length ? `${threads.length} comment${threads.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
       status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (elsewhere ? `; also ${elsewhere}` : "") + (limit ? ` (${limit})` : "");
-      const extra = (saves.length ? `<div class="sect fe-srch-sect" data-level="group">Saved<span class="fe-grp-n">${saves.length}</span></div>` + saves.map((p) => `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${p.path.endsWith("/") ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map((t) => "#" + t).join(" ") || p.path)}</span></span></a>`).join("") : "") + (threads.length ? `<div class="sect fe-srch-sect" data-level="group">Comments<span class="fe-grp-n">${threads.length}</span></div>` + threads.map((t) => `<a class="row fe-si fe-srch-hit fe-srch-comment" href="${esc(pageHref(fileHref(t.doc)))}" title="${esc(t.doc)}">${UI_ICON.opinion}<span class="fe-srch-tx"><span class="fe-sl">${esc(t.doc.split("/").pop() ?? t.doc)}${t.status === "done" ? " (done)" : ""}</span><span class="fe-srch-snip">${esc(t.line)}</span></span></a>`).join("") : "");
+      const extra = (saves.length ? `<div class="sect fe-srch-sect" data-level="group">Saved<span class="fe-grp-n">${saves.length}</span></div>` + saves.map((p) => `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(isWebPath(p.path) ? p.path : pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${isWebPath(p.path) ? UI_ICON.link : p.path.endsWith("/") ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map((t) => "#" + t).join(" ") || p.path)}</span></span></a>`).join("") : "") + (threads.length ? `<div class="sect fe-srch-sect" data-level="group">Comments<span class="fe-grp-n">${threads.length}</span></div>` + threads.map((t) => `<a class="row fe-si fe-srch-hit fe-srch-comment" href="${esc(pageHref(fileHref(t.doc)))}" title="${esc(t.doc)}">${UI_ICON.opinion}<span class="fe-srch-tx"><span class="fe-sl">${esc(t.doc.split("/").pop() ?? t.doc)}${t.status === "done" ? " (done)" : ""}</span><span class="fe-srch-snip">${esc(t.line)}</span></span></a>`).join("") : "");
       list3.innerHTML = hits.map(([href, h]) => {
         const name2 = relativeName(href, root2);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
@@ -31457,10 +31562,10 @@ ${rows.join("\n")}`, name: subject };
     const quiet = [...d.repos.filter((r) => !r.onYou).map(repoRow), ...d.pages.filter((p) => p.state !== "waiting").map((r) => pageRow(r))];
     const n = waiting.length + asks.length;
     const card5 = n ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map((r) => pageRow(r)).join("")}${asks.map(repoRow).join("")}</section>` : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
-    const failed = d.pagesFailed ? none("Decision pages could not be listed") : "";
+    const failed2 = d.pagesFailed ? none("Decision pages could not be listed") : "";
     const chats = allShown ? d.chats : d.chats.slice(0, SIDE_CHATS);
     const chatBody = (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length);
-    return `<header class="fe-home-head">${esc(today())}</header>${card5}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
+    return `<header class="fe-home-head">${esc(today())}</header>${card5}${failed2}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
   }
   var STAT_LOOK = {
     waiting: { icon: UI_ICON.opinion, tone: "var(--nc-blue)", to: "Show the decisions waiting" },
@@ -31489,10 +31594,10 @@ ${rows.join("\n")}`, name: subject };
   var linkCard = (l) => {
     const dir = l.path.endsWith("/");
     const ext2 = l.label.includes(".") ? l.label.split(".").pop().toLowerCase() : "";
-    const ico = l.kind === "note" ? UI_ICON.notes : dir ? PI.folder : icoFile(ext2);
+    const ico = l.kind === "note" ? UI_ICON.notes : isWebPath(l.path) ? UI_ICON.link : dir ? PI.folder : icoFile(ext2);
     const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map((t) => `<i>${esc(t)}</i>`).join("")}</span>` : "";
     const end = l.kind === "recent" ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>` : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
-    return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
+    return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(isWebPath(l.path) ? l.path : pageHref(fileHref(l.path)))}"${isWebPath(l.path) ? ' target="_blank" rel="noopener noreferrer"' : ""} data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
   };
   var toolRow = (s) => {
     const end = s.up ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>` : "";

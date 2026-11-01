@@ -20,7 +20,7 @@ import { addPaletteSource, bind } from './commands';
 import { bareLabel, closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
 import { jsonPref, textPref, getSaved } from './storage';
-import { filterSaved } from './places';
+import { filterSaved, isWebPath } from './places';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { checkHtml, ddHtml, upgradeControls, type DropdownEl, type Opt } from './controls';
@@ -103,7 +103,7 @@ function initSearch(app: App): void {
       ? `${total} match${total === 1 ? '' : 'es'} in ${hits.length} file${hits.length === 1 ? '' : 's'}`
       : `No file here contains "${term}".`) + (elsewhere ? `; also ${elsewhere}` : '') + (limit ? ` (${limit})` : '');
     const extra = (saves.length ? `<div class="sect fe-srch-sect" data-level="group">Saved<span class="fe-grp-n">${saves.length}</span></div>` + saves.map(p =>
-        `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${p.path.endsWith('/') ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map(t => '#' + t).join(' ') || p.path)}</span></span></a>`).join('') : '')
+        `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(isWebPath(p.path) ? p.path : pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${isWebPath(p.path) ? UI_ICON.link : p.path.endsWith('/') ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map(t => '#' + t).join(' ') || p.path)}</span></span></a>`).join('') : '')
       + (threads.length ? `<div class="sect fe-srch-sect" data-level="group">Comments<span class="fe-grp-n">${threads.length}</span></div>` + threads.map(t =>
         `<a class="row fe-si fe-srch-hit fe-srch-comment" href="${esc(pageHref(fileHref(t.doc)))}" title="${esc(t.doc)}">${UI_ICON.opinion}<span class="fe-srch-tx"><span class="fe-sl">${esc(t.doc.split('/').pop() ?? t.doc)}${t.status === 'done' ? ' (done)' : ''}</span><span class="fe-srch-snip">${esc(t.line)}</span></span></a>`).join('') : '');
     list.innerHTML = hits.map(([href, h]) => {

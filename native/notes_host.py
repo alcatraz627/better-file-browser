@@ -138,7 +138,13 @@ def note_props(full):
 def note_title(full):
     """What the sidebar calls a note, by the spec: its title key, else its first body line, else its file name."""
     n = parsed_note(full)
-    return n['title'] if n else ''
+    if not n:
+        return ''
+    if n['title'] or n['conflicted']:
+        return n['title']
+    # An empty `title:` stays empty in the spec's parse; the list shows the first line instead of a stamp.
+    name = os.path.basename(full)[:-3] if full.lower().endswith('.md') else os.path.basename(full)
+    return notefmt._derive_title(n['body'], name)
 
 def op_read(root, rel):
     full = resolve_rel(root, rel)

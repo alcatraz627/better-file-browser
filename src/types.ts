@@ -27,6 +27,10 @@ export interface Place {
   /** Place in the shared order, and when it was saved: both come from the save's file in the notes folder. */
   pos?: string;
   created?: string;
+  /** The name of the save's file in .saved/ (without .md). */
+  key?: string;
+  /** Set while the save's file holds two versions of itself (a merge clash): the row stays, marked, until it is settled. */
+  clash?: string;
 }
 
 export interface Tag {

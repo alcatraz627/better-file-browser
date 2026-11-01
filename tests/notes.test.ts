@@ -298,3 +298,15 @@ describe('reminders, agents, links and expiry', () => {
     expect(applyChange(base, { remind: { at: '2026-11-02T09:00:00Z' } })).toMatch(/remind_at: 2026-11-02T09:00:00Z/);
   });
 });
+
+describe('what the list shows for odd notes', () => {
+  it('an empty title key shows the first line of the note, not a stamp', () => {
+    expect(noteTitle('20261101-140000-abcd.md', '---\ntitle: ""\n---\nThe first line\nmore\n')).toBe('The first line');
+    expect(noteTitle('20261101-140000-abcd.md', '---\ntitle: ""\n---\n')).toBe('20261101-140000-abcd');
+  });
+  it('a clash with no label, or never closed, still offers the settle bar', () => {
+    expect(clashSides('<<<<<<<\nA\n=======\nB\n>>>>>>>\n')).toEqual(['the first version', 'the second version']);
+    expect(clashSides('text\n<<<<<<< HEAD\nA\n=======\nB\n')).toEqual(["this Mac's", 'the second version']);
+    expect(clashSides('no markers here')).toBeNull();
+  });
+});

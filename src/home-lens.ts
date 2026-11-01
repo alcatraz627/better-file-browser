@@ -12,7 +12,7 @@ import { UI_ICON, LINE_ICON, line } from './control-icons';
 import { allChats, type AskChat } from './ask-history';
 import { ago, REACH, type DpRow } from './dp-lens';
 import { jsonPref, getSaved, saveSaved, getRecents, forgetRecent, keptNotesList, homeDir } from './storage';
-import { renamePlace, setTags, parseTags, removePlace } from './places';
+import { renamePlace, setTags, parseTags, removePlace, isWebPath } from './places';
 import { summarizeRepo, sortRepos, openPages, homeStats, splitByAge, type RepoSummary, type HomeStat } from './home-model';
 import { runCommand } from './commands';
 import { emptyHtml } from './empty-state';
@@ -133,12 +133,12 @@ const actionBtn = ([act, icon, title]: [string, string, string]) =>
 const linkCard = (l: QuickLink) => {
   const dir = l.path.endsWith('/');
   const ext = l.label.includes('.') ? l.label.split('.').pop()!.toLowerCase() : '';
-  const ico = l.kind === 'note' ? UI_ICON.notes : dir ? PI.folder : icoFile(ext);
+  const ico = l.kind === 'note' ? UI_ICON.notes : isWebPath(l.path) ? UI_ICON.link : dir ? PI.folder : icoFile(ext);
   const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : '';
   const end = l.kind === 'recent'
     ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>`
     : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
-  return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
+  return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(isWebPath(l.path) ? l.path : pageHref(fileHref(l.path)))}"${isWebPath(l.path) ? ' target="\x5fblank" rel="noopener noreferrer"' : ''} data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
 };
 
 // A local tool: click opens it, starting it first when it is stopped; the end

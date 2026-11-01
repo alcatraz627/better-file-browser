@@ -7,7 +7,8 @@
 //   node e2e/saved-folder-walk.mjs      (BFB_THEME=light for the light screenshots)
 import { makeNotesStore } from './make-notes-store.mjs';
 import { launch, shot, applyTheme } from './harness.mjs';
-import { readdirSync, readFileSync, writeFileSync, statSync, existsSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, statSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -149,7 +150,7 @@ try {
   writeFileSync(join(savedDir, 'bbbbbbbbbbbb.md'), '---\ntitle: "A web page"\nurl: "https://example.com/a"\n---\n');
   await reopen(page); await sleep(1200);
   const labels = (await ledger(page)).map(r => r.label);
-  check(labels.includes('From the other Mac') && !labels.includes('A web page'), 'a save another device wrote shows; a web save is not a Mac row');
+  check(labels.includes('From the other Mac') && labels.includes('A web page'), 'a save another device wrote shows, and so does a web link saved elsewhere');
   const item2 = await handleFor('Reading'); await item2.hover(); await sleep(200);
   await (await item2.$('.fe-rm-btn')).click(); await sleep(1500);
   check(existsSync(join(savedDir, 'bbbbbbbbbbbb.md')) && existsSync(join(savedDir, 'aaaaaaaaaaaa.md')), 'removing a row never touches the other device\'s file or the web save');
@@ -176,6 +177,120 @@ try {
   await shot(page, 'saved-folder-undone');
   await page.click('#fe-sv-where-on');
   check(await until(() => files2().length === 17), 'Move Saved to the notes folder brings it back, 17 files again');
+
+  // 8. First loads and mid-session cases that once lost or deleted saves (review of 2026-11-01). Each starts from
+  //    5 rows in this browser and a scratch folder; none has ever been moved.
+  const FIVE = ['a', 'b', 'c', 'd', 'e'].map(n => ({ path: `/Users/example/${n}.md`, label: `${n}.md`, tags: ['work'] }));
+  const FIVE_J = JSON.stringify(FIVE), WORK = JSON.stringify([{ name: 'work', color: '#58a6ff' }]);
+  const STATE = ['bfb-saved-premigration-v1', 'bfb-tags-premigration-v1', 'bfb-saved-dirty-v1', 'bfb-saved-folder-off-v1', 'bfb-saved-moved-v1', 'bfb-saved-known-v1', 'bfb-saved-colours-v1'];
+  const fresh = async root => {
+    for (const k of STATE) await h.store.remove(k);
+    await h.store.set('bfb-saved-v1', FIVE_J); await h.store.set('bfb-tags-v1', WORK);
+    await h.store.set('bfb-settings-v1', { ...(await h.store.json('bfb-settings-v1', {})), showSidebar: true, notesRoot: root });
+  };
+  const rowLabels = () => page.$$eval('#fe-sv-list .fe-pl-item .fe-pl-label', els => els.map(e => e.textContent));
+  const scratch = name => { const d = join(tmpdir(), `bfb-saved-${name}-${process.pid}`); rmSync(d, { recursive: true, force: true }); mkdirSync(d, { recursive: true }); return d; };
+  const OTHER_MAC = '---\ntitle: "Other Mac row"\ncreated: 2026-11-01T09:00:00Z\nurl: "file:///Users/example/other/"\ndevice: "mac"\n---\n';
+  const WEB = '---\ntitle: "From the phone"\ncreated: 2026-11-01T09:00:00Z\nurl: "https://example.com/x"\n---\n';
+  const names = dir => readdirSync(dir).filter(f => f.endsWith('.md'));
+  const hasLabels = (got, want) => want.every(w => got.includes(w));
+
+  // A. A save from another app is already in .saved/ on this browser's first load: nothing is lost, the two lists join.
+  let root = scratch('A'); mkdirSync(join(root, '.saved')); writeFileSync(join(root, '.saved', 'aaaaaaaaaaaa.md'), OTHER_MAC);
+  await fresh(root); await reopen(page); await sleep(1500);
+  let got = await rowLabels();
+  check(hasLabels(got, ['a.md', 'b.md', 'c.md', 'd.md', 'e.md', 'Other Mac row']), `A: first load beside another app's save keeps all 5 rows and adds its row: ${got}`);
+  check(names(join(root, '.saved')).length === 6 && await h.store.get('bfb-saved-premigration-v1') !== null, 'A: the 5 rows are written beside it, and the old copy is kept');
+  // A lasting way back (not only the 12 second toast): remove a row, then bring the earlier rows back.
+  let rm = await (async () => { for (const it of await page.$$('#fe-sv-list .fe-pl-item')) if (await it.$eval('.fe-pl-label', e => e.textContent) === 'b.md') return it; })();
+  await rm.hover(); await sleep(200); await (await rm.$('.fe-rm-btn')).click(); await sleep(1200);
+  check(!(await rowLabels()).includes('b.md') && await page.$('#fe-sv-where-back') !== null, 'A: the Saved line keeps an offer to bring back the earlier rows');
+  await page.click('#fe-sv-where-back'); await sleep(1800);
+  check((await rowLabels()).includes('b.md') && names(join(root, '.saved')).length === 6, 'A: it puts the earlier rows back, beside what is there now, in the folder too');
+  // A2. The folder holds only a web save: the rows stay, and the web link shows as a row too (it opens in a new tab).
+  root = scratch('A2'); mkdirSync(join(root, '.saved')); writeFileSync(join(root, '.saved', 'bbbbbbbbbbbb.md'), WEB);
+  await fresh(root); await reopen(page); await sleep(1500);
+  got = await rowLabels();
+  check(hasLabels(got, ['a.md', 'e.md', 'From the phone']), `A2: a link saved on the phone shows as a row beside the 5: ${got}`);
+  check(await page.$eval('#fe-sv-list .fe-pl-item[data-path="https://example.com/x"] a.fe-si-link', a => a.getAttribute('href') === 'https://example.com/x').catch(() => false), 'A2: and its row opens the link itself');
+  // B. The folder exists and is empty (a second profile made it): the rows stay and are written.
+  root = scratch('B'); mkdirSync(join(root, '.saved'));
+  await fresh(root); await reopen(page); await sleep(1500);
+  check((await rowLabels()).length === 5 && names(join(root, '.saved')).length === 5, `B: an empty .saved/ does not empty Saved: ${(await rowLabels()).length} rows, ${names(join(root, '.saved')).length} files`);
+  // I. The first move was cut short: some files written, the page died. The next load finishes it and loses nothing.
+  root = scratch('I'); await fresh(root); await reopen(page); await sleep(1500);
+  for (const f of names(join(root, '.saved')).slice(2)) rmSync(join(root, '.saved', f));
+  for (const k of ['bfb-saved-moved-v1', 'bfb-saved-known-v1', 'bfb-saved-dirty-v1']) await h.store.remove(k);
+  await h.store.set('bfb-saved-v1', FIVE_J);
+  await reopen(page); await sleep(1500);
+  check((await rowLabels()).length === 5 && names(join(root, '.saved')).length === 5, `I: a cut-short first move is finished on the next load: ${(await rowLabels()).length} rows, ${names(join(root, '.saved')).length} files`);
+  check(await h.store.get('bfb-saved-premigration-v1') !== null, 'I: and the old copy is still there to restore');
+
+  // E, F, G on one moved folder (a real clone, so a merge can happen below).
+  const bare = scratch('bare'), c1 = scratch('c1'), c2 = scratch('c2');
+  const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=T', ...a], { cwd, stdio: 'pipe' }).toString();
+  git(bare, 'init', '-q', '--bare', '-b', 'main');
+  rmSync(c1, { recursive: true, force: true }); rmSync(c2, { recursive: true, force: true });
+  git(tmpdir(), 'clone', '-q', bare, c1);
+  mkdirSync(join(c1, 'notes'), { recursive: true }); writeFileSync(join(c1, 'notes', 'README.md'), '# notes\n');
+  git(c1, 'add', '-A'); git(c1, 'commit', '-q', '-m', 'start'); git(c1, 'push', '-q', 'origin', 'HEAD:main');
+  const dir = join(c1, 'notes', '.saved');
+  await fresh(join(c1, 'notes')); await reopen(page); await sleep(1500);
+  git(c1, 'add', '-A'); git(c1, 'commit', '-q', '-m', 'saves'); git(c1, 'push', '-q', 'origin', 'HEAD:main');
+  const fileOf = rel => names(dir).find(f => readFileSync(join(dir, f), 'utf8').includes(rel));
+  // F. Another device's save lands in the folder while this page sits on an old copy; removing a row must not remove it.
+  writeFileSync(join(dir, 'cccccccccccc.md'), OTHER_MAC);
+  mkdirSync(join(c1, 'notes', '.meta'), { recursive: true }); writeFileSync(join(c1, 'notes', '.meta', 'tags.json'), '{\n  "work": "#ff0000"\n}\n');
+  let it1 = await (async () => { for (const it of await page.$$('#fe-sv-list .fe-pl-item')) if (await it.$eval('.fe-pl-label', e => e.textContent) === 'a.md') return it; })();
+  await it1.hover(); await sleep(200); await (await it1.$('.fe-rm-btn')).click(); await sleep(1800);
+  check(existsSync(join(dir, 'cccccccccccc.md')), `F: a save another device just added survives a local remove`);
+  check(JSON.parse(readFileSync(join(c1, 'notes', '.meta', 'tags.json'), 'utf8')).work === '#ff0000', 'F: a tag colour another device just set is not overwritten by an unrelated push');
+  check(!fileOf('/a.md"') && names(dir).includes('cccccccccccc.md'), 'F: while the row that was removed is gone');
+  // G. A change waits while the folder cannot answer; another device adds a save; the folder comes back.
+  const away = join(tmpdir(), `bfb-saved-away-${process.pid}`);
+  const cfg = await h.store.json('bfb-settings-v1', {});
+  await h.store.set('bfb-settings-v1', { ...cfg, notesRoot: away }); await reopen(page); await sleep(800);
+  const it2 = await (async () => { for (const it of await page.$$('#fe-sv-list .fe-pl-item')) if (await it.$eval('.fe-pl-label', e => e.textContent) === 'b.md') return it; })();
+  await it2.hover(); await sleep(200); await (await it2.$('.fe-rm-btn')).click(); await sleep(1000);
+  writeFileSync(join(dir, 'dddddddddddd.md'), OTHER_MAC.replace('Other Mac row', 'Second other row').replace('/other/', '/other2/'));
+  await h.store.set('bfb-settings-v1', { ...cfg, notesRoot: join(c1, 'notes') }); await reopen(page); await sleep(1800);
+  check(existsSync(join(dir, 'dddddddddddd.md')), 'G: a save another device added while this change waited is still there after it is sent');
+  check(!fileOf('/b.md"'), 'G: and the waiting change (removing b.md) was sent');
+  // H. Every save is deleted elsewhere and git drops the empty folder: this browser has moved, so nothing comes back.
+  git(c1, 'add', '-A'); git(c1, 'commit', '-q', '-m', 'more');
+  rmSync(dir, { recursive: true, force: true });
+  await reopen(page); await sleep(1800);
+  check((await rowLabels()).length === 0 && !existsSync(dir), `H: a folder emptied elsewhere stays empty, with no fresh move: ${(await rowLabels()).length} rows`);
+  await h.store.set('bfb-saved-v1', FIVE_J);   // put rows back for the clash case
+  // E. A real merge puts a clash in one save file; the row stays, is marked, counted, and can be settled.
+  const bareE = scratch('bareE'), e1 = scratch('e1'), e2 = scratch('e2');
+  git(bareE, 'init', '-q', '--bare', '-b', 'main');
+  rmSync(e1, { recursive: true, force: true }); rmSync(e2, { recursive: true, force: true });
+  git(tmpdir(), 'clone', '-q', bareE, e1);
+  mkdirSync(join(e1, 'notes'), { recursive: true }); writeFileSync(join(e1, 'notes', 'README.md'), '# notes\n');
+  git(e1, 'add', '-A'); git(e1, 'commit', '-q', '-m', 'start'); git(e1, 'push', '-q', 'origin', 'HEAD:main');
+  await fresh(join(e1, 'notes')); await reopen(page); await sleep(1500);
+  git(e1, 'add', '-A'); git(e1, 'commit', '-q', '-m', 'saves'); git(e1, 'push', '-q', 'origin', 'HEAD:main');
+  git(tmpdir(), 'clone', '-q', bareE, e2);
+  const dirE = join(e1, 'notes', '.saved');
+  const f2 = join(e2, 'notes', '.saved', names(dirE).find(f => readFileSync(join(dirE, f), 'utf8').includes('/c.md"')));
+  writeFileSync(f2, readFileSync(f2, 'utf8').replace('title: "c.md"', 'title: "c renamed on the phone"'));
+  git(e2, 'commit', '-q', '-am', 'phone renames c'); git(e2, 'push', '-q', 'origin', 'HEAD:main');
+  const f1 = join(dirE, names(dirE).find(f => readFileSync(join(dirE, f), 'utf8').includes('/c.md"')));
+  writeFileSync(f1, readFileSync(f1, 'utf8').replace('title: "c.md"', 'title: "c renamed on the Mac"'));
+  git(e1, 'commit', '-q', '-am', 'mac renames c');
+  try { git(e1, 'pull', '--no-rebase', '-q', 'origin', 'main'); } catch { /* the merge stops on the clash, as it should */ }
+  check(/^<<<<<<< /m.test(readFileSync(f1, 'utf8')), 'E: a real git merge left conflict markers in the save file');
+  await reopen(page); await sleep(1800);
+  got = await rowLabels();
+  check(got.length === 5, `E: the row with a clash is still listed, with its 4 neighbours: ${got}`);
+  check(await page.$('#fe-sv-list .fe-pl-item.fe-clash') !== null && /two versions/i.test(await page.$eval('#fe-sv-where', e => e.textContent)), 'E: it is marked, and the Saved line counts it');
+  await shot(page, 'saved-folder-clash');
+  await page.hover('#fe-sv-list .fe-pl-item.fe-clash'); await sleep(200);
+  await page.click('#fe-sv-list .fe-pl-item.fe-clash .fe-clash-btn');
+  await page.waitForSelector('.fe-clash-menu [data-keep="second"]');
+  await page.click('.fe-clash-menu [data-keep="second"]'); await sleep(1800);
+  check(!/^<<<<<<< /m.test(readFileSync(f1, 'utf8')) && /title: "c renamed on the phone"/.test(readFileSync(f1, 'utf8')) && await page.$('#fe-sv-list .fe-pl-item.fe-clash') === null, 'E: settling keeps the chosen side, clears the mark, and the row shows that side');
 } finally {
   await h.close();
 }

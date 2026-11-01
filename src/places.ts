@@ -3,6 +3,9 @@
 // result and re-renders. Identity is the path (one entry per folder).
 import type { Bookmark, Place, Tag } from './types';
 
+/** Whether a saved path is a web link (a save made on the phone or by `note save`) rather than a path on this Mac. */
+export const isWebPath = (path: string): boolean => /^[a-z][a-z0-9+.-]*:\/\//i.test(path) && !/^file:/i.test(path);
+
 /** Whether two saved paths name the same place: a folder saved as /a/b and /a/b/ is one place. */
 export function samePlace(a: string, b: string): boolean {
   return a.replace(/\/+$/, '') === b.replace(/\/+$/, '');

@@ -577,5 +577,10 @@ check(r['state'] == st and abs(r['now'] - time.time()) < 5, 'the state file come
 with open(os.path.join(lockrepo, '.git', 'mnt-sync-state.json'), 'w') as fh: fh.write('{broken')
 check(call({'op': 'syncState', 'root': lroot})['state'] == {'unreadable': True}, 'a damaged state file is reported as damaged, not as no file')
 
+# An empty title key lists the note by its first line, not a stamp.
+with open(os.path.join(root, 'emptykey.md'), 'w') as fh: fh.write('---\ntitle: ""\n---\nFirst line here\nmore\n')
+r = call({'op': 'list', 'root': root})
+check(next(n['title'] for n in r['notes'] if n['rel'] == 'emptykey.md') == 'First line here', 'an empty title key lists by the first line of the note')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

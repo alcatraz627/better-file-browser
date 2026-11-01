@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseNote, renderNote, settle, autoSettles, sortNotes, validPos, validId, saveKey, normaliseUrl, type Keep } from '../src/notefmt';
+import { deriveTitle, parseNote, renderNote, settle, autoSettles, sortNotes, validPos, validId, saveKey, normaliseUrl, type Keep } from '../src/notefmt';
 import { noteTitle, readProps, splitNote, settleClash } from '../src/notes';
 import { folderHash } from './notes-spec-hash';
 
@@ -76,7 +76,8 @@ describe('the app readers follow the same rules', () => {
     const p = json(`${name}.json`);
     it(`title and header of ${name}`, () => {
       const text = read(`${name}.md`);
-      expect(noteTitle(`${name}.md`, text)).toBe(p.title || name);
+      // An empty `title:` stays empty in the parse; the list shows the note's first line instead (display only).
+      expect(noteTitle(`${name}.md`, text)).toBe(p.title || (p.conflicted ? name : deriveTitle(p.body, name)));
       const props = readProps(`${name}.md`, text);
       expect(props.pinned).toBe(p.pinned);
       expect(props.tags).toEqual(p.tags);

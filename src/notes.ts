@@ -2,7 +2,7 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-import { parseNote, parseTagList, hasClash, settle, validId, newId, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
+import { parseNote, parseTagList, hasClash, settle, validId, newId, deriveTitle, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
 
 export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean;
   /** The header fields bfb shows beyond title, colour, pin and tags (spec: agent, url, device, expires, reminders). */
@@ -165,7 +165,10 @@ export function slugForTitle(title: string, now = new Date()): string {
 // A file holding a clash is not parsed for a header, so its title is its file name.
 export function noteTitle(rel: string, text?: string): string {
   const name = rel.split('/').pop()!.replace(/\.md$/i, '');
-  return (text ? parseNote(text, name).title : '') || name;
+  if (!text) return name;
+  const p = parseNote(text, name);
+  // The spec keeps an empty `title:` as empty; the list still shows the note's first line rather than a stamp.
+  return p.title || (p.conflicted ? name : deriveTitle(p.body, name));
 }
 
 // Set the title field inside existing front matter, JSON-quoted as Switchboard
@@ -215,9 +218,10 @@ export const settleClash = (text: string, keep: Keep): string => settle(text, ke
 
 /// The two sides of a note's first clash, named as a person says them; null when there is none.
 export function clashSides(text: string): [string, string] | null {
-  const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
-  if (!a || !b) return null;
-  const name = (m: string) => m === 'HEAD' ? "this Mac's" : m === 'origin/main' ? "the other device's" : m === 'github' ? "the saved version's"
+  if (!hasClash(text)) return null;
+  // Markers with no label (a bare opener, or a block never closed) still get a bar, with plain names.
+  const a = text.match(/^<<<<<<< (.+)$/m)?.[1] ?? 'the first version', b = text.match(/^>>>>>>> (.+)$/m)?.[1] ?? 'the second version';
+  const name = (m: string) => m === 'the first version' || m === 'the second version' ? m : m === 'HEAD' ? "this Mac's" : m === 'origin/main' ? "the other device's" : m === 'github' ? "the saved version's"
     : /^pi\b|csync/.test(m) ? "the Pi's" : m === 'phone' ? "the phone's" : `${m}'s`;
   return [name(a.trim()), name(b.trim())];
 }

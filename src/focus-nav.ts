@@ -5,6 +5,7 @@
 import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
 import { bind, listenForKeys, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
+import { isWebPath } from './places';
 import { isPreviewOpen, openPreview, noteAction, askInPreview } from './preview';
 import { raise, rovingFocus } from './layer';
 import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
@@ -297,7 +298,7 @@ export function initFocusNav(app: App): void {
   })));
   addPaletteSource(() => getSaved().map(p => ({
     title: p.label || p.path, sub: (p.tags ?? []).map(t => '#' + t).join(' ') || 'saved', group: 'Saved', icon: PI.bm,
-    run: () => app.strip.go(p.path), runAlt: () => app.strip.open(p.path, true),
+    run: () => isWebPath(p.path) ? void window.open(p.path, '\x5fblank', 'noopener') : app.strip.go(p.path), runAlt: () => isWebPath(p.path) ? void window.open(p.path, '\x5fblank', 'noopener') : app.strip.open(p.path, true),
   })));
   addPaletteSource(() => getRecents().slice(0, 30).map(r => ({
     title: r.path.split('/').filter(Boolean).pop() || '/', sub: r.path, group: 'Recent', icon: PI.recent,

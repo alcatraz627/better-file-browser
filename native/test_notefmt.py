@@ -58,7 +58,9 @@ for name in cases:
     with open(path, 'wb') as fh:
         fh.write(rd(name + '.md').encode('utf-8'))
     want = json.loads(rd(name + '.json'))
-    check(notes_host.note_title(path) == want['title'], f'host title of {name}: {notes_host.note_title(path)!r}')
+    # An empty `title:` stays empty in the parse; the list shows the note's first line instead (display only).
+    shown = want['title'] or (name if want['conflicted'] else notefmt._derive_title(want['body'], name))
+    check(notes_host.note_title(path) == shown, f'host title of {name}: {notes_host.note_title(path)!r}')
     props = notes_host.note_props(path)
     check(props['pinned'] == want['pinned'] and props['tags'] == want['tags'] and props['color'] == (want['color'] or '')
           and props['pos'] == (want['pos'] or '') and props['conflicted'] == want['conflicted'], f'host props of {name}')

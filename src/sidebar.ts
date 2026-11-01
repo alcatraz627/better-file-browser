@@ -9,10 +9,11 @@ import { copyLink } from './phone';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
-import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
+import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor, isWebPath } from './places';
 import { renderSavedList } from './render';
 import { describeSync } from './sync-state';
-import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
+import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder, restoreBackup, settleSave } from './saved-sync';
+import type { Keep } from './notefmt';
 import { whenShort } from './note-meta-ui';
 import { notes, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
@@ -334,6 +335,26 @@ export function initSidebar(app: App): void {
         tagsEl.textContent = (getSaved().find(p => p.path === path)?.tags ?? []).join(', ');
         tagsEl.classList.add('show');
         inlineEdit(tagsEl, val => saveSaved(setTags(getSaved(), path, parseTags(val))));
+      });
+    });
+    els('.fe-clash-btn', svList).forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        const key = btn.dataset.key!;
+        const menu = document.createElement('div');
+        menu.className = 'fe-pmenu fe-clash-menu';
+        menu.innerHTML = `<div class="fe-pm-lbl">Keep</div>
+          <button class="btn" data-size="sm" data-keep="first" role="menuitem">The first version</button>
+          <button class="btn" data-size="sm" data-keep="second" role="menuitem">The second version</button>
+          <button class="btn" data-size="sm" data-keep="both" role="menuitem">Both</button>`;
+        let layer: Layer | null = null;
+        menu.addEventListener('click', ev => {
+          const k = (ev.target as HTMLElement).closest<HTMLElement>('[data-keep]')?.dataset.keep as Keep | undefined;
+          if (!k) return;
+          layer?.close('pick');
+          void settleSave(key, k).then(() => toast('Settled'), err => toast(errorText(err, 'Settling the save')));
+        });
+        layer = openLayer(menu, { kind: 'popover', anchor: btn, role: 'menu', group: 'menu' });
       });
     });
     els('.fe-sv-dot', svList).forEach(dot => {
@@ -692,7 +713,7 @@ export function initSidebar(app: App): void {
     const words = q.split(/\s+/);
     insideTimer = setTimeout(async () => {
       const found = new Map<string, string>();
-      await Promise.all(getSaved().filter(p => p.path.endsWith('/') && !isViewPath(p.path)).map(async p => {
+      await Promise.all(getSaved().filter(p => p.path.endsWith('/') && !isViewPath(p.path) && !isWebPath(p.path)).map(async p => {
         const name = (await namesIn(p.path)).find(n => words.every(w => n.toLowerCase().includes(w)));
         if (name) found.set(p.path, name);
       }));
@@ -983,13 +1004,16 @@ export function initSidebar(app: App): void {
   // One plain line under the Saved filter: where this list is kept, and what is wrong when it cannot reach the folder.
   const svWhere = el('fe-sv-where');
   const paintWhere = () => {
-    const { where, why } = savedWhere();
+    const { where, why, clashes, backup } = savedWhere();
     svWhere.hidden = where === 'unknown';
     svWhere.dataset.state = where;
-    svWhere.innerHTML = where === 'folder' ? 'Kept in your notes folder'
+    const two = clashes ? ` ${clashes} ${clashes === 1 ? 'save holds' : 'saves hold'} two versions after a merge: choose which to keep.` : '';
+    const back = backup ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Put back the rows this browser had before Saved moved to the folder, beside what is there now">Bring back my earlier rows</button>' : '';
+    svWhere.innerHTML = where === 'folder' ? `Kept in your notes folder.${two}${back}`
       : where === 'unreachable' ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ''}`
-      : `Kept only in this browser. ${esc(why)}${why.includes('moved back') ? ' <button type="button" class="btn" data-size="sm" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ''}`;
+      : `Kept only in this browser. ${esc(why)}${why.includes('moved back') ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ''}`;
     document.getElementById('fe-sv-where-on')?.addEventListener('click', () => void enableSavedFolder());
+    document.getElementById('fe-sv-where-back')?.addEventListener('click', () => void restoreBackup());
   };
   onSavedWhere(paintWhere);
   paintWhere();
