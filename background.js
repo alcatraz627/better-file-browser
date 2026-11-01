@@ -243,6 +243,33 @@ function homeUrl(home) {
     : 'file:///';
 }
 
+// Tells the local service reaper (svc) which service you are looking at, so one
+// you are using stays up and one left in a background tab does not. Only the port
+// of a local address leaves the browser, and only while that tab is active, its
+// window focused and you are at the machine. The occasional report with no port
+// says bfb is running, so svc can trust the silence.
+const LOCAL_PORT = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):(\d+)(?:[/?#]|$)/;
+const SEEN_ALARM = 'bfb-svc-seen';
+
+async function reportActiveService() {
+  let port = null;
+  if (await chrome.idle.queryState(300) === 'active') {
+    const win = await chrome.windows.getLastFocused({ populate: true });
+    const tab = win.focused ? win.tabs?.find(t => t.active) : null;
+    port = (tab?.url || '').match(LOCAL_PORT)?.[1] ?? null;
+  }
+  if (!port && Math.floor(Date.now() / 60000) % 5 !== 0) return;
+  const native = chrome.runtime.connectNative('com.better_file_browser.notes');
+  native.onMessage.addListener(() => native.disconnect());
+  native.onDisconnect.addListener(() => void chrome.runtime.lastError);
+  native.postMessage({ op: 'svc_seen', port });
+}
+
+// Recreating an alarm restarts its clock, and a worker that wakes often would
+// then never see it fire.
+chrome.alarms?.get(SEEN_ALARM).then(a => { if (!a) chrome.alarms.create(SEEN_ALARM, { periodInMinutes: 1 }); });
+chrome.alarms?.onAlarm.addListener(a => { if (a.name === SEEN_ALARM) reportActiveService().catch(() => {}); });
+
 // The toolbar button opens Home.
 chrome.action?.onClicked.addListener(() => {
   chrome.storage.local.get('bfb-home-v1').then(r => chrome.tabs.create({ url: homeUrl(r['bfb-home-v1']) })).catch(() => {});

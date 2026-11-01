@@ -30,6 +30,7 @@ Ops (request -> reply):
   {op:"sendThread", root, rel, thread, to}   -> {t:"sent", to, thread}   (one comment thread to an agent, through claude-ipc)
   {op:"phone", action:"status"|"on"|"off"}   -> {t:"phone", on, server, served, url, why}   (bfb on the tailnet: web_server.py under pm2, tailscale serve)
   {op:"phoneSeed", kv}                       -> {t:"seeded"}   (the Mac's settings, for the phone to start from)
+  {op:"svc_seen", port}                      -> {t:"svc_seen"}   (bfb is running, and this local port's tab is in front; BFB_SVC_TOUCH_DIR overrides where svc reads it)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out.
@@ -924,6 +925,24 @@ def op_service(name, action):
     return {'t': 'service', **_service_state(name)}
 
 
+# Where svc looks for signs of a person. See ~/.claude/features/dev-servers.md.
+SVC_TOUCH_DIR = os.environ.get('BFB_SVC_TOUCH_DIR') or os.path.expanduser('~/.claude/dev-servers/svc-touch')
+
+
+def op_svc_seen(port):
+    """Note that bfb is running and, when given, that this port's tab is in front."""
+    names = ['.browser']
+    if port is not None:
+        if not str(port).isdigit() or not 0 < int(port) < 65536:
+            raise NotesError('notes_bad_path', 'that is not a port')
+        names.append(str(int(port)))
+    os.makedirs(SVC_TOUCH_DIR, exist_ok=True)
+    for name in names:
+        with open(os.path.join(SVC_TOUCH_DIR, name), 'a'):
+            os.utime(os.path.join(SVC_TOUCH_DIR, name))
+    return {'t': 'svc_seen'}
+
+
 def op_phone_seed(kv):
     """Keep the Mac's bfb settings where the phone server hands them to the phone."""
     if not isinstance(kv, dict):
@@ -968,6 +987,7 @@ def op_send_thread(root, rel, thread_id, to):
 def handle(msg):
     op = msg.get('op')
     if op == 'phone': return op_phone(msg.get('action') or 'status')
+    if op == 'svc_seen': return op_svc_seen(msg.get('port'))
     if op == 'services': return op_services()
     if op == 'service': return op_service(msg.get('name'), msg.get('action') or 'status')
     if op == 'phoneSeed': return op_phone_seed(msg.get('kv'))

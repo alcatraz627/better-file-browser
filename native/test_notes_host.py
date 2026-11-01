@@ -6,6 +6,7 @@ import json, os, struct, subprocess, sys, tempfile, time
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notes_host.py')
 # Every host this test spawns keeps its backups here, never in the owner's real backup folder.
 os.environ['BFB_BACKUP_DIR'] = tempfile.mkdtemp(prefix='bfb-backups-')
+os.environ['BFB_SVC_TOUCH_DIR'] = tempfile.mkdtemp(prefix='bfb-svc-touch-')
 
 def call(msg):
     enc = json.dumps(msg).encode('utf-8')
@@ -482,6 +483,15 @@ with mock.patch.object(nh, '_listening', return_value=False):
     r = nh.handle({'op': 'services'})
     check([s['name'] for s in r['services']] == ['ghostty-settings'] and r['services'][0]['up'] is False,
           f'services lists each local tool and whether it is up: {r}')
+
+touch_dir = os.environ['BFB_SVC_TOUCH_DIR']
+check(call({'op': 'svc_seen', 'port': None})['t'] == 'svc_seen' and os.listdir(touch_dir) == ['.browser'],
+      'with no service tab in front, svc only hears that bfb is running')
+check(call({'op': 'svc_seen', 'port': '5124'})['t'] == 'svc_seen' and sorted(os.listdir(touch_dir)) == ['.browser', '5124'],
+      'the service tab in front is noted by its port')
+for bad in ['../../evil', '70000', '0', 'x']:
+    r = call({'op': 'svc_seen', 'port': bad})
+    check(r['t'] == 'error' and sorted(os.listdir(touch_dir)) == ['.browser', '5124'], f'a bad port writes nothing: {bad}')
 
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)
