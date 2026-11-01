@@ -1605,6 +1605,7 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-sh{padding:var(--sp-4) var(--sp-6) var(--sp-2)}
 .fe-hint{font-size:var(--fs-md);color:var(--dm);font-style:italic;line-height:1.7;padding:var(--sp-3) var(--sp-6)}
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-4)}
+.fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
 .fe-lens-tools{padding:var(--sp-1) var(--sp-3) var(--sp-4)}

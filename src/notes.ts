@@ -130,6 +130,11 @@ export const notes = {
   sendThread: (root: string, rel: string, thread: string, to: string) => call({ op: 'sendThread', root, rel, thread, to }),
   /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
   phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
+  /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
+  savedList: (root: string) => call({ op: 'savedList', root }) as unknown as Promise<{ exists: boolean; items: { key: string; text: string; mtime: number }[]; tags: Record<string, string> | null }>,
+  /// Write and remove save files and merge tag colours in one locked batch; createOnly leaves existing files alone.
+  savedSync: (root: string, batch: { writes?: { key: string; text: string }[]; removes?: string[]; tags?: Record<string, string>; createOnly?: boolean }) =>
+            call({ op: 'savedSync', root, ...batch }) as unknown as Promise<{ written: string[]; skipped: string[]; removed: string[] }>,
   /// Local tools (small local web apps that stop when idle): each one and whether it is up.
   services: () => call({ op: 'services' }).then(f => (f as unknown as { services: ServiceState[] }).services ?? []),
   /// Start or stop one local tool; answers once its port is up or gone.

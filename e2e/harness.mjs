@@ -258,7 +258,9 @@ function keepDisplayAwake() {
   try { spawn('caffeinate', ['-u', '-d', '-w', String(process.pid)], { stdio: 'ignore' }).unref(); } catch { /* not fatal */ }
 }
 
-export async function launch({ headless = true, pickReply, lmStub = false } = {}) {
+// savedFolder: leave Saved syncing with the notes folder. Other walks seed Saved straight into storage,
+// which the folder would read over, so they start with Saved kept in the browser (what Undo leaves).
+export async function launch({ headless = true, pickReply, lmStub = false, savedFolder = false } = {}) {
   keepDisplayAwake();
   execSync('npm run -s build', { cwd: ROOT, stdio: 'inherit' });
   mkdirSync(SHOTS, { recursive: true });
@@ -294,6 +296,8 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     // Read, change and write back one JSON value, such as the settings object.
     edit: async (key, change, fallback = {}) => { const v = await store.json(key, fallback); const out = change(v) ?? v; await store.set(key, out); return out; },
   };
+
+  if (!savedFolder) await store.set('bfb-saved-folder-off-v1', '1');
 
   // A download lands in the throwaway profile, never in the person's Downloads folder.
   const downloads = join(profile, 'downloads');

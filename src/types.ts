@@ -24,6 +24,9 @@ export interface Place {
   path:  string;
   label: string;
   tags?: string[];
+  /** Place in the shared order, and when it was saved: both come from the save's file in the notes folder. */
+  pos?: string;
+  created?: string;
 }
 
 export interface Tag {

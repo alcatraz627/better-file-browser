@@ -971,7 +971,84 @@ def op_send_thread(root, rel, thread_id, to):
     return {'t': 'sent', 'to': to, 'thread': thread_id}
 
 
-WRITE_OPS = {'write', 'create', 'rename', 'delete', 'restore', 'writeBinary', 'fileWrite', 'commentsWrite'}
+
+SAVED_DIR = '.saved'
+META_TAGS = os.path.join('.meta', 'tags.json')
+
+def saved_key_ok(key):
+    return isinstance(key, str) and notefmt.valid_id(key)
+
+def op_saved_list(root):
+    """Every save in <root>/.saved with its file text, plus the tag colours in .meta/tags.json.
+    `exists` is false when the folder has never been made, which is how an app knows to migrate."""
+    d = os.path.join(root, SAVED_DIR)
+    items = []
+    exists = os.path.isdir(d)
+    if exists:
+        for f in sorted(os.listdir(d)):
+            if not f.endswith('.md') or f.startswith('.'):
+                continue
+            full = os.path.join(d, f)
+            if not os.path.isfile(full):
+                continue
+            try:
+                with open(full, 'r', encoding='utf-8', errors='replace', newline='') as fh:
+                    text = fh.read(1024 * 1024)
+            except OSError:
+                continue
+            items.append({'key': f[:-3], 'text': text, 'mtime': mtime_ms(full)})
+    tags = None
+    tp = os.path.join(root, META_TAGS)
+    if os.path.isfile(tp):
+        try:
+            with open(tp, 'r', encoding='utf-8') as fh:
+                got = json.load(fh)
+            if isinstance(got, dict):
+                tags = {str(k): str(v) for k, v in got.items() if isinstance(v, str)}
+        except (OSError, ValueError):
+            tags = None
+    return {'t': 'saved', 'exists': exists, 'items': items, 'tags': tags}
+
+def op_saved_sync(root, writes, removes, tags, create_only):
+    """Apply a batch to <root>/.saved: write or replace files, move removed ones into .trash, and merge
+    tag colours into .meta/tags.json. With create_only a file that already exists is left alone, which is
+    what makes the one-time migration safe to run twice."""
+    d = os.path.join(root, SAVED_DIR)
+    os.makedirs(d, exist_ok=True)
+    written, skipped, removed = [], [], []
+    for w in (writes or []):
+        key, text = w.get('key'), w.get('text')
+        if not saved_key_ok(key) or not isinstance(text, str):
+            raise NotesError('notes_bad_path', f'not a save name: {key!r}')
+        full = os.path.join(d, key + '.md')
+        if create_only and os.path.exists(full):
+            skipped.append(key)
+            continue
+        atomic_write(full, text)
+        written.append(key)
+    for key in (removes or []):
+        if not saved_key_ok(key):
+            raise NotesError('notes_bad_path', f'not a save name: {key!r}')
+        full = os.path.join(d, key + '.md')
+        if os.path.isfile(full):
+            op_delete(root, os.path.join(SAVED_DIR, key + '.md'))
+            removed.append(key)
+    if isinstance(tags, dict) and tags:
+        tp = os.path.join(root, META_TAGS)
+        cur = {}
+        if os.path.isfile(tp):
+            try:
+                with open(tp, 'r', encoding='utf-8') as fh:
+                    got = json.load(fh)
+                if isinstance(got, dict):
+                    cur = got
+            except (OSError, ValueError):
+                cur = {}
+        merged = {**cur, **{str(k): str(v) for k, v in tags.items()}}
+        if merged != cur:
+            atomic_write(tp, json.dumps(merged, indent=2, ensure_ascii=False, sort_keys=True) + '\n')
+    return {'t': 'savedSynced', 'written': written, 'skipped': skipped, 'removed': removed}
+WRITE_OPS = {'savedSync', 'write', 'create', 'rename', 'delete', 'restore', 'writeBinary', 'fileWrite', 'commentsWrite'}
 
 def repo_root_of(root):
     """The git repository (with a .git folder) a notes folder sits in, or None."""
@@ -1034,6 +1111,8 @@ def handle_unlocked(msg):
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
+    if op == 'savedList': return op_saved_list(root)
+    if op == 'savedSync': return op_saved_sync(root, msg.get('writes'), msg.get('removes'), msg.get('tags'), bool(msg.get('createOnly')))
     if op == 'search':    return op_search(root, msg.get('query'))
     if op == 'fileRead':  return op_file_read(root, msg.get('rel'), msg.get('offset'))
     if op == 'fileStat':  return op_file_stat(root, msg.get('rel'))

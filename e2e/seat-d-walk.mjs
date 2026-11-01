@@ -115,7 +115,7 @@ try {
   await page.keyboard.press('Escape');
   await sleep(300);
 
-  // 29: Alt+Up and Alt+Down move a Notes row and a Saved row.
+  // 29: Alt+Up and Alt+Down move a Notes row and a Saved row. Notes with no `created` count as oldest, so they list by file name.
   const order = async () => (await page.$$eval('#fe-nt-list .fe-nt-item', r => r.map(x => x.dataset.rel))).join();
   const before = await order();
   await page.focus('#fe-nt-list .fe-nt-item[data-rel="alpha.md"] .fe-si-link');
@@ -123,7 +123,7 @@ try {
   await sleep(300);
   await sleep(1200);
   const after = await order();
-  check(before === 'existing-note.md,alpha.md,bravo.md,charlie.md' && after === 'existing-note.md,bravo.md,alpha.md,charlie.md', `Alt+Down moves a note down one: ${before} -> ${after}`);
+  check(before === 'alpha.md,bravo.md,charlie.md,existing-note.md' && after === 'bravo.md,alpha.md,charlie.md,existing-note.md', `Alt+Down moves a note down one: ${before} -> ${after}`);
   check(await page.evaluate(() => document.activeElement?.closest('.fe-nt-item')?.dataset.rel) === 'alpha.md', 'focus stays on the moved note');
   await sleep(1200);
   const posOnDisk = readFileSync(join(h.notesDir, 'alpha.md'), 'utf8');
@@ -134,7 +134,7 @@ try {
   await sleep(2500);
   const twice = await order();
   const clash = await page.evaluate(() => document.getElementById('fe-toast')?.textContent ?? '');
-  check(twice === 'existing-note.md,alpha.md,charlie.md,bravo.md' && !/Saving the new order|changed on disk/.test(clash), `two quick Alt+Down presses move a note two places with no clash: ${twice} / "${clash}"`);
+  check(twice === 'alpha.md,charlie.md,bravo.md,existing-note.md' && !/Saving the new order|changed on disk/.test(clash), `two quick Alt+Down presses move a note two places with no clash: ${twice} / "${clash}"`);
   await page.click('#fe-rail-saved');
   await page.waitForSelector('#fe-sv-list .fe-pl-item');
   await page.focus('#fe-sv-list .fe-pl-item[data-path$="two/"] .fe-si-link');

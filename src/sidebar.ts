@@ -11,6 +11,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
+import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
 import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
@@ -942,6 +943,20 @@ export function initSidebar(app: App): void {
   };
   el('fe-nt-add').addEventListener('click', () => app.newNote());
   refreshNotes();
+  startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
+  // One plain line under the Saved filter: where this list is kept, and what is wrong when it cannot reach the folder.
+  const svWhere = el('fe-sv-where');
+  const paintWhere = () => {
+    const { where, why } = savedWhere();
+    svWhere.hidden = where === 'unknown';
+    svWhere.dataset.state = where;
+    svWhere.innerHTML = where === 'folder' ? 'Kept in your notes folder'
+      : where === 'unreachable' ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ''}`
+      : `Kept only in this browser. ${esc(why)}${why.includes('moved back') ? ' <button type="button" class="btn" data-size="sm" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ''}`;
+    document.getElementById('fe-sv-where-on')?.addEventListener('click', () => void enableSavedFolder());
+  };
+  onSavedWhere(paintWhere);
+  paintWhere();
 
   // Sidebar rows are bookmarks: a plain click switches to the strip tab that
   // already holds the place, or keeps a new one, and goes there. Crumbs and
