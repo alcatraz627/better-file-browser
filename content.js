@@ -646,11 +646,51 @@
     kvSet(SAVED_DIRTY_KEY, "1");
     savedChanged?.();
   }
+  var TAGX_KEY = "bfb-tag-colours-v1";
+  function readExtra() {
+    try {
+      const v = JSON.parse(kvGet(TAGX_KEY) ?? "{}");
+      return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+    } catch {
+      return {};
+    }
+  }
   function getTags() {
-    return reconcileTags(getSaved(), readList(TAGS_KEY));
+    const reg = reconcileTags(getSaved(), readList(TAGS_KEY));
+    const x2 = readExtra();
+    const out = reg.map((t) => x2[t.name] ? { ...t, color: x2[t.name] } : t);
+    for (const [name2, color] of Object.entries(x2)) if (!reg.some((t) => t.name === name2)) out.push({ name: name2, color });
+    return out;
   }
   function saveTags(tags) {
+    const x2 = readExtra();
+    let moved = false;
+    for (const t of tags) if (x2[t.name] !== void 0 && x2[t.name] !== t.color) {
+      x2[t.name] = t.color;
+      moved = true;
+    }
+    if (moved) kvSet(TAGX_KEY, JSON.stringify(x2));
     kvSet(TAGS_KEY, JSON.stringify(tags));
+    kvSet(SAVED_DIRTY_KEY, "1");
+    savedChanged?.();
+  }
+  function setTagColour(name2, color) {
+    const x2 = readExtra();
+    if (color) x2[name2] = color;
+    else delete x2[name2];
+    kvSet(TAGX_KEY, JSON.stringify(x2));
+    const reg = readList(TAGS_KEY);
+    if (color && reg.some((t) => t.name === name2)) kvSet(TAGS_KEY, JSON.stringify(reg.map((t) => t.name === name2 ? { ...t, color } : t)));
+    kvSet(SAVED_DIRTY_KEY, "1");
+    savedChanged?.();
+  }
+  function renameTagColour(old, next) {
+    const had = getTags().find((t) => t.name === old);
+    const x2 = readExtra();
+    const colour = x2[old] ?? had?.color;
+    delete x2[old];
+    if (colour && !x2[next]) x2[next] = colour;
+    kvSet(TAGX_KEY, JSON.stringify(x2));
     kvSet(SAVED_DIRTY_KEY, "1");
     savedChanged?.();
   }
@@ -659,6 +699,15 @@
     kvSet(SAVED_KEY, JSON.stringify(list3));
     const reg = reconcileTags(list3, readList(TAGS_KEY)).map((t) => colours?.[t.name] ? { ...t, color: colours[t.name] } : t);
     kvSet(TAGS_KEY, JSON.stringify(reg));
+    if (colours) {
+      const x2 = readExtra(), onSaves = new Set(reg.map((t) => t.name));
+      let moved = false;
+      for (const [name2, c] of Object.entries(colours)) if (!onSaves.has(name2) && x2[name2] !== c) {
+        x2[name2] = c;
+        moved = true;
+      }
+      if (moved) kvSet(TAGX_KEY, JSON.stringify(x2));
+    }
   }
   function setSavedQuiet(list3) {
     kvSet(SAVED_KEY, JSON.stringify(list3));
@@ -1252,7 +1301,8 @@
     trashList: (root2) => call({ op: "trashList", root: root2 }).then((f) => f.notes),
     /// Put a deleted note back, at `to` when that name is free (otherwise a numbered name beside it).
     restore: (root2, trashed, to) => call({ op: "restore", root: root2, trashed, to }),
-    /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
+    /// Remove a deleted note for good: it leaves .trash for the macOS Trash, so even that can be undone.
+    purge: (root2, trashed) => call({ op: "purge", root: root2, trashed }),
     /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
     pick: (start, kind) => call({ op: "pick", start, kind }).then((f) => f.root),
     /// The account's home folder, so Places can offer Home before any visit under it.
@@ -1491,6 +1541,7 @@ ${body}`;
     if (c.pinned !== void 0) t = setPinned(t, c.pinned);
     if (c.tags !== void 0) t = setTags2(t, c.tags);
     if (c.remind !== void 0) t = setReminder(t, c.remind);
+    if (c.expires !== void 0) t = setField(t, "expires", c.expires);
     return t;
   }
   var REMIND_KEYS = ["remind_at", "remind_repeat", "remind_on", "remind_persist", "reminder_id"];
@@ -1503,6 +1554,23 @@ ${body}`;
     if (r.on === "phone") t = setField(t, "remind_on", "phone");
     if (r.persist) t = setField(t, "remind_persist", "true");
     return t;
+  }
+  function duplicateText(text, now = /* @__PURE__ */ new Date()) {
+    if (!splitNote(text).head) return text;
+    let t = setPinned(text, false);
+    t = setReminder(t, null);
+    for (const k of ["expires", "pos", "updated", "agent"]) t = setField(t, k, null);
+    return setField(t, "created", now.toISOString().replace(/\.\d{3}Z$/, "Z"));
+  }
+  function clipboardNote(raw, now = /* @__PURE__ */ new Date()) {
+    const text = raw.replace(/\r\n/g, "\n").trim();
+    if (!text) return null;
+    const first = text.split("\n").find((l) => l.trim()) ?? text;
+    return { base: slugForTitle(first, now).replace(/\.md$/, ""), text: `---
+created: ${now.toISOString().replace(/\.\d{3}Z$/, "Z")}
+---
+${text}
+` };
   }
   function nextRing(at, repeat, now = /* @__PURE__ */ new Date()) {
     const d = new Date(at);
@@ -1525,7 +1593,7 @@ ${body}`;
     return isFinite(t) && t <= now;
   };
   function changedKeys(c) {
-    return [...["color", "pinned", "tags"].filter((k) => c[k] !== void 0), ...c.remind !== void 0 ? REMIND_KEYS : []];
+    return [...["color", "pinned", "tags"].filter((k) => c[k] !== void 0), ...c.remind !== void 0 ? REMIND_KEYS : [], ...c.expires !== void 0 ? ["expires"] : []];
   }
   function attachmentRel(noteRel, ext2, now = Date.now()) {
     const base2 = noteRel.split("/").pop().replace(/\.md$/i, "");
@@ -2139,6 +2207,7 @@ ${body}`;
     { id: "copy-name", group: "Listing", title: "Copy name", keys: ["\u21E7Y"], scope: "listing", own: true },
     { id: "filter", group: "Listing", title: "Filter", keys: ["/", "\u2318F"], own: true },
     { id: "new-note", group: "Listing", title: "New note", keys: ["n"], own: true },
+    { id: "new-note-clip", group: "Listing", title: "New note from the clipboard", keys: [], own: true },
     // View
     { id: "view-details", group: "View", title: "Details", keys: ["v d"], own: true },
     { id: "view-list", group: "View", title: "List", keys: ["v l"], own: true },
@@ -4667,6 +4736,7 @@ ${answer}`;
       <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
       <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== "phone" ? " selected" : ""}>This Mac</option><option value="phone"${props.remindOn === "phone" ? " selected" : ""}>The phone</option></select>
       <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? " checked" : ""}><span>Keep ringing until dismissed</span></label>
+      <label class="fe-rem-keep"><input id="fe-rem-expire" type="checkbox"><span>Also expire the note then</span></label>
       <div class="fe-rem-acts">
         <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? "Update" : "Set reminder"}</span></button>
         ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ""}
@@ -4689,9 +4759,53 @@ ${answer}`;
       const at = new Date(menu.querySelector("#fe-rem-at").value);
       if (!isFinite(+at)) return;
       const repeat = menu.querySelector("#fe-rem-repeat").value;
-      void done({ remind: { at: at.toISOString().replace(/\.\d{3}Z$/, "Z"), ...repeat ? { repeat } : {}, on: menu.querySelector("#fe-rem-on").value, persist: menu.querySelector("#fe-rem-persist").checked } });
+      const iso = at.toISOString().replace(/\.\d{3}Z$/, "Z");
+      const alsoExpire = menu.querySelector("#fe-rem-expire").checked;
+      void done({ remind: { at: iso, ...repeat ? { repeat } : {}, on: menu.querySelector("#fe-rem-on").value, persist: menu.querySelector("#fe-rem-persist").checked }, ...alsoExpire ? { expires: iso } : {} });
     });
     openMenu = openLayer(menu, { kind: "popover", anchor, role: "dialog", group: "menu", focus: menu.querySelector("#fe-rem-at") });
+  }
+  function openExpiryMenu(anchor, props, apply) {
+    closePropsMenu();
+    const menu = document.createElement("div");
+    menu.className = "fe-pmenu fe-rem fe-exp";
+    const seed = props.expires ? localValue(props.expires) : localValue(new Date(Date.now() + 7 * 864e5).toISOString());
+    const presets = [["Tomorrow", 1], ["In a week", 7], ["In a month", 30]];
+    menu.innerHTML = `
+    <form class="fe-rem-form">
+      <label class="fe-pm-lbl" for="fe-exp-at">Expire this note at</label>
+      <div class="fe-exp-presets">${presets.map(([t, d]) => `<button class="btn" data-size="sm" type="button" data-exp-days="${d}">${t}</button>`).join("")}</div>
+      <input id="fe-exp-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
+      <div class="fe-rem-acts">
+        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.expires ? "Update" : "Set expiry"}</span></button>
+        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">No expiry</button>` : ""}
+      </div>
+    </form>`;
+    const done = async (c) => {
+      await apply(c);
+      closePropsMenu();
+    };
+    menu.addEventListener("click", (e) => {
+      const t = e.target;
+      const preset = t.closest("[data-exp-days]");
+      if (preset) {
+        e.preventDefault();
+        const d = new Date(Date.now() + Number(preset.dataset.expDays) * 864e5);
+        menu.querySelector("#fe-exp-at").value = localValue(d.toISOString());
+        return;
+      }
+      if (t.closest('[data-exp="clear"]')) {
+        e.preventDefault();
+        void done({ expires: null });
+      }
+    });
+    menu.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const at = new Date(menu.querySelector("#fe-exp-at").value);
+      if (!isFinite(+at)) return;
+      void done({ expires: at.toISOString().replace(/\.\d{3}Z$/, "Z") });
+    });
+    openMenu = openLayer(menu, { kind: "popover", anchor, role: "dialog", group: "menu", focus: menu.querySelector("#fe-exp-at") });
   }
   function mountMetaBar(host, o) {
     const draw = () => {
@@ -4705,7 +4819,8 @@ ${answer}`;
       <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>
       <button class="btn fe-chip-btn fe-chip-rem${p.remindAt ? " active" : ""}${reminderState(p) === "missed" ? " missed" : ""}" data-size="sm" data-m="remind" title="${p.remindAt ? "Change or clear this reminder" : "Set a reminder"}">${UI_ICON.clock}<span>${esc(reminderLabel(p))}</span></button>
       ${p.agent ? `<span class="chip fe-chip-agent" title="This note was made or last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ""}
-      ${p.expires ? `<span class="chip fe-chip-exp${Date.parse(p.expires) <= Date.now() ? " expired" : ""}" title="After this time the note is listed under Expired. It is never deleted.">${UI_ICON.clock}<span>${Date.parse(p.expires) <= Date.now() ? "Expired" : "Expires"} ${esc(whenShort(p.expires))}</span></span>` : ""}
+      <button class="btn fe-chip-btn fe-chip-exp${p.expires ? " active" : ""}${p.expires && Date.parse(p.expires) <= Date.now() ? " expired" : ""}" data-size="sm" data-m="expires" title="${p.expires ? "After this time the note is listed under Expired. It is never deleted. Click to change." : "Set a time after which the note is listed under Expired"}">${UI_ICON.clock}<span>${p.expires ? `${Date.parse(p.expires) <= Date.now() ? "Expired" : "Expires"} ${esc(whenShort(p.expires))}` : "Expiry"}</span></button>
+      ${p.expires ? `<button class="btn" data-icon data-size="xs" data-tone="danger" data-m="expires-clear" title="Remove the expiry" aria-label="Remove the expiry">${UI_ICON.close}</button>` : ""}
       ${p.url ? `<span class="chip fe-chip-url" title="${esc(p.url)}">${UI_ICON.link}<span class="fe-chip-url-t">${esc(plain(p.url))}</span><button class="btn" data-icon data-size="xs" data-m="url-open" title="Open ${esc(p.url)}" aria-label="Open the link">${UI_ICON.tab}</button><button class="btn" data-icon data-size="xs" data-m="url-copy" title="Copy the link" aria-label="Copy the link">${UI_ICON.copy ?? UI_ICON.link}</button></span>` : ""}`;
       const btn = host.querySelector("#fe-meta-title");
       btn?.addEventListener("click", () => {
@@ -4761,7 +4876,15 @@ ${answer}`;
         draw();
         return r;
       });
-      else if (b.dataset.m === "url-open") window.open(p.url, "_blank", "noopener");
+      else if (b.dataset.m === "expires") openExpiryMenu(b, p, async (c) => {
+        const r = await o.apply(c);
+        draw();
+        return r;
+      });
+      else if (b.dataset.m === "expires-clear") {
+        await o.apply({ expires: null });
+        draw();
+      } else if (b.dataset.m === "url-open") window.open(p.url, "_blank", "noopener");
       else if (b.dataset.m === "url-copy") {
         void navigator.clipboard?.writeText(p.url).catch(() => void 0);
         b.title = "Copied";
@@ -19056,7 +19179,8 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-4)}
 .fe-nt-marks{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:2px}.fe-nt-mark{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);color:var(--dm)}.fe-nt-mark svg{width:11px;height:11px;flex:none}.fe-nt-mark.rem.missed{color:var(--gold)}.fe-nt-mark.agent{color:var(--nc-purple)}
 .fe-chip-rem.missed,.fe-chip-exp.expired{color:var(--gold)}.fe-chip-url-t{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
+.fe-tc{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3)}.fe-tc-row{display:flex;align-items:center;gap:var(--sp-3);min-width:0}.fe-tc-row .tb{flex:1;min-width:0}.fe-tc-n{color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}.fe-tc-sw{display:inline-flex;align-items:center;justify-content:center;width:var(--ctl-md);height:var(--ctl-md);padding:0;border:0;background:none;border-radius:var(--r-sm);cursor:pointer}.fe-tc-sw:hover{background:var(--hover)}.fe-tc-sw i{width:14px;height:14px;border-radius:50%;background:var(--dot);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tx) 25%,transparent)}
+.fe-exp-presets{display:flex;gap:var(--sp-2);flex-wrap:wrap}.fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
 .fe-hp-wait.faded{opacity:.55}.fe-hp-wait[data-kind="reminder"] .fe-hp-link-tags i{color:var(--gold)}
 .fe-clash-btn{color:var(--gold);flex:none}.fe-pl-item.fe-clash .fe-pl-label{color:var(--gold)}.fe-clash-menu{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}
 .fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"],.fe-where[data-state="trouble"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
@@ -19098,7 +19222,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-trashed .fe-si-link{padding:var(--sp-3) 0;align-items:flex-start;cursor:default}
 .fe-nt-trashed .fe-si-link>svg{margin-top:var(--sp-1)}
 .fe-nt-when{font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fe-nt-trashed .fe-nt-restore{flex:none}
+.fe-nt-trashed .fe-nt-restore,.fe-nt-trashed .fe-nt-purge{flex:none}
+.fe-nt-trashed .fe-nt-when{white-space:normal}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:var(--sp-2)}
 .fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:var(--sp-2);flex-wrap:nowrap;overflow:hidden}
 .fe-nt-tag{display:inline-flex;align-items:center;gap:var(--sp-2);height:17px;padding:0 var(--sp-3);border:1px solid var(--bd2);border-radius:var(--r-full);font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
@@ -24341,14 +24466,7 @@ ${d.message}` : d.message;
       else location.assign(r.to);
     }, true);
   }
-  async function copyPhoneLink(path, toast) {
-    const url = phoneLink(path);
-    if (!url) {
-      toast('Turn on "Open on my phone" in Settings, Data, to get a phone link');
-      return;
-    }
-    toast(await copyToClipboard(url) ? "Phone link copied" : "Copy failed");
-  }
+  var copyPhoneLink = copyLink;
   var NOT_SENT2 = (k) => k.startsWith("bfb-strip-v2:") || k.startsWith("diagram-cache") || k === "bfb-kv-migrated";
   var seedT = 0;
   function pushSeed() {
@@ -24696,7 +24814,7 @@ ${d.message}` : d.message;
       const saved = isSaved(t.path);
       menu.innerHTML = [
         `<div class="row fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
-        `<div class="row fe-ctx-item" data-act="phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+        `<div class="row fe-ctx-item" data-act="phone">${UI_ICON.phone}<span>Copy link</span></div>`,
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? "Unsave" : "Save"}</span></div>`,
         host.openInTerminal ? `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? "Unpin" : "Pin"}</span><span class="fe-ctx-key">p</span></div>`,
@@ -25283,6 +25401,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           "Notes",
           row("Folder", "Markdown files, for example ~/Notes", `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="Not set" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint")
         ) + card2(
+          "Tag colours",
+          note("A tag\u2019s colour is kept in the notes folder, so it looks the same on every device. Renaming a tag changes it on every note and save.") + '<div id="fe-st-tags" class="fe-tc"></div>'
+        ) + card2(
           "Editing",
           wide("Editable folders", "Text files inside get Edit (e e), for example ~/Code. Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "Not set", "Folders you can edit in"))
         ) },
@@ -25526,7 +25647,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
       ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      ${web ? "" : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>`}
+      ${web ? "" : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy link" aria-label="Copy link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
@@ -25612,7 +25733,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   <div id="fe-bar" class="bar">
     <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName2)}</span>` : ""}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
-    <button id="fe-phone-btn" class="btn" data-icon title="Copy this ${fileMode ? "file" : "folder"}\u2019s phone link (your tailnet)" aria-label="Copy phone link">${UI_ICON.phone}</button>
+    <button id="fe-phone-btn" class="btn" data-icon title="Copy this ${fileMode ? "file" : "folder"}\u2019s link" aria-label="Copy link">${UI_ICON.phone}</button>
     <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="btn ${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
@@ -27268,7 +27389,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
-        `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy link</span></div>`,
         hasText(en) ? `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy contents</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="keep">${UI_ICON.tab}<span>Keep as tab</span><span class="fe-ctx-key">\u2325\u21A9</span></div>`,
         canAsk(en) ? `<div class="row fe-ctx-item" data-act="ask">${UI_ICON.ai}<span>Ask</span></div>` : "",
@@ -27959,6 +28080,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-jump", (key) => stripKey(key?.slice(-1) ?? "1")());
     bind("tab-reopen", stripKey("T"));
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
+    bind("new-note-clip", () => app.newNoteFromClipboard(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
     bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
     const noteBtn2 = (act) => document.querySelector(`#fe-ed-bar [data-act="${act}"]`);
@@ -28538,6 +28660,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
 
   // src/sidebar.ts
+  var hiddenHistory = jsonPref("bfb-trash-hidden-v1", [], (v) => Array.isArray(v));
   var lensPref = textPref("bfb-lens-v1", "notes");
   function initLenses(app) {
     const rail = el("fe-rail");
@@ -29094,8 +29217,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
       ntList.innerHTML = head + (trashed.length ? trashed.map((t) => `
       <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
-        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(whenText(t.deleted))}</span></span></span>
+        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${t.history ? "elsewhere " : ""}${esc(whenText(t.deleted))}</span></span></span>
         <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
+        <button class="btn fe-nt-purge" data-icon data-size="sm" data-tone="danger" data-trashed="${esc(t.trashed)}" title="${t.history ? "Hide this note from the list (it stays in the folder history)" : "Remove this note for good (it goes to the macOS Trash)"}" aria-label="Remove ${esc(t.title || noteTitle(t.name))} for good">${UI_ICON.close}</button>
       </div>`).join("") : emptyHtml("empty", "The trash is empty", { inline: true, hint: "Deleted notes wait here until you restore them" }));
     }
     function showTrash(root2, on) {
@@ -29109,7 +29233,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       notes.trashList(root2).then((list3) => {
-        trashed = list3;
+        const hide = hiddenHistory.get();
+        trashed = list3.filter((t) => !(t.history && hide.includes(t.trashed)));
         if (trashOpen) renderTrash(root2);
       }).catch((err) => toast(errorText(err, "Listing the trash")));
     }
@@ -29118,6 +29243,26 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (root2) showTrash(root2, !trashOpen);
     });
     ntList.addEventListener("click", (e) => {
+      const p = e.target.closest(".fe-nt-purge");
+      if (p) {
+        const root3 = notesRoot(), item3 = trashed.find((t) => t.trashed === p.dataset.trashed);
+        if (!root3 || !item3) return;
+        const gone = () => {
+          trashed = trashed.filter((t) => t !== item3);
+          if (trashOpen) renderTrash(root3);
+        };
+        if (item3.history) {
+          hiddenHistory.set([...hiddenHistory.get(), item3.trashed]);
+          gone();
+          toast("Hidden from the list");
+        } else {
+          notes.purge(root3, item3.trashed).then(() => {
+            gone();
+            toast("Removed. It is in the macOS Trash if you change your mind");
+          }).catch((err) => toast(errorText(err, "Removing the note")));
+        }
+        return;
+      }
       const b = e.target.closest(".fe-nt-restore");
       if (!b) return;
       const root2 = notesRoot(), item2 = trashed.find((t) => t.trashed === b.dataset.trashed);
@@ -29420,6 +29565,28 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         } });
       }).catch((err) => toast(errorText(err, "Moving the note to .trash")));
     }
+    async function duplicateNote(root2, rel) {
+      try {
+        const doc = await notes.read(root2, rel);
+        const text = duplicateText(doc.text);
+        const base2 = slugForTitle(noteTitle(rel, doc.text)).replace(/\.md$/, "");
+        for (let n = 1; n < 100; n++) {
+          const to = `${base2}${n > 1 ? `-${n}` : ""}.md`;
+          try {
+            await notes.create(root2, to, text);
+            refreshNotes();
+            toast("Duplicated");
+            openNoteRel(root2, to);
+            return;
+          } catch (err) {
+            if (err.code !== "notes_exists") throw err;
+          }
+        }
+        toast("Too many copies of this note already");
+      } catch (err) {
+        toast(errorText(err, "Duplicating the note"));
+      }
+    }
     function openNoteRel(root2, rel) {
       const actions = {
         step: (r, dir) => stepNote(root2, r, dir),
@@ -29482,9 +29649,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="row fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
         `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
         `<div class="row fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
+        `<div class="row fe-ctx-item" data-act="duplicate">${UI_ICON.copy}<span>Duplicate</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy text</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-all">${UI_ICON.copy}<span>Copy title and text</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
@@ -29521,6 +29691,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           break;
         case "cp-link":
           void copyLink(notePath(root2, rel), toast);
+          break;
+        case "cp-text":
+        case "cp-all": {
+          const all = item2.dataset.act === "cp-all";
+          void notes.read(root2, rel).then((doc) => {
+            const body = splitNote(doc.text).body.replace(/^\n+/, "").replace(/\s+$/, "");
+            const title = meta ? noteName(meta) : noteTitle(rel, doc.text);
+            return copyToClipboard(all ? [title, body].filter(Boolean).join("\n\n") : body);
+          }).then((ok) => toast(ok ? all ? "Copied title and text" : "Copied text" : "Copy failed")).catch((err) => toast(errorText(err, "Reading the note")));
+          break;
+        }
+        case "duplicate":
+          void duplicateNote(root2, rel);
           break;
         case "delete":
           deleteNote(root2, rel);
@@ -29577,6 +29760,40 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
       const rel = `untitled-${stamp}.md`;
       notes.create(root2, rel, "").then(() => openNoteRel(root2, rel)).catch((err) => toast(errorText(err, "Making the note")));
+    };
+    app.newNoteFromClipboard = () => {
+      const root2 = notesRoot();
+      if (!root2) {
+        app.openSettings("notes");
+        return;
+      }
+      void (async () => {
+        let raw = "";
+        try {
+          raw = await navigator.clipboard.readText();
+        } catch {
+        }
+        const made = clipboardNote(raw);
+        if (!made) {
+          toast("The clipboard has no text to save");
+          return;
+        }
+        for (let n = 1; n < 100; n++) {
+          const to = `${made.base}${n > 1 ? `-${n}` : ""}.md`;
+          try {
+            await notes.create(root2, to, made.text);
+            refreshNotes();
+            toast("Saved the clipboard as a note");
+            openNoteRel(root2, to);
+            return;
+          } catch (err) {
+            if (err.code !== "notes_exists") {
+              toast(errorText(err, "Making the note"));
+              return;
+            }
+          }
+        }
+      })();
     };
     app.pickNotesFolder = () => {
       notes.pick(notesRoot() || void 0).then((root2) => {
@@ -30526,6 +30743,93 @@ ${rows.join("\n")}`, name: subject };
     fe.insertBefore(bar, body);
   }
 
+  // src/tag-colours.ts
+  function tagRows(noteTags, saved, colours) {
+    const count = /* @__PURE__ */ new Map();
+    for (const tags of noteTags) for (const t of new Set(tags)) count.set(t, (count.get(t) ?? 0) + 1);
+    for (const p of saved) for (const t of new Set(p.tags ?? [])) count.set(t, (count.get(t) ?? 0) + 1);
+    for (const c of colours) if (!count.has(c.name)) count.set(c.name, 0);
+    const colour = new Map(colours.map((c) => [c.name, c.color]));
+    return [...count].map(([tag, n]) => ({ tag, count: n, color: colour.get(tag) ?? null })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }
+  function swapTag(tags, old, next) {
+    const out = [];
+    for (const t of tags.map((x2) => x2 === old ? next : x2)) if (!out.includes(t)) out.push(t);
+    return out;
+  }
+  function nextColour(current) {
+    if (!current) return TAG_COLORS[0];
+    const i3 = TAG_COLORS.indexOf(current);
+    return i3 < 0 || i3 === TAG_COLORS.length - 1 ? null : TAG_COLORS[i3 + 1];
+  }
+  async function renameTag(root2, old, rawNew) {
+    const next = rawNew.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+    if (!next || next === old) return 0;
+    let changed = 0;
+    const list3 = root2 ? await notes.list(root2) : [];
+    for (const n of list3) {
+      if (!(n.tags ?? []).includes(old)) continue;
+      const cur = await notes.read(root2, n.rel);
+      const tags = swapTag(readProps(n.rel, cur.text).tags, old, next);
+      const text = applyChange(cur.text, { tags });
+      if (frontmatterDrift(cur.text, text, changedKeys({ tags })).length) continue;
+      await notes.write(root2, n.rel, text, cur.mtime);
+      changed++;
+    }
+    const saved = getSaved();
+    if (saved.some((p) => p.tags?.includes(old))) {
+      saveSaved(saved.map((p) => p.tags?.includes(old) ? { ...p, tags: swapTag(p.tags, old, next.toLowerCase()) } : p));
+      changed += saved.filter((p) => p.tags?.includes(old)).length;
+    }
+    renameTagColour(old, next);
+    if (root2) await notes.savedSync(root2, { tags: { [old]: null } }).catch(() => void 0);
+    return changed;
+  }
+  function mountTagColours(host, o) {
+    const draw = async () => {
+      const root2 = o.root();
+      let list3 = [];
+      if (root2) {
+        try {
+          list3 = await notes.list(root2);
+        } catch {
+        }
+      }
+      const rows = tagRows(list3.map((n) => n.tags ?? []), getSaved(), getTags());
+      host.innerHTML = rows.length ? rows.map((r) => `
+      <div class="fe-tc-row" data-tag="${esc(r.tag)}">
+        <button class="fe-tc-sw" data-tc="colour" title="Click to change this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? "var(--dm)")}"></i></button>
+        <input class="tb" data-size="sm" data-tc="name" value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
+        <span class="fe-tc-n">${r.count} ${r.count === 1 ? "item" : "items"}</span>
+      </div>`).join("") : '<p class="fe-set-note">No tags yet. Tag a note or a save and it shows up here.</p>';
+    };
+    host.addEventListener("click", (e) => {
+      const b = e.target.closest('[data-tc="colour"]');
+      if (!b) return;
+      const tag = b.closest(".fe-tc-row").dataset.tag;
+      const cur = getTags().find((t) => t.name === tag)?.color ?? null;
+      setTagColour(tag, nextColour(cur));
+      o.refresh();
+      void draw();
+    });
+    host.addEventListener("change", (e) => {
+      const inp = e.target.closest('[data-tc="name"]');
+      if (!inp) return;
+      const tag = inp.closest(".fe-tc-row").dataset.tag;
+      renameTag(o.root(), tag, inp.value).then((n) => {
+        if (n) o.toast(`Renamed on ${n} ${n === 1 ? "item" : "items"}`);
+        o.refresh();
+        return draw();
+      }).catch((err) => {
+        o.toast(errorText(err, "Renaming the tag"));
+        void draw();
+      });
+    });
+    return () => {
+      void draw();
+    };
+  }
+
   // src/settings-ui.ts
   var reloadWhenSaved = () => {
     void Promise.all([kvFlush(), new Promise((r) => setTimeout(r, 600))]).then(reload);
@@ -30781,9 +31085,14 @@ ${rows.join("\n")}`, name: subject };
       el("fe-st-term-hint").textContent = cmd ? cmd.replace(/\$\{p\}/g, app.folderPath) : "";
     }
     const refreshPhone = initPhoneSettings(toast);
+    const refreshTagColours = mountTagColours(el("fe-st-tags"), { root: () => (settings.notesRoot || "").replace(/\/$/, ""), toast, refresh: () => {
+      app.refreshSaved();
+      app.refreshNotes();
+    } });
     const settingsDlg = mountDialog("fe-settings-modal", { onClose: closePop });
     function openSettings(tab) {
       refreshPhone();
+      refreshTagColours();
       els('input[name="bfb-theme"]').forEach((r) => {
         r.checked = r.value === (fe.dataset.mode || "dark");
       });
@@ -32194,6 +32503,8 @@ ${rows.join("\n")}`, name: subject };
       refreshNotes: () => {
       },
       newNote: () => {
+      },
+      newNoteFromClipboard: () => {
       },
       paintSync: () => {
       },

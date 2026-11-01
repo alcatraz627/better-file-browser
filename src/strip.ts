@@ -214,7 +214,7 @@ export function mountStrip(host: StripHost): Strip {
     const saved = isSaved(t.path);
     menu.innerHTML = [
       `<div class="row fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
-      `<div class="row fe-ctx-item" data-act="phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+      `<div class="row fe-ctx-item" data-act="phone">${UI_ICON.phone}<span>Copy link</span></div>`,
       `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? 'Unsave' : 'Save'}</span></div>`,
       host.openInTerminal ? `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : '',
       `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? 'Unpin' : 'Pin'}</span><span class="fe-ctx-key">p</span></div>`,

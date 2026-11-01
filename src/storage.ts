@@ -166,11 +166,47 @@ export function saveSaved(list: Place[]): void {
   kvSet(SAVED_DIRTY_KEY, '1');
   savedChanged?.();
 }
+// Colours the person chose for tags that no save carries (the tags of notes), which the registry above
+// forgets with the saves. They win over the registry for any tag they name.
+const TAGX_KEY = 'bfb-tag-colours-v1';
+function readExtra(): Record<string, string> {
+  try { const v = JSON.parse(kvGet(TAGX_KEY) ?? '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+  catch { return {}; }
+}
 export function getTags(): Tag[] {
-  return reconcileTags(getSaved(), readList<Tag>(TAGS_KEY));
+  const reg = reconcileTags(getSaved(), readList<Tag>(TAGS_KEY));
+  const x = readExtra();
+  const out = reg.map(t => x[t.name] ? { ...t, color: x[t.name] } : t);
+  for (const [name, color] of Object.entries(x)) if (!reg.some(t => t.name === name)) out.push({ name, color });
+  return out;
 }
 export function saveTags(tags: Tag[]): void {
+  const x = readExtra();
+  let moved = false;
+  for (const t of tags) if (x[t.name] !== undefined && x[t.name] !== t.color) { x[t.name] = t.color; moved = true; }
+  if (moved) kvSet(TAGX_KEY, JSON.stringify(x));
   kvSet(TAGS_KEY, JSON.stringify(tags));
+  kvSet(SAVED_DIRTY_KEY, '1');
+  savedChanged?.();
+}
+/** Set (or with null, forget) the colour of a tag, wherever it is carried: a save, a note, or both. */
+export function setTagColour(name: string, color: string | null): void {
+  const x = readExtra();
+  if (color) x[name] = color; else delete x[name];
+  kvSet(TAGX_KEY, JSON.stringify(x));
+  const reg = readList<Tag>(TAGS_KEY);
+  if (color && reg.some(t => t.name === name)) kvSet(TAGS_KEY, JSON.stringify(reg.map(t => t.name === name ? { ...t, color } : t)));
+  kvSet(SAVED_DIRTY_KEY, '1');
+  savedChanged?.();
+}
+/** Move a tag's colour to its new name when the tag is renamed. */
+export function renameTagColour(old: string, next: string): void {
+  const had = getTags().find(t => t.name === old);
+  const x = readExtra();
+  const colour = x[old] ?? had?.color;
+  delete x[old];
+  if (colour && !x[next]) x[next] = colour;
+  kvSet(TAGX_KEY, JSON.stringify(x));
   kvSet(SAVED_DIRTY_KEY, '1');
   savedChanged?.();
 }
@@ -180,6 +216,13 @@ export function setSavedFromFolder(list: Place[], colours?: Record<string, strin
   kvSet(SAVED_KEY, JSON.stringify(list));
   const reg = reconcileTags(list, readList<Tag>(TAGS_KEY)).map(t => colours?.[t.name] ? { ...t, color: colours[t.name] } : t);
   kvSet(TAGS_KEY, JSON.stringify(reg));
+  // A colour the folder holds for a tag no save carries is a note tag's colour; keep it for the tags page and the note rows.
+  if (colours) {
+    const x = readExtra(), onSaves = new Set(reg.map(t => t.name));
+    let moved = false;
+    for (const [name, c] of Object.entries(colours)) if (!onSaves.has(name) && x[name] !== c) { x[name] = c; moved = true; }
+    if (moved) kvSet(TAGX_KEY, JSON.stringify(x));
+  }
 }
 /** Remember positions and dates the folder assigned, without marking the cache unsent. */
 export function setSavedQuiet(list: Place[]): void { kvSet(SAVED_KEY, JSON.stringify(list)); }

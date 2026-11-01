@@ -39,12 +39,8 @@ export function initAddressRouting(): void {
   }, true);
 }
 
-/** Copy a path's phone link, or say how to get one. */
-export async function copyPhoneLink(path: string, toast: (m: string) => void): Promise<void> {
-  const url = phoneLink(path);
-  if (!url) { toast('Turn on "Open on my phone" in Settings, Data, to get a phone link'); return; }
-  toast(await copyToClipboard(url) ? 'Phone link copied' : 'Copy failed');
-}
+/** The Copy link buttons on rows, tabs and the top bar all follow the one-address rule of `copyLink`. */
+export const copyPhoneLink = copyLink;
 
 // The Mac is the phone's source of settings: send them when access turns on,
 // on each page while it is on, and a moment after any setting changes.

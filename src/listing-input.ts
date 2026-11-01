@@ -180,7 +180,7 @@ export function initListingInput(app: App, listing: Listing): void {
           canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : '',
           `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
           `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">⇧Y</span></div>`,
-          `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+          `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy link</span></div>`,
           hasText(en) ? `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy contents</span></div>` : '',
           `<div class="row fe-ctx-item" data-act="keep">${UI_ICON.tab}<span>Keep as tab</span><span class="fe-ctx-key">⌥↩</span></div>`,
           canAsk(en) ? `<div class="row fe-ctx-item" data-act="ask">${UI_ICON.ai}<span>Ask</span></div>` : '',

@@ -582,5 +582,47 @@ with open(os.path.join(root, 'emptykey.md'), 'w') as fh: fh.write('---\ntitle: "
 r = call({'op': 'list', 'root': root})
 check(next(n['title'] for n in r['notes'] if n['rel'] == 'emptykey.md') == 'First line here', 'an empty title key lists by the first line of the note')
 
+# Deleting a note sets aside only the pictures nothing else links to; a restore brings them back.
+arc = tempfile.mkdtemp(prefix='bfb-notes-attach-')
+os.makedirs(os.path.join(arc, 'attachments'))
+for f in ('only.png', 'shared.png', 'my pic.png'): open(os.path.join(arc, 'attachments', f), 'wb').write(b'png')
+with open(os.path.join(arc, 'a.md'), 'w') as fh: fh.write('---\ntitle: "A"\n---\n![x](attachments/only.png)\n![y](attachments/shared.png)\n![z](attachments/my%20pic.png)\n')
+with open(os.path.join(arc, 'b.md'), 'w') as fh: fh.write('see ![y](attachments/shared.png)\n')
+r = call({'op': 'delete', 'root': arc, 'rel': 'a.md'})
+check(not os.path.exists(os.path.join(arc, 'attachments', 'only.png')) and os.path.exists(os.path.join(arc, '.trash', 'attachments', 'only.png')),
+      'deleting a note sets aside a picture only that note linked to')
+check(os.path.exists(os.path.join(arc, 'attachments', 'shared.png')), 'but keeps a picture another note links to')
+check(os.path.exists(os.path.join(arc, '.trash', 'attachments', 'my pic.png')), 'a percent-encoded link finds its file')
+r = call({'op': 'restore', 'root': arc, 'trashed': r['trashed']})
+check(os.path.exists(os.path.join(arc, 'attachments', 'only.png')) and os.path.exists(os.path.join(arc, 'attachments', 'my pic.png')) and not os.path.exists(os.path.join(arc, '.trash', 'attachments', 'only.png')),
+      'restoring the note brings its pictures back')
+
+# Remove for good: the note leaves .trash for the macOS Trash (here a scratch home).
+fake_bin = tempfile.mkdtemp(prefix='bfb-bin-')
+os.environ['BFB_TRASH_DIR'] = fake_bin
+r = call({'op': 'delete', 'root': arc, 'rel': 'b.md'})
+pr = call({'op': 'purge', 'root': arc, 'trashed': r['trashed']})
+check(pr['t'] == 'purged' and not os.path.exists(os.path.join(arc, r['trashed'])) and len(os.listdir(fake_bin)) == 1,
+      f'purge moves a deleted note to the macOS Trash: {pr}')
+check(call({'op': 'purge', 'root': arc, 'trashed': 'a.md'})['t'] == 'error', 'purge only takes what is in .trash')
+
+# Notes deleted somewhere else show in the deleted list, from git, and restore with their pictures.
+gr = tempfile.mkdtemp(prefix='bfb-notes-gone-')
+def ggit(*a): subprocess.run(['git', '-C', gr] + list(a), check=True, capture_output=True)
+ggit('init', '-q'); ggit('config', 'user.email', 't@t'); ggit('config', 'user.name', 't')
+os.makedirs(os.path.join(gr, 'attachments'))
+open(os.path.join(gr, 'attachments', 'gone.png'), 'wb').write(b'PNGDATA')
+with open(os.path.join(gr, 'elsewhere.md'), 'w') as fh: fh.write('---\ntitle: "Gone elsewhere"\n---\n![p](attachments/gone.png)\n')
+with open(os.path.join(gr, 'stays.md'), 'w') as fh: fh.write('stays\n')
+ggit('add', '-A'); ggit('commit', '-q', '-m', 'add')
+ggit('rm', '-q', 'elsewhere.md', 'attachments/gone.png'); ggit('commit', '-q', '-m', 'deleted on the other device')
+tl = call({'op': 'trashList', 'root': gr})['notes']
+check([n['name'] for n in tl] == ['elsewhere.md'] and tl[0]['title'] == 'Gone elsewhere' and tl[0].get('history') is True,
+      f'a note deleted on another device is listed from git history: {tl}')
+rr = call({'op': 'restore', 'root': gr, 'trashed': tl[0]['trashed']})
+check(rr['t'] == 'restored' and os.path.isfile(os.path.join(gr, 'elsewhere.md')) and open(os.path.join(gr, 'attachments', 'gone.png'), 'rb').read() == b'PNGDATA',
+      f'restoring it writes the note and fetches its picture back: {rr}')
+check(call({'op': 'trashList', 'root': gr})['notes'] == [], 'once restored it is no longer listed')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

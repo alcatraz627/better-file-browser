@@ -141,6 +141,9 @@ export function settingsDialog(): DialogSpec {
         card('Notes',
           row('Folder', 'Markdown files, for example ~/Notes', `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="Not set" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
           note('', 'fe-st-notes-hint')) +
+        card('Tag colours',
+          note('A tag’s colour is kept in the notes folder, so it looks the same on every device. Renaming a tag changes it on every note and save.') +
+          '<div id="fe-st-tags" class="fe-tc"></div>') +
         card('Editing',
           wide('Editable folders', 'Text files inside get Edit (e e), for example ~/Code. Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', 'Not set', 'Folders you can edit in'))) },
 

@@ -8,14 +8,14 @@ import { esc, copyToClipboard, midHtml, fileHref, whenText, fileBase, isFileUrl 
 import { copyLink } from './phone';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor, isWebPath } from './places';
 import { renderSavedList } from './render';
 import { describeSync } from './sync-state';
 import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder, restoreBackup, settleSave } from './saved-sync';
 import type { Keep } from './notefmt';
 import { whenShort } from './note-meta-ui';
-import { notes, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
+import { notes, duplicateText, clipboardNote, splitNote, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -26,6 +26,9 @@ import { addPaletteSource } from './commands';
 import { dismissOutside, openLayer, raise, rovingFocus, type Layer } from './layer';
 import { emptyHtml, CLEAR } from './empty-state';
 import { errorText } from './errors';
+
+/** Notes deleted on another device that the person chose to hide from the deleted list (they stay in git). */
+const hiddenHistory = jsonPref<string[]>('bfb-trash-hidden-v1', [], v => Array.isArray(v));
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const lensPref = textPref('bfb-lens-v1', 'notes');
@@ -549,8 +552,9 @@ export function initSidebar(app: App): void {
     const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
     ntList.innerHTML = head + (trashed.length ? trashed.map(t => `
       <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
-        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(whenText(t.deleted))}</span></span></span>
+        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${t.history ? 'elsewhere ' : ''}${esc(whenText(t.deleted))}</span></span></span>
         <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
+        <button class="btn fe-nt-purge" data-icon data-size="sm" data-tone="danger" data-trashed="${esc(t.trashed)}" title="${t.history ? 'Hide this note from the list (it stays in the folder history)' : 'Remove this note for good (it goes to the macOS Trash)'}" aria-label="Remove ${esc(t.title || noteTitle(t.name))} for good">${UI_ICON.close}</button>
       </div>`).join('')
       : emptyHtml('empty', 'The trash is empty', { inline: true, hint: 'Deleted notes wait here until you restore them' }));
   }
@@ -561,11 +565,25 @@ export function initSidebar(app: App): void {
     trashBtn.setAttribute('aria-pressed', String(on));
     trashBtn.title = on ? 'Back to the notes' : 'Trash: notes you deleted';
     if (!on) { refreshNotes(); return; }
-    notes.trashList(root).then(list => { trashed = list; if (trashOpen) renderTrash(root); })
+    notes.trashList(root).then(list => { const hide = hiddenHistory.get(); trashed = list.filter(t => !(t.history && hide.includes(t.trashed))); if (trashOpen) renderTrash(root); })
       .catch((err: NotesError) => toast(errorText(err, 'Listing the trash')));
   }
   trashBtn.addEventListener('click', () => { const root = notesRoot(); if (root) showTrash(root, !trashOpen); });
   ntList.addEventListener('click', e => {
+    const p = (e.target as Element).closest<HTMLElement>('.fe-nt-purge');
+    if (p) {
+      const root = notesRoot(), item = trashed.find(t => t.trashed === p.dataset.trashed);
+      if (!root || !item) return;
+      const gone = () => { trashed = trashed.filter(t => t !== item); if (trashOpen) renderTrash(root); };
+      if (item.history) {
+        // A note deleted on another device lives in the folder's git history: removing it only hides it here.
+        hiddenHistory.set([...hiddenHistory.get(), item.trashed]); gone(); toast('Hidden from the list');
+      } else {
+        notes.purge(root, item.trashed).then(() => { gone(); toast('Removed. It is in the macOS Trash if you change your mind'); })
+          .catch((err: NotesError) => toast(errorText(err, 'Removing the note')));
+      }
+      return;
+    }
     const b = (e.target as Element).closest<HTMLElement>('.fe-nt-restore');
     if (!b) return;
     const root = notesRoot(), item = trashed.find(t => t.trashed === b.dataset.trashed);
@@ -856,6 +874,20 @@ export function initSidebar(app: App): void {
       } });
     }).catch((err: NotesError) => toast(errorText(err, 'Moving the note to .trash')));
   }
+  /// A second note with the same words, tags, colour and link, named from its title and opened for editing.
+  async function duplicateNote(root: string, rel: string): Promise<void> {
+    try {
+      const doc = await notes.read(root, rel);
+      const text = duplicateText(doc.text);
+      const base = slugForTitle(noteTitle(rel, doc.text)).replace(/\.md$/, '');
+      for (let n = 1; n < 100; n++) {
+        const to = `${base}${n > 1 ? `-${n}` : ''}.md`;
+        try { await notes.create(root, to, text); refreshNotes(); toast('Duplicated'); openNoteRel(root, to); return; }
+        catch (err) { if ((err as NotesError).code !== 'notes_exists') throw err; }
+      }
+      toast('Too many copies of this note already');
+    } catch (err) { toast(errorText(err as NotesError, 'Duplicating the note')); }
+  }
   function openNoteRel(root: string, rel: string): void {
     const actions: NoteActions = {
       step: (r, dir) => stepNote(root, r, dir),
@@ -900,9 +932,12 @@ export function initSidebar(app: App): void {
       `<div class="row fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
       `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
       `<div class="row fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
+      `<div class="row fe-ctx-item" data-act="duplicate">${UI_ICON.copy}<span>Duplicate</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+      `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy text</span></div>`,
+      `<div class="row fe-ctx-item" data-act="cp-all">${UI_ICON.copy}<span>Copy title and text</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
@@ -926,6 +961,17 @@ export function initSidebar(app: App): void {
       case 'cp-path': void copyToClipboard(notePath(root, rel)).then(ok => toast(ok ? 'Copied path' : 'Copy failed')); break;
       case 'cp-title': void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then(ok => toast(ok ? 'Copied title' : 'Copy failed')); break;
       case 'cp-link': void copyLink(notePath(root, rel), toast); break;
+      case 'cp-text': case 'cp-all': {
+        const all = item.dataset.act === 'cp-all';
+        void notes.read(root, rel).then(doc => {
+          const body = splitNote(doc.text).body.replace(/^\n+/, '').replace(/\s+$/, '');
+          const title = meta ? noteName(meta) : noteTitle(rel, doc.text);
+          return copyToClipboard(all ? [title, body].filter(Boolean).join('\n\n') : body);
+        }).then(ok => toast(ok ? (all ? 'Copied title and text' : 'Copied text') : 'Copy failed'))
+          .catch((err: NotesError) => toast(errorText(err, 'Reading the note')));
+        break;
+      }
+      case 'duplicate': void duplicateNote(root, rel); break;
       case 'delete': deleteNote(root, rel); break;
     }
   });
@@ -972,6 +1018,22 @@ export function initSidebar(app: App): void {
     notes.create(root, rel, '')
       .then(() => openNoteRel(root, rel))
       .catch((err: NotesError) => toast(errorText(err, 'Making the note')));
+  };
+  /// A new note holding whatever text is on the clipboard, named from its first line, opened for editing.
+  app.newNoteFromClipboard = () => {
+    const root = notesRoot();
+    if (!root) { app.openSettings('notes'); return; }
+    void (async () => {
+      let raw = '';
+      try { raw = await navigator.clipboard.readText(); } catch { /* blocked: say so below */ }
+      const made = clipboardNote(raw);
+      if (!made) { toast('The clipboard has no text to save'); return; }
+      for (let n = 1; n < 100; n++) {
+        const to = `${made.base}${n > 1 ? `-${n}` : ''}.md`;
+        try { await notes.create(root, to, made.text); refreshNotes(); toast('Saved the clipboard as a note'); openNoteRel(root, to); return; }
+        catch (err) { if ((err as NotesError).code !== 'notes_exists') { toast(errorText(err as NotesError, 'Making the note')); return; } }
+      }
+    })();
   };
   app.pickNotesFolder = () => {
     notes.pick(notesRoot() || undefined).then(root => {

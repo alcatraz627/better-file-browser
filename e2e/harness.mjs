@@ -88,6 +88,7 @@ os.environ['BFB_DP_REGISTRY'] = ${JSON.stringify(dpRegistry(profile))}
 os.environ['BFB_DP_BIN'] = ${JSON.stringify(dpStub)}
 os.environ['BFB_DOCS_HOME'] = ${JSON.stringify(docsHome(profile))}
 os.environ['BFB_BACKUP_DIR'] = ${JSON.stringify(join(profile, 'backups'))}
+os.environ['BFB_TRASH_DIR'] = ${JSON.stringify(join(profile, 'macos-trash'))}
 os.environ['BFB_DIRECTIONS_ROOTS'] = ${JSON.stringify(join(profile, 'repos'))}
 os.environ['BFB_PHONE_SEED'] = ${JSON.stringify(join(profile, 'phone-seed.json'))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})

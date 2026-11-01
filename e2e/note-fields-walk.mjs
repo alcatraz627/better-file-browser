@@ -95,6 +95,32 @@ try {
   await page.click('.fe-chip-rem'); await page.waitForSelector('[data-rem="clear"]');
   await page.click('[data-rem="clear"]'); await sleep(2500);
   check(!/remind_/.test(read('plain-one.md')), 'clearing removes every remind key');
+
+  // 5. Expiry: set from the editor, written alone, removed; and set together with a reminder
+  const bx = read('plain-one.md');
+  check(await page.$eval('.fe-chip-exp span', e => e.textContent) === 'Expiry', 'a note with no expiry offers an Expiry chip');
+  await page.click('.fe-chip-exp');
+  await page.waitForSelector('#fe-exp-at');
+  await page.$eval('#fe-exp-at', e => { e.value = '2031-03-04T10:30'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  await shot(page, 'fields-expiry-popover');
+  await page.click('.fe-exp .fe-rem-form button[type="submit"]');
+  await sleep(2500);
+  const isoE = new Date('2031-03-04T10:30').toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const withE = read('plain-one.md');
+  check(withE.includes(`expires: ${isoE}\n`), `setting an expiry writes the expires line: ${JSON.stringify(withE.split('---')[1])}`);
+  check(withE.replace(/^updated: .*\n/m, '').replace(/^expires: .*\n/m, '') === bx.replace(/^updated: .*\n/m, ''), 'and changes nothing else in the file');
+  check((await page.$eval('.fe-chip-exp span', e => e.textContent)).includes('Mar 4'), 'the chip then shows the date');
+  await page.click('[data-m="expires-clear"]'); await sleep(2500);
+  check(!/^expires:/m.test(read('plain-one.md')), 'the remove button takes the expires line out');
+  await page.click('.fe-chip-rem'); await page.waitForSelector('#fe-rem-at');
+  await page.$eval('#fe-rem-at', e => { e.value = '2030-01-02T09:00'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.click('#fe-rem-expire');
+  await page.click('.fe-rem-form button[type="submit"]'); await sleep(2500);
+  const both = read('plain-one.md');
+  check(both.includes(`remind_at: ${iso}\n`) && both.includes(`expires: ${iso}\n`), 'a reminder set with "also expire" writes both at the same time');
+  await page.click('.fe-chip-rem'); await page.waitForSelector('[data-rem="clear"]');
+  await page.click('[data-rem="clear"]'); await sleep(2500);
+  check(/^expires:/m.test(read('plain-one.md')), 'clearing the reminder leaves the expiry alone');
   check(!(await page.$eval('#fe-ql-meta', e => e.textContent)).includes('not saved'), 'no "not saved" warning came up');
 } finally {
   await h.close();

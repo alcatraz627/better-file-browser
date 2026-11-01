@@ -257,7 +257,7 @@ loadKv().catch(() => {}).then(function () {
     toast: makeToast(el('fe-toast')),
     strip: null as unknown as App['strip'],
     filePage: null,
-    applyAll: () => {}, setOrder: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, paintSync: () => {}, pickNotesFolder: () => {},
+    applyAll: () => {}, setOrder: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, newNoteFromClipboard: () => {}, paintSync: () => {}, pickNotesFolder: () => {},
     openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
       if (fileMode) { go(fileHref(folderPath), 'here', { exact: true }); return; }

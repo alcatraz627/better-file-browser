@@ -15,6 +15,7 @@ Ops (request -> reply):
   {op:"delete", root, rel}                   -> {t:"deleted", rel, trashed}
   {op:"trashList", root}                     -> {t:"trash", notes:[{trashed, name, title, size, mtime, deleted}]}   (what .trash holds, newest first)
   {op:"restore", root, trashed, to?}         -> {t:"restored", rel, trashed}   (back to `to`, or the note's own name; never overwrites)
+  {op:"purge", root, trashed}                -> {t:"purged", trashed}   (a deleted note leaves .trash for the macOS Trash)
   {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
   {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}], repo}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
@@ -33,7 +34,9 @@ Ops (request -> reply):
   {op:"svc_seen", port}                      -> {t:"svc_seen"}   (bfb is running, and this local port's tab is in front; BFB_SVC_TOUCH_DIR overrides where svc reads it)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
-Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out.
+Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out. A picture or file
+the note linked to goes to .trash/attachments too, unless another note or save links to it. trashList also lists
+notes deleted in the last 300 git commits (trashed is `git:<sha>:<rel>`, history true), and restore reads those back.
 """
 import bisect
 import contextlib
@@ -349,10 +352,65 @@ def op_delete(root, rel):
     while os.path.exists(dst):
         n += 1
         dst = os.path.join(trash, f'{stamp}.{n}-{name}')
+    try:
+        with open(full, encoding='utf-8', errors='replace') as fh:
+            text = fh.read()
+    except OSError:
+        text = ''
     shutil.move(full, dst)
     if os.path.exists(full + COMPANION):
         shutil.move(full + COMPANION, dst + COMPANION)
+    set_aside_attachments(root, text)
     return {'t': 'deleted', 'rel': rel, 'trashed': os.path.relpath(dst, root)}
+
+ATTACH_REF = re.compile(r'attachments/([^)\s"\'<>\]]+)')
+
+def attachment_names(text):
+    """The `attachments/` file names a text links to, in any link form, percent-decoded."""
+    from urllib.parse import unquote
+    return {unquote(m.group(1)) for m in ATTACH_REF.finditer(text or '')}
+
+def other_notes_link(root, name):
+    """Whether any note or save still in the folder links to `attachments/<name>`. Deliberately generous:
+    a file kept by mistake costs nothing, and one removed by mistake takes a picture from another note."""
+    from urllib.parse import quote
+    needles = {f'attachments/{name}', f'attachments/{quote(name)}'}
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in ('.trash', '.git', 'attachments')]
+        for f in files:
+            if not f.lower().endswith('.md'):
+                continue
+            try:
+                with open(os.path.join(dirpath, f), encoding='utf-8', errors='replace') as fh:
+                    body = fh.read()
+            except OSError:
+                continue
+            if any(n in body for n in needles):
+                return True
+    return False
+
+def set_aside_attachments(root, text):
+    """A deleted note owns nothing by file name: each file it linked to goes to .trash/attachments only
+    when no other note or save links to it, so a restore can bring it back."""
+    for name in attachment_names(text):
+        src = os.path.join(root, 'attachments', name)
+        if os.path.dirname(os.path.realpath(src)) != os.path.realpath(os.path.join(root, 'attachments')) or not os.path.isfile(src):
+            continue
+        if other_notes_link(root, name):
+            continue
+        keep = os.path.join(root, '.trash', 'attachments')
+        os.makedirs(keep, exist_ok=True)
+        if not os.path.exists(os.path.join(keep, name)):
+            shutil.move(src, os.path.join(keep, name))
+
+def bring_back_attachments(root, text):
+    """The files a restored note links to that were set aside with it go back to attachments/."""
+    for name in attachment_names(text):
+        held = os.path.join(root, '.trash', 'attachments', name)
+        dst = os.path.join(root, 'attachments', name)
+        if os.path.isfile(held) and not os.path.exists(dst):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.move(held, dst)
 
 TRASH_STAMP = re.compile(r'^(\d{8}-\d{6})(?:\.\d+)?-(.+)$')
 
@@ -381,12 +439,15 @@ def op_trash_list(root):
                 except ValueError: pass
             out.append({'trashed': '.trash/' + f, 'name': trash_rel(m.group(2)) if m else f, 'title': note_title(full),
                         'size': st.st_size, 'mtime': int(st.st_mtime * 1000), 'deleted': when})
+    out.extend(history_deleted(root, [os.path.basename(n['trashed']) for n in out]))
     out.sort(key=lambda n: -n['deleted'])
     return {'t': 'trash', 'notes': out}
 
 def op_restore(root, trashed, to):
     """Move a deleted note back out of .trash, with its comments. It goes to `to` when that is free,
     otherwise under a numbered name beside it, so a restore never overwrites a note."""
+    if isinstance(trashed, str) and trashed.startswith('git:'):
+        return restore_from_history(root, trashed, to)
     src = resolve_rel(root, trashed)
     trash = os.path.join(root, '.trash')
     if os.path.dirname(src) != trash or not os.path.isfile(src):
@@ -405,6 +466,99 @@ def op_restore(root, trashed, to):
     os.replace(src, dst)
     if os.path.exists(src + COMPANION) and not os.path.exists(dst + COMPANION):
         os.replace(src + COMPANION, dst + COMPANION)
+    try:
+        with open(dst, encoding='utf-8', errors='replace') as fh:
+            bring_back_attachments(root, fh.read())
+    except OSError:
+        pass
+    return {'t': 'restored', 'rel': os.path.relpath(dst, root), 'trashed': trashed}
+
+def op_purge(root, trashed):
+    """Remove one deleted note for good: into the macOS Trash, so even that can be undone."""
+    src = resolve_rel(root, trashed)
+    trash = os.path.join(root, '.trash')
+    if os.path.dirname(src) != trash or not os.path.isfile(src):
+        raise NotesError('notes_missing', f'no such note in .trash: {trashed}')
+    bin_dir = os.environ.get('BFB_TRASH_DIR') or os.path.expanduser('~/.Trash')   # the override keeps tests out of the real Trash
+    os.makedirs(bin_dir, exist_ok=True)
+    for f in (src, src + COMPANION):
+        if not os.path.exists(f):
+            continue
+        dst = os.path.join(bin_dir, os.path.basename(f))
+        n = 1
+        while os.path.exists(dst):
+            n += 1
+            dst = os.path.join(bin_dir, f'{n}-{os.path.basename(f)}')
+        shutil.move(f, dst)
+    return {'t': 'purged', 'trashed': trashed}
+
+def history_deleted(root, seen):
+    """Notes whose file was deleted in the last 300 commits (by anyone, on any device) and are neither in the
+    folder nor in .trash, each with its last text. `seen` is the file names already in .trash."""
+    out = git_out(root, ['log', '-300', '--diff-filter=D', '--name-only', '--format=%x00%H%x09%ct', '--', '*.md']) or ''
+    prefix = git_out(root, ['rev-parse', '--show-prefix']) or ''
+    prefix = prefix.strip()
+    found, names = [], set()
+    for block in out.split('\0'):
+        lines = [l for l in block.splitlines() if l.strip()]
+        if not lines or '\t' not in lines[0]:
+            continue
+        sha, ct = lines[0].split('\t', 1)
+        for path in lines[1:]:
+            if prefix and not path.startswith(prefix):
+                continue
+            rel = path[len(prefix):]
+            if '/' in rel or rel.startswith('.') or rel in names or os.path.exists(os.path.join(root, rel)):
+                continue
+            if any(t.endswith('-' + trash_name(rel)) for t in seen):
+                continue
+            text = git_out(root, ['show', f'{sha}^:{path}'])
+            if text is None:
+                continue
+            names.add(rel)
+            when = int(ct) * 1000 if ct.isdigit() else 0
+            found.append({'trashed': f'git:{sha}:{rel}', 'name': rel, 'title': notefmt_title(rel, text),
+                          'size': len(text.encode('utf-8')), 'mtime': when, 'deleted': when, 'history': True})
+    return found
+
+def notefmt_title(rel, text):
+    """What the list calls a deleted note, read from its last text the way note_title reads a file."""
+    name = os.path.basename(rel)[:-3] if rel.lower().endswith('.md') else os.path.basename(rel)
+    try:
+        n = notefmt.parse(text, name)
+        return n['title'] if n['title'] or n['conflicted'] else notefmt._derive_title(n['body'], name)
+    except Exception:
+        return name
+
+def restore_from_history(root, trashed, to):
+    """Put back a note that was deleted somewhere else, from the commit that still had it, with its pictures."""
+    m = re.match(r'^git:([0-9a-f]{7,40}):(.+)$', trashed)
+    if not m:
+        raise NotesError('notes_missing', f'no such deleted note: {trashed}')
+    sha, rel = m.group(1), m.group(2)
+    prefix = (git_out(root, ['rev-parse', '--show-prefix']) or '').strip()
+    text = git_out(root, ['show', f'{sha}^:{prefix}{rel}'])
+    if text is None:
+        raise NotesError('notes_missing', f'no such deleted note: {trashed}')
+    want = to if isinstance(to, str) and to else rel
+    dst = resolve_rel(root, want)
+    stem, ext = os.path.splitext(dst)
+    n = 1
+    while os.path.exists(dst):
+        n += 1
+        dst = f'{stem} ({n}){ext}'
+    atomic_write(dst, text)
+    for name in attachment_names(text):
+        out = os.path.join(root, 'attachments', name)
+        if os.path.exists(out) or '/' in name:
+            continue
+        try:
+            r = subprocess.run(['git', '-C', root, 'show', f'{sha}^:{prefix}attachments/{name}'], capture_output=True, timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if r.returncode == 0:
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            write_bytes_atomic(out, r.stdout)
     return {'t': 'restored', 'rel': os.path.relpath(dst, root), 'trashed': trashed}
 
 def in_repo(root):
@@ -1101,11 +1255,14 @@ def op_saved_sync(root, writes, removes, tags, create_only):
                     cur = got
             except (OSError, ValueError):
                 cur = {}
-        merged = {**cur, **{str(k): str(v) for k, v in tags.items()}}
+        merged = {**cur, **{str(k): str(v) for k, v in tags.items() if v is not None}}
+        for k, v in tags.items():
+            if v is None:   # a renamed or forgotten tag: its colour leaves the file too
+                merged.pop(str(k), None)
         if merged != cur:
             atomic_write(tp, json.dumps(merged, indent=2, ensure_ascii=False, sort_keys=True) + '\n')
     return {'t': 'savedSynced', 'written': written, 'skipped': skipped, 'removed': removed}
-WRITE_OPS = {'savedSync', 'write', 'create', 'rename', 'delete', 'restore', 'writeBinary', 'fileWrite', 'commentsWrite'}
+WRITE_OPS = {'savedSync', 'write', 'create', 'rename', 'delete', 'restore', 'purge', 'writeBinary', 'fileWrite', 'commentsWrite'}
 
 def repo_root_of(root):
     """The git repository (with a .git folder) a notes folder sits in, or None."""
@@ -1166,6 +1323,7 @@ def handle_unlocked(msg):
     if op == 'delete': return op_delete(root, msg.get('rel'))
     if op == 'trashList': return op_trash_list(root)
     if op == 'restore': return op_restore(root, msg.get('trashed'), msg.get('to'))
+    if op == 'purge':   return op_purge(root, msg.get('trashed'))
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))

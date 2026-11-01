@@ -153,7 +153,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
       ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      ${web ? '' : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>`}
+      ${web ? '' : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy link" aria-label="Copy link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;

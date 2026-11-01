@@ -212,6 +212,7 @@ export function initFocusNav(app: App): void {
   bind('tab-jump', key => stripKey(key?.slice(-1) ?? '1')());
   bind('tab-reopen', stripKey('T'));
   bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
+  bind('new-note-clip', () => app.newNoteFromClipboard(), () => !!app.settings.notesRoot);
   bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
   bind('fp-edit', () => app.filePage?.edit(), () => !!app.filePage);
   const noteBtn = (act: string) => document.querySelector<HTMLElement>(`#fe-ed-bar [data-act="${act}"]`);

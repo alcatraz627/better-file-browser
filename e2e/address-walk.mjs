@@ -31,6 +31,11 @@ try {
   const said = await copyLink();
   check(/Phone access is off, so it opens only on this Mac/.test(said), `with phone access off, Copy link says it opens only on this Mac: ${said}`);
   await shot(page, 'address-copy-off');
+  // The top bar button is the same Copy link, by the same rule.
+  const bar = async () => { await page.click('#fe-phone-btn'); await sleep(500); return page.$eval('#fe-toast', e => e.textContent); };
+  check(await page.$eval('#fe-phone-btn', e => e.getAttribute('aria-label')) === 'Copy link', 'the top bar button is named Copy link');
+  const barOff = await bar();
+  check(/Phone access is off, so it opens only on this Mac/.test(barOff), `with phone access off, the top bar button copies a file link and says so: ${barOff}`);
 
   await h.store.set('bfb-phone-on', '1');
   await h.store.set('bfb-phone-url', 'http://100.64.0.9:8446');
@@ -40,6 +45,9 @@ try {
   check(/opens on this Mac and on your phone/.test(said2), `with phone access on, Copy link says it opens on both: ${said2}`);
   const clip = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''));
   check(clip === '' || clip === `http://100.64.0.9:8446${store}/ideas.md`, `and copies the phone address: ${clip || '(clipboard not readable here)'}`);
+
+  const barOn = await bar();
+  check(/opens on this Mac and on your phone/.test(barOn), `with phone access on, the top bar button copies the phone address: ${barOn}`);
 
   // A phone-server link followed on the Mac opens the file here.
   await page.evaluate(root => { const a = document.createElement('a'); a.id = 'probe-link'; a.href = `http://100.64.0.9:8446${root}/ideas.md`; a.textContent = 'x'; a.style.cssText = 'position:fixed;top:60px;left:320px;z-index:99999;background:#fff;color:#000'; document.body.append(a); }, store);

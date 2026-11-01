@@ -28,6 +28,7 @@ import { kvFlush } from './kv';
 const reloadWhenSaved = (): void => { void Promise.all([kvFlush(), new Promise(r => setTimeout(r, 600))]).then(reload); };
 import { errorText } from './errors';
 import { initPhoneSettings } from './phone';
+import { mountTagColours } from './tag-colours';
 
 /// Home's address (~/#home), the same one the toolbar button and a new tab open; empty until bfb has seen the home folder.
 function homeAddress(): string {
@@ -238,9 +239,11 @@ export function initSettingsUi(app: App): void {
     el('fe-st-term-hint').textContent = cmd ? cmd.replace(/\$\{p\}/g, app.folderPath) : '';
   }
   const refreshPhone = initPhoneSettings(toast);
+  const refreshTagColours = mountTagColours(el('fe-st-tags'), { root: () => (settings.notesRoot || '').replace(/\/$/, ''), toast, refresh: () => { app.refreshSaved(); app.refreshNotes(); } });
   const settingsDlg = mountDialog('fe-settings-modal', { onClose: closePop });
   function openSettings(tab?: string): void {
     refreshPhone();
+    refreshTagColours();
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.mode || 'dark'); });
     els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => { r.checked = r.value === (fe.dataset.palette || 'slate'); });
     const icon = appIconPref.get();

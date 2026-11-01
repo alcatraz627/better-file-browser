@@ -102,6 +102,7 @@ export function openReminderMenu(anchor: HTMLElement, props: NoteProps, apply: A
       <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
       <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== 'phone' ? ' selected' : ''}>This Mac</option><option value="phone"${props.remindOn === 'phone' ? ' selected' : ''}>The phone</option></select>
       <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? ' checked' : ''}><span>Keep ringing until dismissed</span></label>
+      <label class="fe-rem-keep"><input id="fe-rem-expire" type="checkbox"><span>Also expire the note then</span></label>
       <div class="fe-rem-acts">
         <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? 'Update' : 'Set reminder'}</span></button>
         ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? 'Move to the next time' : 'Done: clear it'}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ''}
@@ -121,9 +122,50 @@ export function openReminderMenu(anchor: HTMLElement, props: NoteProps, apply: A
     const at = new Date((menu.querySelector('#fe-rem-at') as HTMLInputElement).value);
     if (!isFinite(+at)) return;
     const repeat = (menu.querySelector('#fe-rem-repeat') as HTMLSelectElement).value as 'daily' | 'weekly' | 'monthly' | '';
-    void done({ remind: { at: at.toISOString().replace(/\.\d{3}Z$/, 'Z'), ...(repeat ? { repeat } : {}), on: (menu.querySelector('#fe-rem-on') as HTMLSelectElement).value as 'mac' | 'phone', persist: (menu.querySelector('#fe-rem-persist') as HTMLInputElement).checked } });
+    const iso = at.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const alsoExpire = (menu.querySelector('#fe-rem-expire') as HTMLInputElement).checked;
+    void done({ remind: { at: iso, ...(repeat ? { repeat } : {}), on: (menu.querySelector('#fe-rem-on') as HTMLSelectElement).value as 'mac' | 'phone', persist: (menu.querySelector('#fe-rem-persist') as HTMLInputElement).checked }, ...(alsoExpire ? { expires: iso } : {}) });
   });
   openMenu = openLayer(menu, { kind: 'popover', anchor, role: 'dialog', group: 'menu', focus: menu.querySelector<HTMLElement>('#fe-rem-at')! });
+}
+
+/// The expiry box: pick a time (or a preset), or remove it. A passed expiry only moves the note under Expired;
+/// the note is never deleted.
+export function openExpiryMenu(anchor: HTMLElement, props: NoteProps, apply: ApplyChange): void {
+  closePropsMenu();
+  const menu = document.createElement('div');
+  menu.className = 'fe-pmenu fe-rem fe-exp';
+  const seed = props.expires ? localValue(props.expires) : localValue(new Date(Date.now() + 7 * 86400_000).toISOString());
+  const presets: [string, number][] = [['Tomorrow', 1], ['In a week', 7], ['In a month', 30]];
+  menu.innerHTML = `
+    <form class="fe-rem-form">
+      <label class="fe-pm-lbl" for="fe-exp-at">Expire this note at</label>
+      <div class="fe-exp-presets">${presets.map(([t, d]) => `<button class="btn" data-size="sm" type="button" data-exp-days="${d}">${t}</button>`).join('')}</div>
+      <input id="fe-exp-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
+      <div class="fe-rem-acts">
+        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.expires ? 'Update' : 'Set expiry'}</span></button>
+        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">No expiry</button>` : ''}
+      </div>
+    </form>`;
+  const done = async (c: PropChange) => { await apply(c); closePropsMenu(); };
+  menu.addEventListener('click', e => {
+    const t = e.target as HTMLElement;
+    const preset = t.closest<HTMLElement>('[data-exp-days]');
+    if (preset) {
+      e.preventDefault();
+      const d = new Date(Date.now() + Number(preset.dataset.expDays) * 86400_000);
+      (menu.querySelector('#fe-exp-at') as HTMLInputElement).value = localValue(d.toISOString());
+      return;
+    }
+    if (t.closest('[data-exp="clear"]')) { e.preventDefault(); void done({ expires: null }); }
+  });
+  menu.addEventListener('submit', e => {
+    e.preventDefault();
+    const at = new Date((menu.querySelector('#fe-exp-at') as HTMLInputElement).value);
+    if (!isFinite(+at)) return;
+    void done({ expires: at.toISOString().replace(/\.\d{3}Z$/, 'Z') });
+  });
+  openMenu = openLayer(menu, { kind: 'popover', anchor, role: 'dialog', group: 'menu', focus: menu.querySelector<HTMLElement>('#fe-exp-at')! });
 }
 
 /// The chip row above the editor text: title, pin, colour and tags. Returns a redraw.
@@ -145,7 +187,8 @@ export function mountMetaBar(host: HTMLElement, o: {
       <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>
       <button class="btn fe-chip-btn fe-chip-rem${p.remindAt ? ' active' : ''}${reminderState(p) === 'missed' ? ' missed' : ''}" data-size="sm" data-m="remind" title="${p.remindAt ? 'Change or clear this reminder' : 'Set a reminder'}">${UI_ICON.clock}<span>${esc(reminderLabel(p))}</span></button>
       ${p.agent ? `<span class="chip fe-chip-agent" title="This note was made or last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ''}
-      ${p.expires ? `<span class="chip fe-chip-exp${Date.parse(p.expires) <= Date.now() ? ' expired' : ''}" title="After this time the note is listed under Expired. It is never deleted.">${UI_ICON.clock}<span>${Date.parse(p.expires) <= Date.now() ? 'Expired' : 'Expires'} ${esc(whenShort(p.expires))}</span></span>` : ''}
+      <button class="btn fe-chip-btn fe-chip-exp${p.expires ? ' active' : ''}${p.expires && Date.parse(p.expires) <= Date.now() ? ' expired' : ''}" data-size="sm" data-m="expires" title="${p.expires ? 'After this time the note is listed under Expired. It is never deleted. Click to change.' : 'Set a time after which the note is listed under Expired'}">${UI_ICON.clock}<span>${p.expires ? `${Date.parse(p.expires) <= Date.now() ? 'Expired' : 'Expires'} ${esc(whenShort(p.expires))}` : 'Expiry'}</span></button>
+      ${p.expires ? `<button class="btn" data-icon data-size="xs" data-tone="danger" data-m="expires-clear" title="Remove the expiry" aria-label="Remove the expiry">${UI_ICON.close}</button>` : ''}
       ${p.url ? `<span class="chip fe-chip-url" title="${esc(p.url)}">${UI_ICON.link}<span class="fe-chip-url-t">${esc(plain(p.url))}</span><button class="btn" data-icon data-size="xs" data-m="url-open" title="Open ${esc(p.url)}" aria-label="Open the link">${UI_ICON.tab}</button><button class="btn" data-icon data-size="xs" data-m="url-copy" title="Copy the link" aria-label="Copy the link">${UI_ICON.copy ?? UI_ICON.link}</button></span>` : ''}`;
     // The title shows on one line, middle-truncated; a click opens a box holding the whole title.
     const btn = host.querySelector<HTMLButtonElement>('#fe-meta-title');
@@ -181,6 +224,8 @@ export function mountMetaBar(host: HTMLElement, o: {
     const p = o.props();
     if (b.dataset.m === 'pin') { await o.apply({ pinned: !p.pinned }); draw(); }
     else if (b.dataset.m === 'remind') openReminderMenu(b, p, async c => { const r = await o.apply(c); draw(); return r; });
+    else if (b.dataset.m === 'expires') openExpiryMenu(b, p, async c => { const r = await o.apply(c); draw(); return r; });
+    else if (b.dataset.m === 'expires-clear') { await o.apply({ expires: null }); draw(); }
     else if (b.dataset.m === 'url-open') window.open(p.url!, '_blank', 'noopener');
     else if (b.dataset.m === 'url-copy') { void navigator.clipboard?.writeText(p.url!).catch(() => undefined); b.title = 'Copied'; }
     else if (b.dataset.m === 'untag') { await o.apply({ tags: p.tags.filter(t => t !== b.dataset.tag) }); draw(); }

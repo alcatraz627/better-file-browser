@@ -8,7 +8,8 @@ export interface NoteMeta { rel: string; size: number; mtime: number; title?: st
   /** The header fields bfb shows beyond title, colour, pin and tags (spec: agent, url, device, expires, reminders). */
   agent?: string; source?: string; url?: string; device?: string; expires?: string; remindAt?: string; remindRepeat?: string; remindOn?: string; remindPersist?: boolean }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
-export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
+/// `history` marks a note found in the folder's git history (deleted on another device), not in .trash.
+export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number; history?: boolean }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
 
 export class NotesError extends Error {
@@ -100,7 +101,8 @@ export const notes = {
   trashList: (root: string) => call({ op: 'trashList', root }).then(f => (f as { notes: TrashedNote[] }).notes),
   /// Put a deleted note back, at `to` when that name is free (otherwise a numbered name beside it).
   restore: (root: string, trashed: string, to?: string) => call({ op: 'restore', root, trashed, to }) as Promise<{ rel: string; trashed: string }>,
-  /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
+  /// Remove a deleted note for good: it leaves .trash for the macOS Trash, so even that can be undone.
+  purge: (root: string, trashed: string) => call({ op: 'purge', root, trashed }),
   /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
   pick: (start?: string, kind?: 'any') => call({ op: 'pick', start, kind }).then(f => (f as { root: string }).root),
   /// The account's home folder, so Places can offer Home before any visit under it.
@@ -139,7 +141,7 @@ export const notes = {
   /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
   savedList: (root: string) => call({ op: 'savedList', root }) as unknown as Promise<{ exists: boolean; items: { key: string; text: string; mtime: number }[]; tags: Record<string, string> | null }>,
   /// Write and remove save files and merge tag colours in one locked batch; createOnly leaves existing files alone.
-  savedSync: (root: string, batch: { writes?: { key: string; text: string }[]; removes?: string[]; tags?: Record<string, string>; createOnly?: boolean }) =>
+  savedSync: (root: string, batch: { writes?: { key: string; text: string }[]; removes?: string[]; tags?: Record<string, string | null>; createOnly?: boolean }) =>
             call({ op: 'savedSync', root, ...batch }) as unknown as Promise<{ written: string[]; skipped: string[]; removed: string[] }>,
   /// Local tools (small local web apps that stop when idle): each one and whether it is up.
   services: () => call({ op: 'services' }).then(f => (f as unknown as { services: ServiceState[] }).services ?? []),
@@ -401,7 +403,7 @@ export function arrangeWrites(order: { rel: string; pos?: string }[], rel: strin
 
 /// A reminder to set: when it rings (ISO 8601 UTC), how it repeats, which device rings it (the Mac when left out), and whether it keeps ringing.
 export interface Reminder { at: string; repeat?: 'daily' | 'weekly' | 'monthly'; on?: 'mac' | 'phone'; persist?: boolean }
-export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[]; remind?: Reminder | null }
+export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[]; remind?: Reminder | null; expires?: string | null }
 
 /// Applies chip changes to a note's text: only the changed fields' lines are touched.
 export function applyChange(text: string, c: PropChange): string {
@@ -410,6 +412,7 @@ export function applyChange(text: string, c: PropChange): string {
   if (c.pinned !== undefined) t = setPinned(t, c.pinned);
   if (c.tags !== undefined) t = setTags(t, c.tags);
   if (c.remind !== undefined) t = setReminder(t, c.remind);
+  if (c.expires !== undefined) t = setField(t, 'expires', c.expires);
   return t;
 }
 
@@ -426,6 +429,25 @@ export function setReminder(text: string, r: Reminder | null): string {
   if (r.on === 'phone') t = setField(t, 'remind_on', 'phone');
   if (r.persist) t = setField(t, 'remind_persist', 'true');
   return t;
+}
+
+/// The text of a second note with the same words, tags, colour and link. It is never pinned, has no place in the
+/// shared order and carries no reminder or expiry, so nothing rings or expires twice. A note without a header keeps none.
+export function duplicateText(text: string, now = new Date()): string {
+  if (!splitNote(text).head) return text;
+  let t = setPinned(text, false);
+  t = setReminder(t, null);
+  for (const k of ['expires', 'pos', 'updated', 'agent']) t = setField(t, k, null);
+  return setField(t, 'created', now.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+}
+
+/// A new note made from text on the clipboard: null when there is no text, else the name to give it (from the first
+/// line, without `.md`) and its full text, with the time it was made.
+export function clipboardNote(raw: string, now = new Date()): { base: string; text: string } | null {
+  const text = raw.replace(/\r\n/g, '\n').trim();
+  if (!text) return null;
+  const first = text.split('\n').find(l => l.trim()) ?? text;
+  return { base: slugForTitle(first, now).replace(/\.md$/, ''), text: `---\ncreated: ${now.toISOString().replace(/\.\d{3}Z$/, 'Z')}\n---\n${text}\n` };
 }
 
 /// What happens when a reminder is dismissed: a one-off is cleared; a repeating one moves to its next time after `now`.
@@ -458,7 +480,7 @@ export const isExpired = (p: { expires?: string }, now = Date.now()): boolean =>
 
 /// The frontmatter keys a change writes.
 export function changedKeys(c: PropChange): string[] {
-  return [...(['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined), ...(c.remind !== undefined ? REMIND_KEYS : [])];
+  return [...(['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined), ...(c.remind !== undefined ? REMIND_KEYS : []), ...(c.expires !== undefined ? ['expires'] : [])];
 }
 
 /// The path of a new picture or file under attachments/, named `<id>-<stamp>.<ext>` by the spec.
