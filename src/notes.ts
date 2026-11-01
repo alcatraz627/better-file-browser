@@ -2,7 +2,7 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-import { parseNote, parseTagList, hasClash, settle, validId, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
+import { parseNote, parseTagList, hasClash, settle, validId, newId, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
 
 export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean;
   /** The header fields bfb shows beyond title, colour, pin and tags (spec: agent, url, device, expires, reminders). */
@@ -149,13 +149,13 @@ export const notes = {
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };
 
-// A note's file name from its first heading or first line, safe for a path.
-export function slugForTitle(title: string): string {
-  const s = title.replace(/^#+\s*/, '').trim().toLowerCase()
-    // Keep letters from any script. The upper bound stays below U+FFFE:
-    // Chrome refuses a content script containing a Unicode noncharacter.
-    .replace(/[^a-z0-9À-ɏͰ-﷏]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-  return (s || 'untitled') + '.md';
+// A note's file name from its first heading or first line, as the spec's id pattern allows
+// ([A-Za-z0-9][A-Za-z0-9_-]{0,63}): ASCII letters and digits joined by hyphens. A title with none
+// (all Japanese, say) gets a stamp id, `YYYYMMDD-HHMMSS-xxxx`; an empty title stays "untitled".
+export function slugForTitle(title: string, now = new Date()): string {
+  const bare = title.replace(/^#+\s*/, '').trim();
+  const s = bare.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+  return (s || (bare ? newId(now) : 'untitled')) + '.md';
 }
 
 // The title a note shows, by the one spec rule (notefmt.parseNote): the `title` key, else the

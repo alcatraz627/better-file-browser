@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos, attachmentRel, setReminder, dismissReminder, nextRing, reminderState, isExpired, applyChange, changedKeys } from '../src/notes';
+import { validId } from '../src/notefmt';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -22,6 +23,9 @@ describe('slugForTitle', () => {
   it('slugs a heading into a file name', () => {
     expect(slugForTitle('# Weekly Plan: Q3!')).toBe('weekly-plan-q3.md');
     expect(slugForTitle('   ')).toBe('untitled.md');
+    expect(slugForTitle('Café déjà vu')).toBe('caf-d-j-vu.md');
+    expect(slugForTitle('日本語のメモ', new Date('2026-11-01T10:00:00Z'))).toMatch(/^20261101-100000-[0-9a-f]{4}\.md$/);
+    expect(validId(slugForTitle('x'.repeat(200)).replace(/\.md$/, ''))).toBe(true);
   });
 });
 

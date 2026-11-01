@@ -1188,6 +1188,12 @@
   async function saveKey(url) {
     return (await sha1Hex(normaliseUrl(url))).slice(0, 12);
   }
+  function newId(now = /* @__PURE__ */ new Date()) {
+    const p = (n) => String(n).padStart(2, "0");
+    const stamp = `${now.getUTCFullYear()}${p(now.getUTCMonth() + 1)}${p(now.getUTCDate())}-${p(now.getUTCHours())}${p(now.getUTCMinutes())}${p(now.getUTCSeconds())}`;
+    const r = crypto.getRandomValues(new Uint8Array(2));
+    return `${stamp}-${[...r].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  }
   var isoNow = (now = /* @__PURE__ */ new Date()) => now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
   // src/notes.ts
@@ -1290,9 +1296,10 @@
     phoneSeed: (kv) => call({ op: "phoneSeed", kv }),
     fileWrite: (root2, rel, text, expectMtime) => call({ op: "fileWrite", root: root2, rel, text, expectMtime })
   };
-  function slugForTitle(title) {
-    const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-    return (s || "untitled") + ".md";
+  function slugForTitle(title, now = /* @__PURE__ */ new Date()) {
+    const bare = title.replace(/^#+\s*/, "").trim();
+    const s = bare.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
+    return (s || (bare ? newId(now) : "untitled")) + ".md";
   }
   function noteTitle(rel, text) {
     const name2 = rel.split("/").pop().replace(/\.md$/i, "");
@@ -24371,12 +24378,12 @@ ${d.message}` : d.message;
   function kindOf(path) {
     return path.endsWith("/") ? "folder" : "file";
   }
-  var newId = () => Math.random().toString(36).slice(2, 10);
+  var newId2 = () => Math.random().toString(36).slice(2, 10);
   var pinnedCount = (s) => s.list.filter((t) => t.pinned).length;
   function openTab(s, path, background = false) {
     const found = s.list.find((t) => t.path === path);
     if (found) return background ? s : { ...s, active: found.id };
-    const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
+    const tab = { id: newId2(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
     const i3 = s.list.findIndex((t) => t.id === s.active);
     const list3 = [...s.list];
     list3.splice(Math.max(i3 < 0 ? list3.length : i3 + 1, pinnedCount(s)), 0, tab);
