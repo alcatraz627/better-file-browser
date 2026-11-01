@@ -6,10 +6,12 @@
 //   node e2e/waiting-walk.mjs      (generated scratch store; BFB_THEME=light for the light shots)
 import { makeNotesStore } from './make-notes-store.mjs';
 import { launch, shot, applyTheme } from './harness.mjs';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { writeFileSync, mkdirSync, realpathSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { join, resolve } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 
+const ROOT = resolve(new URL('..', import.meta.url).pathname);
 const store = join(tmpdir(), `bfb-waiting-walk-${process.pid}`);
 makeNotesStore(store);
 const hdr = (fields, body = 'body\n') => `---\n${Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join('\n')}\n---\n${body}`;
@@ -27,6 +29,16 @@ const h = await launch();
 try {
   const page = await h.open();
   await h.store.edit('bfb-settings-v1', s => ({ ...s, showSidebar: true, notesRoot: store }));
+  // A comment addressed to the owner, written by the real comments CLI into the harness's own docs home,
+  // and a decision page waiting in the harness's own registry.
+  const doc = join(realpathSync(h.fixture), 'review-me.md');
+  writeFileSync(doc, '# Review me\n\nShip on Friday if the suite is green.\n');
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE_') && !k.startsWith('BFB_'))), BFB_DOCS_HOME: h.docsHome };
+  const made = spawnSync('python3', [join(ROOT, 'native', 'bfb_docs.py'), '--json', '--as', 'bfb', 'comments', 'new', doc, '--quote', 'Ship on Friday', 'Is Friday still right? @user'], { env, encoding: 'utf8' });
+  check(made.status === 0, `a comment for the owner was written: ${made.status} ${made.stderr.slice(0, 120)}`);
+  const pg = join(h.dpRegistry, 'pick-a-plan');
+  mkdirSync(pg, { recursive: true });
+  writeFileSync(join(pg, 'config.json'), JSON.stringify({ title: 'Pick a plan', decisions: [{ id: 'D1', question: 'Which?', options: [{ code: 'a', label: 'A', rec: true }] }] }));
   await h.store.set('bfb-waiting-seen-v1', { 'agent:agent-old.md': Date.now() - 8 * DAY, 'reminder:rem-missed.md': Date.now() - 30 * DAY });
   await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/nested/', label: 'Roadmap ideas', tags: ['work'] }, { path: h.fixture + '/readme.md', label: 'Readme file' }]);
   await applyTheme(page);
@@ -34,13 +46,30 @@ try {
   await page.waitForSelector('.fe-hp-card[data-card="waiting"] .fe-hp-wait', { timeout: 15_000 });
   await sleep(500);
   const rows = await page.$$eval('.fe-hp-card[data-card="waiting"] .fe-hp-wait', rs => rs.map(r => ({ kind: r.dataset.kind, faded: r.classList.contains('faded'), t: r.textContent.replace(/\s+/g, ' ').trim() })));
-  check(rows.map(r => r.kind).join() === 'reminder,capture,agent,agent', `the list reads missed reminder, capture, agent notes: ${rows.map(r => r.kind)}`);
+  check(rows.map(r => r.kind).join() === 'reminder,comment,decision,capture,agent,agent', `the list reads missed reminder, comment, decision, capture, agent notes: ${rows.map(r => r.kind)}`);
   check(rows[0].t.includes('Pay the invoice') && /Missed reminder/.test(rows[0].t) && !rows[0].faded, `a reminder missed 30 days ago is still shown and never fades: ${rows[0].t}`);
-  check(rows[3].faded && rows[3].t.includes('Older agent note') && !rows[2].faded, `an agent note first seen 8 days ago fades and goes last: ${rows.map(r => r.faded)}`);
-  check(await page.$eval('.fe-hp-card[data-card="waiting"] .fe-grp-n', e => e.textContent) === '4', 'the card counts all four');
+  check(rows[5].faded && rows[5].t.includes('Older agent note') && !rows[4].faded, `an agent note first seen 8 days ago fades and goes last: ${rows.map(r => r.faded)}`);
+  check(rows[1].t.includes('review-me') && /1 open comment for you/.test(rows[1].t), `the comment row names the document and says how many comments wait: ${rows[1].t}`);
+  check(rows[2].t.includes('Pick a plan'), `the decision row names the page: ${rows[2].t}`);
+  check(await page.$eval('.fe-hp-card[data-card="waiting"] .fe-grp-n', e => e.textContent) === '6', 'the card counts all six');
   await shot(page, 'waiting-home');
   const seen = await h.store.json('bfb-waiting-seen-v1', {});
-  check(Object.keys(seen).sort().join() === 'agent:agent-new.md,agent:agent-old.md,capture:capture.md,reminder:rem-missed.md' && seen['agent:agent-old.md'] < Date.now() - 7 * DAY, 'first-seen times are kept, so fading survives a reload');
+  check(Object.keys(seen).sort().join() === `agent:agent-new.md,agent:agent-old.md,capture:capture.md,comment:${doc},decision:pick-a-plan,reminder:rem-missed.md` && seen['agent:agent-old.md'] < Date.now() - 7 * DAY, 'first-seen times are kept, so fading survives a reload');
+  // The comment row opens the document it is about.
+  const href = await page.$eval('.fe-hp-wait[data-kind="comment"] a', a => a.getAttribute('data-link'));
+  check(href === doc, `the comment row points at the document: ${href}`);
+  await page.goto(await page.$eval('.fe-hp-wait[data-kind="comment"] a', a => a.href), { waitUntil: 'load' });
+  check(decodeURIComponent(page.url()).includes('review-me.md'), `and following it opens that document: ${decodeURIComponent(page.url()).slice(-40)}`);
+  await page.goto('file://' + homedir() + '/#home', { waitUntil: 'load' });
+  await page.waitForSelector('.fe-hp-card[data-card="waiting"] .fe-hp-wait');
+  // A comment answered (done) leaves the list.
+  const thread = JSON.parse(made.stdout).results[0].thread;
+  spawnSync('python3', [join(ROOT, 'native', 'bfb_docs.py'), '--json', 'comments', 'done', doc, thread], { env, encoding: 'utf8' });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('.fe-hp-card[data-card="waiting"] .fe-hp-wait');
+  await sleep(500);
+  const left = await page.$$eval('.fe-hp-card[data-card="waiting"] .fe-hp-wait', rs => rs.map(r => r.dataset.kind));
+  check(!left.includes('comment') && left.includes('decision'), `once the comment is done its row goes and the decision stays: ${left}`);
 
   // Search reaches saves.
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });

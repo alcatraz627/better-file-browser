@@ -30,7 +30,7 @@ const port = await new Promise((res, rej) => {
   setTimeout(() => rej(new Error('server did not start')), 8000);
 });
 const BASE = `http://127.0.0.1:${port}`;
-const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true, args: ['--no-first-run'] });
+const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true, args: ['--no-first-run', '--disable-gpu'] });   // without it a mobile-emulated screenshot can hang in headless Chrome
 try {
   const page = await browser.newPage();
   page.setDefaultTimeout(10_000);

@@ -21,7 +21,9 @@ const tmp = mkdtempSync(join(tmpdir(), 'bfb-phone-ask-'));
 const seed = join(tmp, 'seed.json'), orphans = join(tmp, 'orphans.json'), fakeLm = join(tmp, 'lm'), calls = join(tmp, 'lm-calls.jsonl');
 const readme = `${fixture}/readme.md`;
 const macChat = { id: 'mac-1', at: 1000, title: 'Asked on the Mac', turns: [{ q: 'Asked on the Mac', a: 'An answer from the Mac.', model: 'gemma4-e4b-warm', ms: 10, at: 1000 }] };
+const LIGHT = process.env.BFB_THEME === 'light' || process.argv.includes('--light');
 writeFileSync(seed, JSON.stringify({ kv: {
+  ...(LIGHT ? { 'bfb-theme': 'light' } : {}),
   'bfb-settings-v1': JSON.stringify({ editableFolders: [fixture], notesRoot: notesDir }),
   'bfb-ask-history-v1': JSON.stringify({ [readme]: [macChat] }),
 } }));
@@ -67,7 +69,7 @@ await new Promise(r => relay.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${relay.address().port}`;
 const dropAll = () => { for (const s of [...open]) s.destroy(); };
 
-const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true, args: ['--no-first-run'] });
+const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true, args: ['--no-first-run', '--disable-gpu'] });   // without it a mobile-emulated screenshot can hang in headless Chrome
 const last = '#fe-ask-thread .fe-ask-turn:last-of-type';
 const stored = page => page.evaluate(() => JSON.parse(JSON.parse(localStorage.getItem('bfbweb:local:bfb-ask-history-v1') || '"{}"')));
 const turnsOf = async page => ((await stored(page))[readme] ?? []).flatMap(c => c.turns);
@@ -94,7 +96,9 @@ try {
   await page.waitForFunction(s => /Phone answer/.test(document.querySelector(s + ' .fe-ask-a')?.textContent ?? ''), {}, last);
   const meta = await page.$eval(last + ' .fe-ask-meta', e => e.textContent);
   check(/gemma4-e4b-warm/.test(meta), `a question gets its answer, with the model's line: "${meta}"`);
-  await page.screenshot({ path: join(SHOTS, 'phone-ask.png') });
+  await page.screenshot({ path: join(SHOTS, `phone-ask${LIGHT ? '-light' : ''}.png`) });
+  const paint = await page.evaluate(() => { const lum = c => { const m = c.match(/\d+(\.\d+)?/g).map(Number); return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; }; const bg = el => lum(getComputedStyle(el).backgroundColor); const tx = el => lum(getComputedStyle(el).color); return { page: bg(document.body), thread: tx(document.querySelector('#fe-ask-thread .fe-ask-a')), q: tx(document.querySelector('#fe-ask-thread .fe-ask-q')) }; });
+  check(LIGHT ? paint.page > 0.8 && paint.thread < 0.4 && paint.q < 0.4 : paint.page < 0.2 && paint.thread > 0.5, `the Ask screen is drawn in the ${LIGHT ? 'light' : 'dark'} theme, text against its background: ${JSON.stringify(paint)}`);
   await sleep(300);
   let turns = await turnsOf(page);
   check(turns.some(t => t.q === 'What is this?' && /Phone answer/.test(t.a)), 'the answer is in the chat history on the phone');

@@ -42,9 +42,20 @@ Switchboard writes `.git/mnt-sync-state.json` inside the repo. The Notes lens an
 
 A note's `url` shows as a chip with open and copy buttons. Notes with an `agent` line sit in a folded **Agents** lane, and notes past their `expires` time in a folded **Expired** lane; neither lane deletes anything. A reminder can be set, changed, dismissed and cleared from the editor's **Remind** chip. Dismissing a one-off clears the `remind_*` lines, and dismissing a repeating one moves it to its next time. `remind_on` is written only for the phone, since the Mac is the default. A reminder time that passed shows as missed. bfb never rings a reminder: the device named in `remind_on` does.
 
+The editor's **Expiry** chip sets, changes and removes `expires` (presets for tomorrow, a week and a month, or any time), and the reminder box has an "Also expire the note then" box that writes both times at once. A time that has passed moves the note to Expired and never deletes it.
+
+New notes keep bfb's own naming: the file is named from the title once there is one, which the spec allows ("bfb names a note from its title once it has one" and every id matching `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`). A title with no letters or digits gets a `YYYYMMDD-HHMMSS-xxxx` id.
+
+## The rest of the editor
+
+- **Duplicate** (row menu) makes a second note with the same words, tags, colour and link. It is not pinned, has no `pos`, reminder, expiry or `agent`, so nothing rings or expires twice. **Copy text** and **Copy title and text** sit beside Copy title and Copy path. The command palette has **New note from the clipboard**.
+- **Deleting a note** moves any picture or file only that note links to into `.trash/attachments`; a file another note or save links to stays put. Restoring the note brings its files back.
+- **Trash** also lists notes deleted on another device, read from the last 300 commits of the folder's git history, and restores them with their pictures. **Remove** (the cross) sends a trashed note to the macOS Trash. For a note found in history it only hides it from this list.
+- **Tag colours** (Settings, Notes) lists every tag on a note or a save with its colour and its name. Clicking the dot walks the palette and ends at no colour. Changing the name changes it on every note and save, and the colour goes with it. Colours are written to `.meta/tags.json`, and a colour for a tag no save carries is kept in `bfb-tag-colours-v1`.
+
 ## One address, search and the waiting list
 
-- **Copy link** on a note row copies the phone address when phone access is on (it opens on this Mac and on the phone) and a `file://` link when it is off, and says which. On the phone, a `file://` link in a note opens the same path through the phone server. On the Mac, a link to the phone server opens the file locally. The logic is in `src/address.ts` and `src/phone.ts`.
+- **Copy link** is the one wording and one behaviour for every copy-address button: the note row menu, the Saved row's hover button, the tab strip's menu, the listing's menu and the top bar button. Each copies the phone address when phone access is on (it opens on this Mac and on the phone) and a `file://` link when it is off, and says which. On the phone, a `file://` link in a note opens the same path through the phone server. On the Mac, a link to the phone server opens the file locally. The logic is in `src/address.ts` and `src/phone.ts`.
 - The Search lens lists matching saves and matching comment threads after the file hits. The host searches comments through `commentsSearch`.
 - Home has a **Waiting on you** card for missed reminders, comments that mention you, decision pages, unsorted captures and notes an agent left. The spec has no field for either of two things, so these are this app's choices:
   - A capture is a note with a `source`, no tags, no pin and no `agent`.
