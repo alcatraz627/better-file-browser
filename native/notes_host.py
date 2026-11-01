@@ -428,7 +428,7 @@ def op_restore(root, trashed, to):
 
 def in_repo(root):
     """Whether the notes folder is a git repository or sits inside one, as mnt-sync's notes/ does."""
-    here = os.path.abspath(root)
+    here = os.path.realpath(root)   # ~/Notes is a link into the clone, and the repository is found from where it points
     while True:
         if os.path.exists(os.path.join(here, '.git')):
             return True
