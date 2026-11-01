@@ -2,7 +2,11 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number }
+import { parseNote, parseTagList, hasClash, settle, validId, newId, deriveTitle, KNOWN_KEYS, type Keep as FmtKeep } from './notefmt';
+
+export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number; conflicted?: boolean;
+  /** The header fields bfb shows beyond title, colour, pin and tags (spec: agent, url, device, expires, reminders). */
+  agent?: string; source?: string; url?: string; device?: string; expires?: string; remindAt?: string; remindRepeat?: string; remindOn?: string; remindPersist?: boolean }
 /// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
 export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
@@ -128,6 +132,15 @@ export const notes = {
   sendThread: (root: string, rel: string, thread: string, to: string) => call({ op: 'sendThread', root, rel, thread, to }),
   /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
   phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
+  /// Comment threads, across every document in the comment index, whose text holds every word typed.
+  commentsSearch: (query: string) => call({ op: 'commentsSearch', query }).then(f => (f as unknown as { hits: { doc: string; thread: string; anchor: string; line: string; status: string }[] }).hits ?? []),
+  /// What Switchboard last reported about syncing this folder (read from the repo's state file); see sync-state.ts.
+  syncState: (root: string) => call({ op: 'syncState', root }) as unknown as Promise<import('./sync-state').SyncReply>,
+  /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
+  savedList: (root: string) => call({ op: 'savedList', root }) as unknown as Promise<{ exists: boolean; items: { key: string; text: string; mtime: number }[]; tags: Record<string, string> | null }>,
+  /// Write and remove save files and merge tag colours in one locked batch; createOnly leaves existing files alone.
+  savedSync: (root: string, batch: { writes?: { key: string; text: string }[]; removes?: string[]; tags?: Record<string, string>; createOnly?: boolean }) =>
+            call({ op: 'savedSync', root, ...batch }) as unknown as Promise<{ written: string[]; skipped: string[]; removed: string[] }>,
   /// Local tools (small local web apps that stop when idle): each one and whether it is up.
   services: () => call({ op: 'services' }).then(f => (f as unknown as { services: ServiceState[] }).services ?? []),
   /// Start or stop one local tool; answers once its port is up or gone.
@@ -138,48 +151,31 @@ export const notes = {
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };
 
-// A note's file name from its first heading or first line, safe for a path.
-export function slugForTitle(title: string): string {
-  const s = title.replace(/^#+\s*/, '').trim().toLowerCase()
-    // Keep letters from any script. The upper bound stays below U+FFFE:
-    // Chrome refuses a content script containing a Unicode noncharacter.
-    .replace(/[^a-z0-9À-ɏͰ-﷏]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-  return (s || 'untitled') + '.md';
+// A note's file name from its first heading or first line, as the spec's id pattern allows
+// ([A-Za-z0-9][A-Za-z0-9_-]{0,63}): ASCII letters and digits joined by hyphens. A title with none
+// (all Japanese, say) gets a stamp id, `YYYYMMDD-HHMMSS-xxxx`; an empty title stays "untitled".
+export function slugForTitle(title: string, now = new Date()): string {
+  const bare = title.replace(/^#+\s*/, '').trim();
+  const s = bare.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+  return (s || (bare ? newId(now) : 'untitled')) + '.md';
 }
 
-// A frontmatter value as written: JSON-quoted (Switchboard, setTitle), YAML single-quoted
-// ('' is a literal quote), or bare. Matches notes_host.py and the Pi.
-function unquoteYaml(v: string): string {
-  if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
-    try { return JSON.parse(v) as string; } catch { return v.slice(1, -1); }
-  }
-  if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-  return v;
-}
-
-// The title a note shows, derived as Switchboard does: front matter title, else the
-// first body line with its leading # stripped, else the file name without extension.
+// The title a note shows, by the one spec rule (notefmt.parseNote): the `title` key, else the
+// first non-empty body line with leading #, > and spaces removed, else the file name.
+// A file holding a clash is not parsed for a header, so its title is its file name.
 export function noteTitle(rel: string, text?: string): string {
-  if (text) {
-    const fm = text.match(/^---\n([\s\S]*?)\n---/);
-    const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
-    const t = raw && unquoteYaml(raw).trim();
-    if (t) return t;
-    const first = splitNote(text).body.trim().split('\n')[0].replace(/^#+/, '').trim();
-    if (first) return first;
-  }
-  return rel.split('/').pop()!.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
+  const name = rel.split('/').pop()!.replace(/\.md$/i, '');
+  if (!text) return name;
+  const p = parseNote(text, name);
+  // The spec keeps an empty `title:` as empty; the list still shows the note's first line rather than a stamp.
+  return p.title || (p.conflicted ? name : deriveTitle(p.body, name));
 }
 
 // Set the title field inside existing front matter, JSON-quoted as Switchboard
 // writes it. Returns null for a note without front matter: the contract never
 // adds front matter, so such a note is renamed by its file name instead.
 export function setTitle(text: string, title: string): string | null {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return null;
-  const line = `title: ${JSON.stringify(title)}`;
-  const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}\n${m[1]}`;
-  return text.replace(m[0], () => `---\n${fm}\n---`);
+  return splitNote(text).head ? setField(text, 'title', JSON.stringify(title)) : null;
 }
 
 // For a note without front matter the title is its first line. A rename
@@ -217,41 +213,23 @@ export function retitle(text: string, title: string): string | null {
 
 // A note edited in two places holds both sides between git-style markers. settleClash keeps
 // the first side, the second, or both (first then second); same rules as Switchboard and the Pi.
-export type Keep = 'first' | 'second' | 'both';
-export function settleClash(text: string, keep: Keep): string {
-  const out: string[] = []; let first: string[] = [], second: string[] = [];
-  let part: 'out' | 'first' | 'second' = 'out';
-  for (const line of text.split('\n')) {
-    if (part === 'out' && (line.startsWith('<<<<<<< ') || line === '<<<<<<<')) { part = 'first'; first = []; second = []; }
-    else if (part === 'out') out.push(line);
-    else if (part === 'first' && line === '=======') part = 'second';
-    else if (part === 'first') first.push(line);
-    else if (line.startsWith('>>>>>>> ') || line === '>>>>>>>') {
-      part = 'out';
-      out.push(...(keep === 'second' ? second : keep === 'first' ? first : [...first, ...second]));
-    } else second.push(line);
-  }
-  if (part !== 'out') out.push(...first, ...second);   // an unclosed block loses nothing
-  return out.join('\n');
-}
+export type Keep = FmtKeep;
+export const settleClash = (text: string, keep: Keep): string => settle(text, keep);
 
-// The two sides of a note's first clash, named as a person says them; null when there is none.
+/// The two sides of a note's first clash, named as a person says them; null when there is none.
 export function clashSides(text: string): [string, string] | null {
-  const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
-  if (!a || !b) return null;
-  const name = (m: string) => m === 'HEAD' ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === 'phone' ? "the phone's" : `${m}'s`;
+  if (!hasClash(text)) return null;
+  // Markers with no label (a bare opener, or a block never closed) still get a bar, with plain names.
+  const a = text.match(/^<<<<<<< (.+)$/m)?.[1] ?? 'the first version', b = text.match(/^>>>>>>> (.+)$/m)?.[1] ?? 'the second version';
+  const name = (m: string) => m === 'the first version' || m === 'the second version' ? m : m === 'HEAD' ? "this Mac's" : m === 'origin/main' ? "the other device's" : m === 'github' ? "the saved version's"
+    : /^pi\b|csync/.test(m) ? "the Pi's" : m === 'phone' ? "the phone's" : `${m}'s`;
   return [name(a.trim()), name(b.trim())];
 }
 
 // Refresh `updated` inside existing front matter; a note without front
 // matter is left exactly as written (contract: never add front matter).
 export function stampUpdated(text: string, now = new Date()): string {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return text;
-  const iso = now.toISOString();
-  // Function replacements: a `$&` or `$$` in any property value must stay literal.
-  const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `\nupdated: ${iso}`;
-  return text.replace(m[0], () => `---\n${fm}\n---`);
+  return splitNote(text).head ? setField(text, 'updated', now.toISOString()) : text;
 }
 
 // ── Properties: title, colour, pin and tags, read and written the way Switchboard does ──
@@ -269,46 +247,49 @@ export function colorName(v: string | undefined): NoteColor | null {
 }
 
 /// `pos` is the shared order key, kept as the raw text on the line (`no`, `1e5` and `null` are all just strings).
-export interface NoteProps { title: string; color: NoteColor | null; pinned: boolean; tags: string[]; pos?: string }
+export interface NoteProps {
+  title: string; color: NoteColor | null; pinned: boolean; tags: string[]; pos?: string;
+  agent?: string; url?: string; device?: string; expires?: string;
+  remindAt?: string; remindRepeat?: 'daily' | 'weekly' | 'monthly'; remindOn?: 'mac' | 'phone'; remindPersist?: boolean;
+}
 
-/// Frontmatter keys in the order Switchboard writes them (csync notes_store.py KEY_ORDER).
-const KEY_ORDER = ['title', 'created', 'tags', 'expires', 'remind_at', 'remind_repeat', 'remind_on', 'reminder_id',
-                   'pinned', 'color', 'agent', 'source', 'url', 'pos'];
+/// Frontmatter keys in the order the spec writes them (notefmt.KNOWN_KEYS).
+const KEY_ORDER: readonly string[] = KNOWN_KEYS;
 
-// The frontmatter block at the top of a note, closing fence and its newline included.
-// A block holding git clash markers is not frontmatter: it stays visible as text.
-const FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
-
-/// Splits a note into its frontmatter block (exactly as written, or '') and the body.
-/// head + body is always the original text.
+/// Splits a note into its header block (exactly as written, closing fence and its newline included, or '')
+/// and the body; head + body is always the original text. The fence is a line that is exactly `---`.
+/// A file holding a clash is not parsed for a header: the whole file is its body.
 export function splitNote(text: string): { head: string; body: string } {
-  const m = text.match(FM_RE);
-  if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: '', body: text };
-  return { head: m[0], body: text.slice(m[0].length) };
+  if (!text.startsWith('---\n') || hasClash(text)) return { head: '', body: text };
+  let at = 4;
+  for (;;) {
+    const nl = text.indexOf('\n', at);
+    const line = nl < 0 ? text.slice(at) : text.slice(at, nl);
+    if (line === '---') { const end = nl < 0 ? text.length : nl + 1; return { head: text.slice(0, end), body: text.slice(end) }; }
+    if (nl < 0) return { head: '', body: text };
+    at = nl + 1;
+  }
 }
 
 function fmLines(head: string): string[] {
-  const m = head.match(FM_RE);
-  return m && m[1] !== undefined ? m[1].split('\n') : [];
+  if (!head) return [];
+  const lines = head.replace(/\n$/, '').split('\n');
+  return lines.slice(1, -1);
 }
 
-/// The properties a note's frontmatter holds: title as noteTitle reads it, colour, pin, tags.
+/// The properties a note's header holds: title as noteTitle reads it, colour, pin, tags and place.
 export function readProps(rel: string, text: string): NoteProps {
-  const { head } = splitNote(text);
-  const f: Record<string, string> = {};
-  for (const line of fmLines(head)) {
-    const i = line.indexOf(':');
-    if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
-  }
-  return { title: noteTitle(rel, text), color: colorName(f.color), pinned: f.pinned === 'true',
-           tags: parseTags(f.tags), ...(f.pos ? { pos: f.pos } : {}) };
+  const p = parseNote(text, rel.split('/').pop()!.replace(/\.md$/i, ''));
+  return {
+    title: p.title, color: colorName(p.color ?? undefined), pinned: p.pinned, tags: p.tags, ...(p.pos ? { pos: p.pos } : {}),
+    ...(p.agent ? { agent: p.agent } : {}), ...(p.url ? { url: p.url } : {}), ...(p.device ? { device: p.device } : {}), ...(p.expires ? { expires: p.expires } : {}),
+    ...(p.remindAt ? { remindAt: p.remindAt } : {}), ...(p.remindRepeat ? { remindRepeat: p.remindRepeat as NoteProps['remindRepeat'] } : {}),
+    ...(p.remindOn ? { remindOn: p.remindOn as NoteProps['remindOn'] } : {}), ...(p.remindPersist ? { remindPersist: true } : {}),
+  };
 }
 
 // `a, b` and the YAML flow list `[a, b]` read the same, as in notes_host.py.
-export function parseTags(v: string | undefined): string[] {
-  const s = (v ?? '').trim();
-  return (s.startsWith('[') && s.endsWith(']') ? s.slice(1, -1) : s).split(',').map(t => t.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
-}
+export const parseTags = parseTagList;
 
 /// Set (string) or remove (null) one frontmatter field, touching only that line.
 /// A new line goes where Switchboard would put it; a note with no frontmatter gets
@@ -318,14 +299,14 @@ export function setField(text: string, key: string, value: string | null): strin
   const { head, body } = splitNote(text);
   if (!head) return line === null ? text : `---\n${line}\n---\n${text}`;
   const lines = fmLines(head);
-  const at = lines.findIndex(l => l.slice(0, Math.max(l.indexOf(':'), 0)).trim() === key);
+  const at = lines.findIndex(l => l.slice(0, Math.max(l.indexOf(':'), 0)) === key);
   if (at >= 0) { if (line === null) lines.splice(at, 1); else lines[at] = line; }
   else if (line !== null) {
     const rank = KEY_ORDER.indexOf(key);
     let pos = lines.length;
     if (rank >= 0) {
       // Known keys come in KEY_ORDER, unknown ones (like `updated`) after them all.
-      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0)).trim()); return r < 0 || r > rank; });
+      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0))); return r < 0 || r > rank; });
       if (later >= 0) pos = later;
     }
     lines.splice(pos, 0, line);
@@ -352,12 +333,15 @@ export function frontmatterDrift(before: string, after: string, allowed: Iterabl
 /// The shared note order (specs/order.md): pinned first, then notes never arranged (newest created first),
 /// then arranged notes by `pos` in byte order; the file name breaks ties. Editing a note does not move it.
 export function sharedOrder<T extends { rel: string; pinned?: boolean; pos?: string; created?: number; mtime: number }>(list: T[]): T[] {
-  const made = (n: T) => n.created ?? n.mtime;
+  // A note with no `created` counts as the oldest; the id (file name without .md) breaks ties, in byte order.
+  const made = (n: T) => n.created ?? 0;
+  const id = (n: T) => n.rel.replace(/\.md$/i, '');
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return [...list].sort((x, y) => {
     if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
     if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
-    if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
-    return x.pos! < y.pos! ? -1 : x.pos! > y.pos! ? 1 : (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
+    if (!x.pos) return made(y) - made(x) || cmp(id(x), id(y));
+    return cmp(x.pos!, y.pos!) || cmp(id(x), id(y));
   });
 }
 
@@ -415,7 +399,9 @@ export function arrangeWrites(order: { rel: string; pos?: string }[], rel: strin
   return out;
 }
 
-export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[] }
+/// A reminder to set: when it rings (ISO 8601 UTC), how it repeats, which device rings it (the Mac when left out), and whether it keeps ringing.
+export interface Reminder { at: string; repeat?: 'daily' | 'weekly' | 'monthly'; on?: 'mac' | 'phone'; persist?: boolean }
+export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[]; remind?: Reminder | null }
 
 /// Applies chip changes to a note's text: only the changed fields' lines are touched.
 export function applyChange(text: string, c: PropChange): string {
@@ -423,10 +409,64 @@ export function applyChange(text: string, c: PropChange): string {
   if (c.color !== undefined) t = setColor(t, c.color);
   if (c.pinned !== undefined) t = setPinned(t, c.pinned);
   if (c.tags !== undefined) t = setTags(t, c.tags);
+  if (c.remind !== undefined) t = setReminder(t, c.remind);
   return t;
 }
 
+/// The header lines a reminder owns. `reminder_id` is the ringing device's own handle, so it goes when the reminder does.
+export const REMIND_KEYS = ['remind_at', 'remind_repeat', 'remind_on', 'remind_persist', 'reminder_id'] as const;
+
+/// Set a reminder, or with null clear it. The Mac is the default device, so `remind_on` is written only for the phone.
+export function setReminder(text: string, r: Reminder | null): string {
+  let t = text;
+  for (const k of REMIND_KEYS) t = setField(t, k, null);
+  if (!r) return t;
+  t = setField(t, 'remind_at', r.at);
+  if (r.repeat) t = setField(t, 'remind_repeat', r.repeat);
+  if (r.on === 'phone') t = setField(t, 'remind_on', 'phone');
+  if (r.persist) t = setField(t, 'remind_persist', 'true');
+  return t;
+}
+
+/// What happens when a reminder is dismissed: a one-off is cleared; a repeating one moves to its next time after `now`.
+export function dismissReminder(text: string, now = new Date()): string {
+  const p = readProps('x.md', text);
+  if (!p.remindAt) return text;
+  if (!p.remindRepeat) return setReminder(text, null);
+  const next = nextRing(p.remindAt, p.remindRepeat, now);
+  return setReminder(text, { at: next, repeat: p.remindRepeat, on: p.remindOn, persist: p.remindPersist });
+}
+
+/// The next ring of a repeating reminder: one period on from `at`, and further if that has also passed by `now`.
+export function nextRing(at: string, repeat: 'daily' | 'weekly' | 'monthly', now = new Date()): string {
+  const d = new Date(at);
+  const step = () => { if (repeat === 'daily') d.setUTCDate(d.getUTCDate() + 1); else if (repeat === 'weekly') d.setUTCDate(d.getUTCDate() + 7); else d.setUTCMonth(d.getUTCMonth() + 1); };
+  step();
+  for (let i = 0; i < 4000 && d <= now; i++) step();
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/// Where a note's reminder stands: coming up, missed (past and never dismissed), or none.
+export function reminderState(p: { remindAt?: string }, now = Date.now()): 'none' | 'upcoming' | 'missed' {
+  if (!p.remindAt) return 'none';
+  const t = Date.parse(p.remindAt);
+  return !isFinite(t) ? 'none' : t > now ? 'upcoming' : 'missed';
+}
+
+/// Whether a note's `expires` time has passed. It stays in the folder, shown under Expired.
+export const isExpired = (p: { expires?: string }, now = Date.now()): boolean => { const t = Date.parse(p.expires ?? ''); return isFinite(t) && t <= now; };
+
 /// The frontmatter keys a change writes.
 export function changedKeys(c: PropChange): string[] {
-  return (['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined);
+  return [...(['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined), ...(c.remind !== undefined ? REMIND_KEYS : [])];
+}
+
+/// The path of a new picture or file under attachments/, named `<id>-<stamp>.<ext>` by the spec.
+/// A note whose file name is not a valid id (older names with spaces or dots) lends a cleaned-up
+/// form of its name instead; nothing ties the file to the note afterwards.
+export function attachmentRel(noteRel: string, ext: string, now = Date.now()): string {
+  const base = noteRel.split('/').pop()!.replace(/\.md$/i, '');
+  const id = validId(base) ? base : (base.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '').slice(0, 64) || 'note');
+  const clean = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+  return `attachments/${id}-${now.toString(36)}.${clean}`;
 }

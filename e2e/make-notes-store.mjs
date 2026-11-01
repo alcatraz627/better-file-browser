@@ -24,7 +24,7 @@ const NOTES = [
   ['20261003-152440.md', '# Plain heading note\n\nNo front matter at all.\n', 'Plain heading note'],
   ['20261003-152458.md', 'First line is the title\n\nand this is the body.\n', 'First line is the title'],
   ['20261004-150347.md', fm({ title: '"Agent: weekly summary"', created: '2026-10-04T09:33:47Z', tags: '"agent"' }, 'Written by an agent.\n'), 'Agent: weekly summary'],
-  ['20261009-203134.md', fm({ title: '"Both sides"', created: '2026-10-09T15:01:34Z' }, '<<<<<<< ours\nkept here\n=======\nkept there\n>>>>>>> theirs\n'), 'Both sides'],
+  ['20261009-203134.md', fm({ title: '"Both sides"', created: '2026-10-09T15:01:34Z' }, '<<<<<<< ours\nkept here\n=======\nkept there\n>>>>>>> theirs\n'), '20261009-203134'],
   ['20261010-203425-f574.md', fm({ title: '"Phone note one"', created: '2026-10-10T15:04:25Z', pos: 'c' }, 'from the phone\n'), 'Phone note one'],
   ['20261010-203426-01f4.md', fm({ title: '"Phone note two"', created: '2026-10-10T15:04:26Z', pos: 'd' }, 'also from the phone\n'), 'Phone note two'],
   ['20261011-031023.md', fm({ title: '"A very long title that keeps going well past the width of any sidebar row so it has to be cut"', created: '2026-10-10T21:40:23Z' }, 'long\n'), 'A very long title that keeps going well past the width of any sidebar row so it has to be cut'],

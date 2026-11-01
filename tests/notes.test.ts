@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos, attachmentRel, setReminder, dismissReminder, nextRing, reminderState, isExpired, applyChange, changedKeys } from '../src/notes';
+import { validId } from '../src/notefmt';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -22,6 +23,9 @@ describe('slugForTitle', () => {
   it('slugs a heading into a file name', () => {
     expect(slugForTitle('# Weekly Plan: Q3!')).toBe('weekly-plan-q3.md');
     expect(slugForTitle('   ')).toBe('untitled.md');
+    expect(slugForTitle('Café déjà vu')).toBe('caf-d-j-vu.md');
+    expect(slugForTitle('日本語のメモ', new Date('2026-11-01T10:00:00Z'))).toMatch(/^20261101-100000-[0-9a-f]{4}\.md$/);
+    expect(validId(slugForTitle('x'.repeat(200)).replace(/\.md$/, ''))).toBe(true);
   });
 });
 
@@ -31,12 +35,12 @@ describe('noteTitle', () => {
     expect(noteTitle('a.md', 'intro\n# Heading\n')).toBe('intro');
     expect(noteTitle('a.md', '## Heading\nbody')).toBe('Heading');
     expect(noteTitle('untitled-123.md', 'Weekly plan\n\nDetails')).toBe('Weekly plan');
-    expect(noteTitle('sub/weekly-plan_v2.md')).toBe('weekly plan v2');
+    expect(noteTitle('sub/weekly-plan_v2.md')).toBe('weekly-plan_v2');
   });
   it('a chips-only block names the note by its first body line, as Switchboard does', () => {
     expect(noteTitle('a.md', '---\ncolor: red\n---\nplain first line\n# later heading')).toBe('plain first line');
-    expect(noteTitle('a.md', '---\ncolor: red\n---\n\n> quoted\n')).toBe('> quoted');
-    expect(noteTitle('my-note.md', '---\ncolor: red\n---\n')).toBe('my note');
+    expect(noteTitle('a.md', '---\ncolor: red\n---\n\n> quoted\n')).toBe('quoted');
+    expect(noteTitle('my-note.md', '---\ncolor: red\n---\n')).toBe('my-note');
   });
 });
 
@@ -103,7 +107,7 @@ describe('properties', () => {
   });
   it('readProps reads the title, colour, pin and tags', () => {
     expect(readProps('a.md', sb)).toEqual({ title: 'v6 sor', color: 'purple', pinned: true, tags: ['ops', 'later'] });
-    expect(readProps('a.md', '---\ncolor: indigo\n---\n').color).toBe('purple');
+    expect(readProps('a.md', '---\ncolor: indigo\n---\n').color).toBeNull();   // the spec's eight names only
     expect(readProps('a.md', '---\ncolor: plaid\n---\n').color).toBeNull();
     expect(readProps('a.md', '# x').pinned).toBe(false);
   });
@@ -152,15 +156,17 @@ describe('properties', () => {
     ];
     expect(sharedOrder(l).map(n => n.rel)).toEqual(['f', 'e', 'b', 'a', 'd', 'g', 'c']);
   });
-  it('sharedOrder: editing (a newer mtime) does not move a note, and absent created falls back to mtime', () => {
+  it('sharedOrder: editing (a newer mtime) does not move a note, and absent created counts as the oldest', () => {
     const l = [{ rel: 'x', mtime: 100, created: 1 }, { rel: 'y', mtime: 1, created: 2 }];
     expect(sharedOrder(l).map(n => n.rel)).toEqual(['y', 'x']);
-    expect(sharedOrder([{ rel: 'p', mtime: 1 }, { rel: 'q', mtime: 9 }]).map(n => n.rel)).toEqual(['q', 'p']);
+    expect(sharedOrder([{ rel: 'p', mtime: 99 }, { rel: 'q', mtime: 9, created: 1 }]).map(n => n.rel)).toEqual(['q', 'p']);
+    expect(sharedOrder([{ rel: 'b.md', mtime: 1 }, { rel: 'a-b.md', mtime: 1 }, { rel: 'a.md', mtime: 1 }]).map(n => n.rel)).toEqual(['a.md', 'a-b.md', 'b.md']);
   });
-  it('pos is read back as the raw text', () => {
-    for (const v of ['no', '1e5', 'null', 'i', '0']) {
+  it('a valid pos is read back as written, an invalid one as none', () => {
+    for (const v of ['no', '1e5', 'null', 'i']) {
       expect(readProps('n.md', `---\ntitle: T\npos: ${v}\n---\nbody`).pos).toBe(v);
     }
+    expect(readProps('n.md', '---\ntitle: T\npos: 0\n---\nbody').pos).toBeUndefined();
     expect(readProps('n.md', '---\ntitle: T\n---\nbody').pos).toBeUndefined();
   });
   it('KEY_ORDER puts remind_on after remind_repeat and pos last, and a pin edit keeps pos', () => {
@@ -234,5 +240,73 @@ describe('arranging notes by drag', () => {
 
   it('setPos writes the pos line and keeps the rest', () => {
     expect(setPos('---\ntitle: T\n---\nbody', 'i')).toBe('---\ntitle: T\npos: i\n---\nbody');
+  });
+});
+
+describe('attachmentRel', () => {
+  it('names a picture <id>-<stamp>.<ext> under attachments/', () => {
+    expect(attachmentRel('20261101-120000-ab12.md', 'png', 36)).toBe('attachments/20261101-120000-ab12-10.png');
+    expect(attachmentRel('sub/A_b-c.md', 'JPG', 1)).toBe('attachments/A_b-c-1.jpg');
+  });
+  it('an older name with spaces lends a cleaned-up id, never the title', () => {
+    const rel = attachmentRel('weekly plan v2.md', 'png', 1);
+    expect(rel).toBe('attachments/weekly-plan-v2-1.png');
+  });
+});
+
+describe('reminders, agents, links and expiry', () => {
+  const base = '---\ntitle: "T"\ncreated: 2026-11-01T10:00:00Z\ntags: "a"\n---\nbody\n';
+  it('readProps carries the fields bfb used to ignore', () => {
+    const t = '---\ntitle: "T"\nexpires: 2026-12-01T00:00:00Z\nremind_at: 2026-11-02T09:00:00Z\nremind_repeat: weekly\nremind_on: phone\nremind_persist: true\nagent: "claude-1"\nurl: "https://example.com/a"\n---\n';
+    expect(readProps('a.md', t)).toMatchObject({ agent: 'claude-1', url: 'https://example.com/a', expires: '2026-12-01T00:00:00Z',
+      remindAt: '2026-11-02T09:00:00Z', remindRepeat: 'weekly', remindOn: 'phone', remindPersist: true });
+  });
+  it('setReminder writes the keys in spec order and touches nothing else', () => {
+    const out = setReminder(base, { at: '2026-11-02T09:00:00Z', repeat: 'daily', on: 'phone', persist: true });
+    expect(out).toBe('---\ntitle: "T"\ncreated: 2026-11-01T10:00:00Z\ntags: "a"\nremind_at: 2026-11-02T09:00:00Z\nremind_repeat: daily\nremind_on: phone\nremind_persist: true\n---\nbody\n');
+    expect(setReminder(out, null)).toBe(base);
+  });
+  it('the Mac is the default device, so remind_on is left out for it', () => {
+    expect(setReminder(base, { at: '2026-11-02T09:00:00Z', on: 'mac' })).not.toMatch(/remind_on/);
+  });
+  it('setting a reminder again replaces the old one, and clearing drops the device handle too', () => {
+    const had = base.replace('tags: "a"\n', 'tags: "a"\nremind_at: 2026-11-01T11:00:00Z\nremind_repeat: weekly\nreminder_id: "r1"\n');
+    expect(setReminder(had, { at: '2026-11-05T09:00:00Z' })).toBe(base.replace('tags: "a"\n', 'tags: "a"\nremind_at: 2026-11-05T09:00:00Z\n'));
+    expect(setReminder(had, null)).toBe(base);
+  });
+  it('dismissing a one-off clears it; dismissing a repeating one moves to the next time', () => {
+    const one = setReminder(base, { at: '2026-11-02T09:00:00Z' });
+    expect(dismissReminder(one, new Date('2026-11-02T09:00:05Z'))).toBe(base);
+    const weekly = setReminder(base, { at: '2026-11-02T09:00:00Z', repeat: 'weekly' });
+    expect(readProps('a.md', dismissReminder(weekly, new Date('2026-11-02T09:00:05Z'))).remindAt).toBe('2026-11-09T09:00:00Z');
+    expect(nextRing('2026-01-31T09:00:00Z', 'monthly', new Date('2026-02-01T00:00:00Z'))).toMatch(/^2026-03-0[23]T09:00:00Z$/);
+  });
+  it('a time that passed and was not dismissed is missed, never dropped', () => {
+    const now = Date.parse('2026-11-03T00:00:00Z');
+    expect(reminderState({ remindAt: '2026-11-02T09:00:00Z' }, now)).toBe('missed');
+    expect(reminderState({ remindAt: '2026-11-04T09:00:00Z' }, now)).toBe('upcoming');
+    expect(reminderState({}, now)).toBe('none');
+  });
+  it('expires only moves a note to Expired once its time has passed', () => {
+    const now = Date.parse('2026-11-03T00:00:00Z');
+    expect(isExpired({ expires: '2026-11-02T00:00:00Z' }, now)).toBe(true);
+    expect(isExpired({ expires: '2026-11-04T00:00:00Z' }, now)).toBe(false);
+    expect(isExpired({}, now)).toBe(false);
+  });
+  it('a reminder change counts every reminder key as changed, so the header guard allows it', () => {
+    expect(changedKeys({ remind: null })).toEqual(expect.arrayContaining(['remind_at', 'remind_repeat', 'remind_on', 'remind_persist', 'reminder_id']));
+    expect(applyChange(base, { remind: { at: '2026-11-02T09:00:00Z' } })).toMatch(/remind_at: 2026-11-02T09:00:00Z/);
+  });
+});
+
+describe('what the list shows for odd notes', () => {
+  it('an empty title key shows the first line of the note, not a stamp', () => {
+    expect(noteTitle('20261101-140000-abcd.md', '---\ntitle: ""\n---\nThe first line\nmore\n')).toBe('The first line');
+    expect(noteTitle('20261101-140000-abcd.md', '---\ntitle: ""\n---\n')).toBe('20261101-140000-abcd');
+  });
+  it('a clash with no label, or never closed, still offers the settle bar', () => {
+    expect(clashSides('<<<<<<<\nA\n=======\nB\n>>>>>>>\n')).toEqual(['the first version', 'the second version']);
+    expect(clashSides('text\n<<<<<<< HEAD\nA\n=======\nB\n')).toEqual(["this Mac's", 'the second version']);
+    expect(clashSides('no markers here')).toBeNull();
   });
 });

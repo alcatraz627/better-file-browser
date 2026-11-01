@@ -260,6 +260,7 @@
   }
 
   // src/places.ts
+  var isWebPath = (path) => /^[a-z][a-z0-9+.-]*:\/\//i.test(path) && !/^file:/i.test(path);
   function samePlace(a, b) {
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
@@ -592,17 +593,17 @@
     }
   }
   var NOTES_KEPT = "bfbNotesKept";
-  function keptNotesList(root) {
+  function keptNotesList(root2) {
     try {
       const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || "null");
-      return k?.root === root && Array.isArray(k.notes) ? k.notes : null;
+      return k?.root === root2 && Array.isArray(k.notes) ? k.notes : null;
     } catch {
       return null;
     }
   }
-  function keepNotesList(root, notes2) {
+  function keepNotesList(root2, notes2) {
     try {
-      localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes: notes2 }));
+      localStorage.setItem(NOTES_KEPT, JSON.stringify({ root: root2, notes: notes2 }));
     } catch {
     }
   }
@@ -633,17 +634,37 @@
     saveSaved(was ? removePlace(list3, path) : upsertPlace(list3, { path, label }));
     return !was;
   }
+  var SAVED_DIRTY_KEY = "bfb-saved-dirty-v1";
+  var savedChanged = null;
+  function onSavedChanged(fn) {
+    savedChanged = fn;
+  }
   function saveSaved(list3) {
     list3 = dedupePlaces(list3);
     kvSet(SAVED_KEY, JSON.stringify(list3));
     kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list3, readList(TAGS_KEY))));
+    kvSet(SAVED_DIRTY_KEY, "1");
+    savedChanged?.();
   }
   function getTags() {
     return reconcileTags(getSaved(), readList(TAGS_KEY));
   }
   function saveTags(tags) {
     kvSet(TAGS_KEY, JSON.stringify(tags));
+    kvSet(SAVED_DIRTY_KEY, "1");
+    savedChanged?.();
   }
+  function setSavedFromFolder(list3, colours) {
+    list3 = dedupePlaces(list3);
+    kvSet(SAVED_KEY, JSON.stringify(list3));
+    const reg = reconcileTags(list3, readList(TAGS_KEY)).map((t) => colours?.[t.name] ? { ...t, color: colours[t.name] } : t);
+    kvSet(TAGS_KEY, JSON.stringify(reg));
+  }
+  function setSavedQuiet(list3) {
+    kvSet(SAVED_KEY, JSON.stringify(list3));
+  }
+  var savedUnsent = () => kvGet(SAVED_DIRTY_KEY) === "1";
+  var markSavedSent = () => kvRemove(SAVED_DIRTY_KEY);
   function getRecents() {
     try {
       const list3 = JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
@@ -780,8 +801,8 @@
     } catch {
     }
   }
-  function makePref(id, read2, write, where = "profile") {
-    const tab = where === "tab";
+  function makePref(id, read2, write, where2 = "profile") {
+    const tab = where2 === "tab";
     return {
       get: () => read2(tab ? sessionGet(id) : kvGet(id)),
       set: (v) => {
@@ -796,10 +817,10 @@
       }
     };
   }
-  var textPref = (id, init = "", where) => makePref(id, (r) => r ?? init, (v) => v, where);
+  var textPref = (id, init = "", where2) => makePref(id, (r) => r ?? init, (v) => v, where2);
   var choicePref = (id, choices, init) => makePref(id, (r) => choices.includes(r ?? "") ? r : init, (v) => v);
   var flagPref = (id, init, on = "1", off = "0") => makePref(id, (r) => r === on ? true : r === off ? false : init, (v) => v ? on : off);
-  function jsonPref(id, init, valid = () => true, where) {
+  function jsonPref(id, init, valid = () => true, where2) {
     const fresh = () => JSON.parse(JSON.stringify(init));
     return makePref(id, (r) => {
       if (r === null) return fresh();
@@ -809,7 +830,7 @@
       } catch {
         return fresh();
       }
-    }, (v) => JSON.stringify(v), where);
+    }, (v) => JSON.stringify(v), where2);
   }
   var numberPref = (id, init, ok = Number.isFinite) => makePref(id, (r) => {
     const n = parseInt(r ?? "");
@@ -838,7 +859,10 @@
     "bfb-lens-v1",
     "bfb-comments-filter-v1",
     "bfb-ask-quote-v1",
-    "bfb-reset-undo-v1"
+    "bfb-reset-undo-v1",
+    "bfb-saved-dirty-v1",
+    "bfb-saved-premigration-v1",
+    "bfb-tags-premigration-v1"
   ];
   var isPassingState = (k) => PASSING_STATE.some((p) => k === p || (p.endsWith(":") || p.endsWith("-")) && k.startsWith(p));
   var BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, ICON_RULES_KEY, "bfb-saved-folded-v1", "bfb-notes-folded-v1", "bfb-ask-history-v1", "bfb-home-v1"];
@@ -891,6 +915,10 @@
       if (text === null) kvRemove(k);
       else kvSet(k, text);
     }
+    if (SAVED_KEY in writes || TAGS_KEY in writes) {
+      kvSet(SAVED_DIRTY_KEY, "1");
+      savedChanged?.();
+    }
     return count;
   }
   function importPlan(plan) {
@@ -930,6 +958,245 @@
     }
   }
 
+  // src/notefmt.ts
+  var KNOWN_KEYS = [
+    "title",
+    "created",
+    "tags",
+    "expires",
+    "remind_at",
+    "remind_repeat",
+    "remind_on",
+    "remind_persist",
+    "reminder_id",
+    "pinned",
+    "color",
+    "agent",
+    "source",
+    "url",
+    "device",
+    "pos"
+  ];
+  var COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
+  var REPEATS = ["daily", "weekly", "monthly"];
+  var DEVICES = ["mac", "phone"];
+  var POS_RE = /^[0-9a-z]{0,31}[1-9a-z]$/;
+  var ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+  var KEY_TO_FIELD = {
+    title: "title",
+    created: "created",
+    tags: "tags",
+    expires: "expires",
+    remind_at: "remindAt",
+    remind_repeat: "remindRepeat",
+    remind_on: "remindOn",
+    remind_persist: "remindPersist",
+    reminder_id: "reminderId",
+    pinned: "pinned",
+    color: "color",
+    agent: "agent",
+    source: "source",
+    url: "url",
+    device: "device",
+    pos: "pos"
+  };
+  var normalise = (text) => text.replace(/\r\n/g, "\n");
+  var isOpener = (line2) => line2.startsWith("<<<<<<< ") || line2 === "<<<<<<<";
+  var isCloser = (line2) => line2.startsWith(">>>>>>> ") || line2 === ">>>>>>>";
+  var hasClash = (text) => normalise(text).split("\n").some(isOpener);
+  var validPos = (s) => !!s && POS_RE.test(s);
+  var validId = (s) => ID_RE.test(s);
+  function unquote(raw) {
+    const v = raw.trim();
+    if (v.length >= 2 && v[0] === '"') {
+      try {
+        const out = JSON.parse(v);
+        if (typeof out === "string") return out;
+      } catch {
+      }
+      return v;
+    }
+    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
+    return v;
+  }
+  function parseTagList(raw) {
+    let s = unquote(raw).trim();
+    if (s.startsWith("[") && s.endsWith("]")) s = s.slice(1, -1);
+    const out = [];
+    for (let part of s.split(",")) {
+      part = part.trim();
+      if (part.length >= 2 && part[0] === part[part.length - 1] && `"'`.includes(part[0])) part = part.slice(1, -1).trim();
+      if (part) out.push(part);
+    }
+    return out;
+  }
+  function deriveTitle(body, name2) {
+    for (const line2 of body.split("\n")) {
+      if (line2.trim()) {
+        const t = line2.replace(/^[#> ]+/, "").trim();
+        return t || name2;
+      }
+    }
+    return name2;
+  }
+  function emptyNote(name2) {
+    return {
+      title: name2,
+      body: "",
+      tags: [],
+      color: null,
+      pinned: false,
+      pos: null,
+      url: null,
+      device: null,
+      agent: null,
+      source: null,
+      expires: null,
+      created: null,
+      remindAt: null,
+      remindRepeat: null,
+      remindOn: null,
+      remindPersist: false,
+      reminderId: null,
+      conflicted: false,
+      extraLines: []
+    };
+  }
+  function splitHeader(text) {
+    const lines = text.split("\n");
+    if (lines[0] !== "---") return { header: null, body: text };
+    for (let i3 = 1; i3 < lines.length; i3++) {
+      if (lines[i3] === "---") return { header: lines.slice(1, i3), body: lines.slice(i3 + 1).join("\n") };
+    }
+    return { header: null, body: text };
+  }
+  function parseNote(rawText, name2) {
+    const text = normalise(rawText);
+    const note2 = emptyNote(name2);
+    if (hasClash(text)) {
+      note2.conflicted = true;
+      note2.body = text;
+      return note2;
+    }
+    const { header, body } = splitHeader(text);
+    note2.body = body;
+    let titleSeen = false;
+    const set2 = note2;
+    for (const line2 of header ?? []) {
+      if (line2 === "") continue;
+      const idx = line2.indexOf(":");
+      const key = idx >= 0 ? line2.slice(0, idx) : null;
+      if (key === null || !Object.prototype.hasOwnProperty.call(KEY_TO_FIELD, key)) {
+        note2.extraLines.push(line2);
+        continue;
+      }
+      const raw = line2.slice(idx + 1);
+      const val = unquote(raw);
+      const field = KEY_TO_FIELD[key];
+      if (key === "title") {
+        note2.title = val.trim();
+        titleSeen = true;
+      } else if (key === "tags") note2.tags = parseTagList(raw);
+      else if (key === "pinned" || key === "remind_persist") set2[field] = val === "true";
+      else if (key === "color") set2[field] = COLORS.includes(val) ? val : null;
+      else if (key === "remind_repeat") set2[field] = REPEATS.includes(val) ? val : null;
+      else if (key === "remind_on") set2[field] = DEVICES.includes(val) ? val : null;
+      else if (key === "pos") set2[field] = validPos(val) ? val : null;
+      else set2[field] = val !== "" ? val : null;
+    }
+    if (!titleSeen) note2.title = deriveTitle(body, name2);
+    return note2;
+  }
+  var jstr = (s) => JSON.stringify(s);
+  function renderNote(n) {
+    const out = ["---", "title: " + jstr(n.title ?? "")];
+    if (n.created) out.push("created: " + n.created);
+    if (n.tags?.length) out.push("tags: " + jstr(n.tags.join(", ")));
+    if (n.expires) out.push("expires: " + n.expires);
+    if (n.remindAt) out.push("remind_at: " + n.remindAt);
+    if (n.remindRepeat) out.push("remind_repeat: " + n.remindRepeat);
+    if (n.remindOn) out.push("remind_on: " + n.remindOn);
+    if (n.remindPersist) out.push("remind_persist: true");
+    if (n.reminderId) out.push("reminder_id: " + jstr(n.reminderId));
+    if (n.pinned) out.push("pinned: true");
+    if (n.color) out.push("color: " + n.color);
+    for (const [key, val] of [["agent", n.agent], ["source", n.source], ["url", n.url], ["device", n.device]]) {
+      if (val) out.push(key + ": " + jstr(val));
+    }
+    if (n.pos) out.push("pos: " + n.pos);
+    out.push(...n.extraLines ?? []);
+    out.push("---");
+    return out.join("\n") + "\n" + (n.body ?? "");
+  }
+  function settle(text, choice) {
+    const lines = normalise(text).split("\n");
+    const out = [];
+    let i3 = 0;
+    const n = lines.length;
+    while (i3 < n) {
+      if (!isOpener(lines[i3])) {
+        out.push(lines[i3]);
+        i3++;
+        continue;
+      }
+      const first = [], second = [];
+      let side = first, j = i3 + 1, closed = false;
+      while (j < n) {
+        const l = lines[j];
+        if (side === first && l === "=======") side = second;
+        else if (isCloser(l)) {
+          closed = true;
+          break;
+        } else side.push(l);
+        j++;
+      }
+      if (!closed) {
+        out.push(...first, ...second);
+        break;
+      }
+      out.push(...choice === "first" ? first : choice === "second" ? second : [...first, ...second]);
+      i3 = j + 1;
+    }
+    return out.join("\n");
+  }
+  function sortNotes(list3) {
+    const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+    return [...list3].sort((x2, y) => {
+      if (!!x2.pinned !== !!y.pinned) return x2.pinned ? -1 : 1;
+      if (!x2.pos !== !y.pos) return x2.pos ? 1 : -1;
+      if (!x2.pos) return cmp(y.created ?? "", x2.created ?? "") || cmp(x2.id, y.id);
+      return cmp(x2.pos, y.pos) || cmp(x2.id, y.id);
+    });
+  }
+  function normaliseUrl(raw) {
+    const url = raw.trim();
+    const m = /^([A-Za-z][A-Za-z0-9+.\-]*):([\s\S]*)$/.exec(url);
+    if (!m) return url;
+    const scheme = m[1].toLowerCase();
+    let rest = m[2];
+    const a = /^\/\/([^/?#]*)([\s\S]*)$/.exec(rest);
+    if (a) {
+      const auth = a[1], at = auth.lastIndexOf("@");
+      const user = at >= 0 ? auth.slice(0, at + 1) : "", host = at >= 0 ? auth.slice(at + 1) : auth;
+      rest = "//" + user + host.toLowerCase() + a[2];
+    }
+    return scheme + ":" + rest;
+  }
+  async function sha1Hex(text) {
+    const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function saveKey(url) {
+    return (await sha1Hex(normaliseUrl(url))).slice(0, 12);
+  }
+  function newId(now = /* @__PURE__ */ new Date()) {
+    const p = (n) => String(n).padStart(2, "0");
+    const stamp = `${now.getUTCFullYear()}${p(now.getUTCMonth() + 1)}${p(now.getUTCDate())}-${p(now.getUTCHours())}${p(now.getUTCMinutes())}${p(now.getUTCSeconds())}`;
+    const r = crypto.getRandomValues(new Uint8Array(2));
+    return `${stamp}-${[...r].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  }
+  var isoNow = (now = /* @__PURE__ */ new Date()) => now.toISOString().replace(/\.\d{3}Z$/, "Z");
+
   // src/notes.ts
   var NotesError = class extends Error {
     constructor(code, message) {
@@ -954,12 +1221,12 @@
       }
     });
   }
-  async function fileRead(root, rel) {
+  async function fileRead(root2, rel) {
     for (let attempt = 0; ; attempt++) {
       const parts2 = [];
       let mtime = -1, offset = 0, torn = false;
       while (offset != null) {
-        const f = await call({ op: "fileRead", root, rel, offset });
+        const f = await call({ op: "fileRead", root: root2, rel, offset });
         if (mtime !== -1 && f.mtime !== mtime) {
           torn = true;
           break;
@@ -973,35 +1240,35 @@
     }
   }
   var notes = {
-    stat: (root) => call({ op: "stat", root }),
-    list: (root) => call({ op: "list", root }).then((f) => f.notes),
-    read: (root, rel) => call({ op: "read", root, rel }),
-    write: (root, rel, text, expectMtime) => call({ op: "write", root, rel, text, expectMtime }),
-    create: (root, rel, text = "") => call({ op: "create", root, rel, text }),
-    rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
-    writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
-    delete: (root, rel) => call({ op: "delete", root, rel }),
+    stat: (root2) => call({ op: "stat", root: root2 }),
+    list: (root2) => call({ op: "list", root: root2 }).then((f) => f.notes),
+    read: (root2, rel) => call({ op: "read", root: root2, rel }),
+    write: (root2, rel, text, expectMtime) => call({ op: "write", root: root2, rel, text, expectMtime }),
+    create: (root2, rel, text = "") => call({ op: "create", root: root2, rel, text }),
+    rename: (root2, rel, to) => call({ op: "rename", root: root2, rel, to }),
+    writeBinary: (root2, rel, base64) => call({ op: "writeBinary", root: root2, rel, base64 }),
+    delete: (root2, rel) => call({ op: "delete", root: root2, rel }),
     /// What .trash holds, newest first.
-    trashList: (root) => call({ op: "trashList", root }).then((f) => f.notes),
+    trashList: (root2) => call({ op: "trashList", root: root2 }).then((f) => f.notes),
     /// Put a deleted note back, at `to` when that name is free (otherwise a numbered name beside it).
-    restore: (root, trashed, to) => call({ op: "restore", root, trashed, to }),
+    restore: (root2, trashed, to) => call({ op: "restore", root: root2, trashed, to }),
     /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
     /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
     pick: (start, kind) => call({ op: "pick", start, kind }).then((f) => f.root),
     /// The account's home folder, so Places can offer Home before any visit under it.
     home: () => call({ op: "home" }).then((f) => f.home),
-    history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
-    version: (root, rel, sha) => call({ op: "version", root, rel, sha }),
+    history: (root2, rel) => call({ op: "history", root: root2, rel }).then((f) => f),
+    version: (root2, rel, sha) => call({ op: "version", root: root2, rel, sha }),
     /// Notes whose text holds every word of the query, each with its first matching line.
-    search: (root, query) => call({ op: "search", root, query }).then((f) => f.hits),
+    search: (root2, query) => call({ op: "search", root: root2, query }).then((f) => f.hits),
     /// Any text file inside a folder allowed for editing; root is that folder.
     fileRead,
     /// A file's modified time and size, without reading it.
-    fileStat: (root, rel) => call({ op: "fileStat", root, rel }),
+    fileStat: (root2, rel) => call({ op: "fileStat", root: root2, rel }),
     /// Every comment thread on a document, each with where it sits in the text now (bfb-docs).
-    commentsRead: (root, rel) => call({ op: "commentsRead", root, rel }),
+    commentsRead: (root2, rel) => call({ op: "commentsRead", root: root2, rel }),
     /// Apply comment operations as the owner; the document itself is never written.
-    commentsWrite: (root, rel, ops) => call({ op: "commentsWrite", root, rel, ops }),
+    commentsWrite: (root2, rel, ops) => call({ op: "commentsWrite", root: root2, rel, ops }),
     /// Every document with comments, from the bfb-docs index.
     /// Every page in gcc's decision-page registry with whether it waits on the owner (read only).
     dpPages: () => call({ op: "dpPages" }).then((f) => f.pages ?? []),
@@ -1013,52 +1280,38 @@
     /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
     people: () => call({ op: "people" }).then((f) => f.peers ?? []),
     /// Hand one comment thread to an agent through claude-ipc.
-    sendThread: (root, rel, thread, to) => call({ op: "sendThread", root, rel, thread, to }),
+    sendThread: (root2, rel, thread, to) => call({ op: "sendThread", root: root2, rel, thread, to }),
     /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
     phone: (action = "status") => call({ op: "phone", action }),
+    /// Comment threads, across every document in the comment index, whose text holds every word typed.
+    commentsSearch: (query) => call({ op: "commentsSearch", query }).then((f) => f.hits ?? []),
+    /// What Switchboard last reported about syncing this folder (read from the repo's state file); see sync-state.ts.
+    syncState: (root2) => call({ op: "syncState", root: root2 }),
+    /// Every save in .saved of the notes folder, with its tag colours; `exists` is false before the folder is first made.
+    savedList: (root2) => call({ op: "savedList", root: root2 }),
+    /// Write and remove save files and merge tag colours in one locked batch; createOnly leaves existing files alone.
+    savedSync: (root2, batch) => call({ op: "savedSync", root: root2, ...batch }),
     /// Local tools (small local web apps that stop when idle): each one and whether it is up.
     services: () => call({ op: "services" }).then((f) => f.services ?? []),
     /// Start or stop one local tool; answers once its port is up or gone.
     service: (name2, action) => call({ op: "service", name: name2, action }),
     /// The Mac's settings, for the phone to start from.
     phoneSeed: (kv) => call({ op: "phoneSeed", kv }),
-    fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
+    fileWrite: (root2, rel, text, expectMtime) => call({ op: "fileWrite", root: root2, rel, text, expectMtime })
   };
-  function slugForTitle(title) {
-    const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-    return (s || "untitled") + ".md";
-  }
-  function unquoteYaml(v) {
-    if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
-      try {
-        return JSON.parse(v);
-      } catch {
-        return v.slice(1, -1);
-      }
-    }
-    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-    return v;
+  function slugForTitle(title, now = /* @__PURE__ */ new Date()) {
+    const bare = title.replace(/^#+\s*/, "").trim();
+    const s = bare.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
+    return (s || (bare ? newId(now) : "untitled")) + ".md";
   }
   function noteTitle(rel, text) {
-    if (text) {
-      const fm = text.match(/^---\n([\s\S]*?)\n---/);
-      const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
-      const t = raw && unquoteYaml(raw).trim();
-      if (t) return t;
-      const first = splitNote(text).body.trim().split("\n")[0].replace(/^#+/, "").trim();
-      if (first) return first;
-    }
-    return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
+    const name2 = rel.split("/").pop().replace(/\.md$/i, "");
+    if (!text) return name2;
+    const p = parseNote(text, name2);
+    return p.title || (p.conflicted ? name2 : deriveTitle(p.body, name2));
   }
   function setTitle(text, title) {
-    const m = text.match(/^---\n([\s\S]*?)\n---/);
-    if (!m) return null;
-    const line2 = `title: ${JSON.stringify(title)}`;
-    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line2) : `${line2}
-${m[1]}`;
-    return text.replace(m[0], () => `---
-${fm}
----`);
+    return splitNote(text).head ? setField(text, "title", JSON.stringify(title)) : null;
   }
   function setFirstLine(text, title) {
     const m = text.match(/^(\s*)([^\n]*)/);
@@ -1079,41 +1332,15 @@ ${fm}
     if (lined !== null) return head + lined;
     return head ? setTitle(text, title) : null;
   }
-  function settleClash(text, keep) {
-    const out = [];
-    let first = [], second = [];
-    let part = "out";
-    for (const line2 of text.split("\n")) {
-      if (part === "out" && (line2.startsWith("<<<<<<< ") || line2 === "<<<<<<<")) {
-        part = "first";
-        first = [];
-        second = [];
-      } else if (part === "out") out.push(line2);
-      else if (part === "first" && line2 === "=======") part = "second";
-      else if (part === "first") first.push(line2);
-      else if (line2.startsWith(">>>>>>> ") || line2 === ">>>>>>>") {
-        part = "out";
-        out.push(...keep === "second" ? second : keep === "first" ? first : [...first, ...second]);
-      } else second.push(line2);
-    }
-    if (part !== "out") out.push(...first, ...second);
-    return out.join("\n");
-  }
+  var settleClash = (text, keep) => settle(text, keep);
   function clashSides(text) {
-    const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
-    if (!a || !b) return null;
-    const name2 = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
+    if (!hasClash(text)) return null;
+    const a = text.match(/^<<<<<<< (.+)$/m)?.[1] ?? "the first version", b = text.match(/^>>>>>>> (.+)$/m)?.[1] ?? "the second version";
+    const name2 = (m) => m === "the first version" || m === "the second version" ? m : m === "HEAD" ? "this Mac's" : m === "origin/main" ? "the other device's" : m === "github" ? "the saved version's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
     return [name2(a.trim()), name2(b.trim())];
   }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
-    const m = text.match(/^---\n([\s\S]*?)\n---/);
-    if (!m) return text;
-    const iso = now.toISOString();
-    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `
-updated: ${iso}`;
-    return text.replace(m[0], () => `---
-${fm}
----`);
+    return splitNote(text).head ? setField(text, "updated", now.toISOString()) : text;
   }
   var NOTE_COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
   var LEGACY_COLORS = { indigo: "purple", mint: "green", brown: "orange", gray: "blue", cyan: "teal" };
@@ -1122,50 +1349,43 @@ ${fm}
     const n = LEGACY_COLORS[v] ?? v;
     return NOTE_COLORS.includes(n) ? n : null;
   }
-  var KEY_ORDER = [
-    "title",
-    "created",
-    "tags",
-    "expires",
-    "remind_at",
-    "remind_repeat",
-    "remind_on",
-    "reminder_id",
-    "pinned",
-    "color",
-    "agent",
-    "source",
-    "url",
-    "pos"
-  ];
-  var FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
+  var KEY_ORDER = KNOWN_KEYS;
   function splitNote(text) {
-    const m = text.match(FM_RE);
-    if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: "", body: text };
-    return { head: m[0], body: text.slice(m[0].length) };
+    if (!text.startsWith("---\n") || hasClash(text)) return { head: "", body: text };
+    let at = 4;
+    for (; ; ) {
+      const nl = text.indexOf("\n", at);
+      const line2 = nl < 0 ? text.slice(at) : text.slice(at, nl);
+      if (line2 === "---") {
+        const end = nl < 0 ? text.length : nl + 1;
+        return { head: text.slice(0, end), body: text.slice(end) };
+      }
+      if (nl < 0) return { head: "", body: text };
+      at = nl + 1;
+    }
   }
   function fmLines(head) {
-    const m = head.match(FM_RE);
-    return m && m[1] !== void 0 ? m[1].split("\n") : [];
+    if (!head) return [];
+    const lines = head.replace(/\n$/, "").split("\n");
+    return lines.slice(1, -1);
   }
   function readProps(rel, text) {
-    const { head } = splitNote(text);
-    const f = {};
-    for (const line2 of fmLines(head)) {
-      const i3 = line2.indexOf(":");
-      if (i3 > 0) f[line2.slice(0, i3).trim()] = unquoteYaml(line2.slice(i3 + 1).trim());
-    }
+    const p = parseNote(text, rel.split("/").pop().replace(/\.md$/i, ""));
     return {
-      title: noteTitle(rel, text),
-      color: colorName(f.color),
-      pinned: f.pinned === "true",
-      tags: parseTags2(f.tags),
-      ...f.pos ? { pos: f.pos } : {}
+      title: p.title,
+      color: colorName(p.color ?? void 0),
+      pinned: p.pinned,
+      tags: p.tags,
+      ...p.pos ? { pos: p.pos } : {},
+      ...p.agent ? { agent: p.agent } : {},
+      ...p.url ? { url: p.url } : {},
+      ...p.device ? { device: p.device } : {},
+      ...p.expires ? { expires: p.expires } : {},
+      ...p.remindAt ? { remindAt: p.remindAt } : {},
+      ...p.remindRepeat ? { remindRepeat: p.remindRepeat } : {},
+      ...p.remindOn ? { remindOn: p.remindOn } : {},
+      ...p.remindPersist ? { remindPersist: true } : {}
     };
-  }
-  function parseTags2(v) {
-    const s = (v ?? "").trim();
-    return (s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1) : s).split(",").map((t) => t.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
   }
   function setField(text, key, value) {
     const line2 = value === null ? null : `${key}: ${value}`;
@@ -1175,7 +1395,7 @@ ${line2}
 ---
 ${text}`;
     const lines = fmLines(head);
-    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)).trim() === key);
+    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)) === key);
     if (at >= 0) {
       if (line2 === null) lines.splice(at, 1);
       else lines[at] = line2;
@@ -1184,7 +1404,7 @@ ${text}`;
       let pos = lines.length;
       if (rank >= 0) {
         const later = lines.findIndex((l) => {
-          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)).trim());
+          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)));
           return r < 0 || r > rank;
         });
         if (later >= 0) pos = later;
@@ -1207,12 +1427,14 @@ ${body}`;
     return a.length === b.length && a.every((l, i3) => l === b[i3]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
   function sharedOrder(list3) {
-    const made = (n) => n.created ?? n.mtime;
+    const made = (n) => n.created ?? 0;
+    const id = (n) => n.rel.replace(/\.md$/i, "");
+    const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
     return [...list3].sort((x2, y) => {
       if (!!x2.pinned !== !!y.pinned) return x2.pinned ? -1 : 1;
       if (!x2.pos !== !y.pos) return x2.pos ? 1 : -1;
-      if (!x2.pos) return made(y) - made(x2) || (x2.rel < y.rel ? -1 : x2.rel > y.rel ? 1 : 0);
-      return x2.pos < y.pos ? -1 : x2.pos > y.pos ? 1 : x2.rel < y.rel ? -1 : x2.rel > y.rel ? 1 : 0;
+      if (!x2.pos) return made(y) - made(x2) || cmp(id(x2), id(y));
+      return cmp(x2.pos, y.pos) || cmp(id(x2), id(y));
     });
   }
   function filterNotes(list3, query) {
@@ -1268,10 +1490,48 @@ ${body}`;
     if (c.color !== void 0) t = setColor(t, c.color);
     if (c.pinned !== void 0) t = setPinned(t, c.pinned);
     if (c.tags !== void 0) t = setTags2(t, c.tags);
+    if (c.remind !== void 0) t = setReminder(t, c.remind);
     return t;
   }
+  var REMIND_KEYS = ["remind_at", "remind_repeat", "remind_on", "remind_persist", "reminder_id"];
+  function setReminder(text, r) {
+    let t = text;
+    for (const k of REMIND_KEYS) t = setField(t, k, null);
+    if (!r) return t;
+    t = setField(t, "remind_at", r.at);
+    if (r.repeat) t = setField(t, "remind_repeat", r.repeat);
+    if (r.on === "phone") t = setField(t, "remind_on", "phone");
+    if (r.persist) t = setField(t, "remind_persist", "true");
+    return t;
+  }
+  function nextRing(at, repeat, now = /* @__PURE__ */ new Date()) {
+    const d = new Date(at);
+    const step2 = () => {
+      if (repeat === "daily") d.setUTCDate(d.getUTCDate() + 1);
+      else if (repeat === "weekly") d.setUTCDate(d.getUTCDate() + 7);
+      else d.setUTCMonth(d.getUTCMonth() + 1);
+    };
+    step2();
+    for (let i3 = 0; i3 < 4e3 && d <= now; i3++) step2();
+    return d.toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+  function reminderState(p, now = Date.now()) {
+    if (!p.remindAt) return "none";
+    const t = Date.parse(p.remindAt);
+    return !isFinite(t) ? "none" : t > now ? "upcoming" : "missed";
+  }
+  var isExpired = (p, now = Date.now()) => {
+    const t = Date.parse(p.expires ?? "");
+    return isFinite(t) && t <= now;
+  };
   function changedKeys(c) {
-    return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
+    return [...["color", "pinned", "tags"].filter((k) => c[k] !== void 0), ...c.remind !== void 0 ? REMIND_KEYS : []];
+  }
+  function attachmentRel(noteRel, ext2, now = Date.now()) {
+    const base2 = noteRel.split("/").pop().replace(/\.md$/i, "");
+    const id = validId(base2) ? base2 : base2.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^[^A-Za-z0-9]+/, "").slice(0, 64) || "note";
+    const clean2 = ext2.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+    return `attachments/${id}-${now.toString(36)}.${clean2}`;
   }
 
   // src/resize.ts
@@ -1616,7 +1876,7 @@ ${body}`;
     el2.style.position = "fixed";
     el2.style.margin = "0";
     el2.style.inset = "auto";
-    const gap = o.offset ?? 4, pad = 8;
+    const gap = o.offset ?? 4, pad2 = 8;
     const w = el2.offsetWidth, h = el2.offsetHeight;
     let x2, y;
     if (place === "point" && o.point) {
@@ -1630,11 +1890,11 @@ ${body}`;
       } else {
         x2 = o.align === "end" ? r.right - w : r.left;
         const below = r.bottom + gap, above = r.top - gap - h;
-        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
+        y = place === "above" ? above >= pad2 ? above : below : below + h <= innerHeight - pad2 || above < pad2 ? below : above;
       }
     }
-    el2.style.left = `${Math.max(pad, Math.min(x2, innerWidth - w - pad))}px`;
-    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
+    el2.style.left = `${Math.max(pad2, Math.min(x2, innerWidth - w - pad2))}px`;
+    el2.style.top = `${Math.max(pad2, Math.min(y, innerHeight - h - pad2))}px`;
   }
   var parts = [];
   function dismissOutside(el2, isOpen, close) {
@@ -1708,26 +1968,26 @@ ${body}`;
     });
   }
   function hoverCard(anchor, build, o = {}) {
-    let timer2 = 0, layer = null, dragging = false;
+    let timer3 = 0, layer = null, dragging = false;
     const show = () => {
       if (dragging || layer?.open) return;
       const el2 = build();
       if (!el2) return;
       layer = openLayer(el2, { kind: "hovercard", anchor, place: o.place ?? "right", align: o.align, role: "tooltip", focus: "none" });
-      el2.addEventListener("pointerenter", () => clearTimeout(timer2));
+      el2.addEventListener("pointerenter", () => clearTimeout(timer3));
       el2.addEventListener("pointerleave", hideSoon);
     };
     const hideSoon = () => {
-      clearTimeout(timer2);
-      timer2 = window.setTimeout(() => layer?.close("api"), o.hide ?? 120);
+      clearTimeout(timer3);
+      timer3 = window.setTimeout(() => layer?.close("api"), o.hide ?? 120);
     };
     const onEnter = () => {
-      clearTimeout(timer2);
-      timer2 = window.setTimeout(show, o.delay ?? 400);
+      clearTimeout(timer3);
+      timer3 = window.setTimeout(show, o.delay ?? 400);
     };
     const onDrag = () => {
       dragging = true;
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       layer?.close("api");
     };
     const onDragEnd = () => {
@@ -1740,7 +2000,7 @@ ${body}`;
     anchor.addEventListener("dragstart", onDrag);
     anchor.addEventListener("dragend", onDragEnd);
     return () => {
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       layer?.close("api");
       anchor.removeEventListener("pointerenter", onEnter);
       anchor.removeEventListener("pointerleave", hideSoon);
@@ -1750,13 +2010,13 @@ ${body}`;
       anchor.removeEventListener("dragend", onDragEnd);
     };
   }
-  function rovingFocus(root, items, o = {}) {
+  function rovingFocus(root2, items, o = {}) {
     const axis = o.axis ?? "vertical";
     const onKey = (e) => {
       if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const t = e.target;
       if (t.isContentEditable || t.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])")) return;
-      const list3 = [...root.querySelectorAll(items)].filter((x2) => !x2.hasAttribute("disabled") && x2.offsetParent !== null);
+      const list3 = [...root2.querySelectorAll(items)].filter((x2) => !x2.hasAttribute("disabled") && x2.offsetParent !== null);
       if (!list3.length) return;
       const i3 = list3.indexOf(document.activeElement);
       const next = axis !== "horizontal" && e.key === "ArrowDown" || axis !== "vertical" && e.key === "ArrowRight";
@@ -1772,19 +2032,19 @@ ${body}`;
       list3[to].focus();
       o.onMove?.(list3[to]);
     };
-    root.addEventListener("keydown", onKey);
-    return () => root.removeEventListener("keydown", onKey);
+    root2.addEventListener("keydown", onKey);
+    return () => root2.removeEventListener("keydown", onKey);
   }
-  function focusTrap(root, o = {}) {
+  function focusTrap(root2, o = {}) {
     const onKey = (e) => {
-      if (e.key !== "Tab" || !root.isConnected || getComputedStyle(root).display === "none" || o.when && !o.when()) return;
+      if (e.key !== "Tab" || !root2.isConnected || getComputedStyle(root2).display === "none" || o.when && !o.when()) return;
       const ae = document.activeElement;
       if (ae?.closest('textarea, [contenteditable="true"]')) return;
-      const inside = !!ae && root.contains(ae);
+      const inside = !!ae && root2.contains(ae);
       const layer = ae?.closest("[data-layer]");
-      if (!inside && layer && !layer.contains(root)) return;
+      if (!inside && layer && !layer.contains(root2)) return;
       const seen = /* @__PURE__ */ new Set();
-      const stops = [...root.querySelectorAll(FOCUSABLE)].filter((x2) => {
+      const stops = [...root2.querySelectorAll(FOCUSABLE)].filter((x2) => {
         if (x2.offsetParent === null || x2.disabled || x2.tabIndex < 0) return false;
         const r = x2;
         if (r.type !== "radio" || !r.name) return true;
@@ -1793,7 +2053,7 @@ ${body}`;
         return true;
       }).map((x2) => {
         const r = x2;
-        return r.type === "radio" && r.name ? root.querySelector(`input[type=radio][name="${CSS.escape(r.name)}"]:checked`) ?? x2 : x2;
+        return r.type === "radio" && r.name ? root2.querySelector(`input[type=radio][name="${CSS.escape(r.name)}"]:checked`) ?? x2 : x2;
       });
       if (!stops.length) return;
       const first = stops[0], last = stops[stops.length - 1];
@@ -2668,8 +2928,8 @@ ${body}`;
   function el(id) {
     return document.getElementById(id);
   }
-  function els(selector, root = document) {
-    return [...root.querySelectorAll(selector)];
+  function els(selector, root2 = document) {
+    return [...root2.querySelectorAll(selector)];
   }
 
   // src/motion.ts
@@ -2809,17 +3069,17 @@ ${body}`;
     d?.close();
     return !!d;
   }
-  function mountDialog(id, hooks = {}) {
-    const root = document.getElementById(id);
-    const box = root.querySelector(".fe-dlg-box");
-    const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
-    const panes = [...root.querySelectorAll(".fe-dlg-pane")];
+  function mountDialog(id, hooks2 = {}) {
+    const root2 = document.getElementById(id);
+    const box = root2.querySelector(".fe-dlg-box");
+    const tabs = [...root2.querySelectorAll(".fe-dlg-tab")];
+    const panes = [...root2.querySelectorAll(".fe-dlg-pane")];
     const lastTab = textPref(`bfb-dialog-tab:${id}`);
-    const placeBtn = root.querySelector(".fe-dlg-place");
-    wireSize(root.querySelector(`#${id}-size`), box, id);
+    const placeBtn = root2.querySelector(".fe-dlg-place");
+    wireSize(root2.querySelector(`#${id}-size`), box, id);
     let place = getDialogPlace(id);
     const inSide = () => box.parentElement?.id === "fe-side-pane" && !box.parentElement.hidden;
-    const isOpen = () => !root.hidden || inSide();
+    const isOpen = () => !root2.hidden || inSide();
     let unfolded = false;
     function show(tab) {
       if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
@@ -2837,7 +3097,7 @@ ${body}`;
     paintPlace();
     let layer = null;
     function open(tab) {
-      hooks.onOpen?.();
+      hooks2.onOpen?.();
       show(tab ?? lastTab.get());
       const pane = place === "side" ? sidePane() : null;
       if (pane) {
@@ -2852,14 +3112,14 @@ ${body}`;
         box.focus();
         return;
       }
-      root.hidden = false;
+      root2.hidden = false;
       if (layer?.open) {
         box.focus();
         return;
       }
-      layer = openLayer(root, { kind: "dialog", place: "none", focus: box, backdrop: root.querySelector(".fe-dlg-bg"), onClose: () => {
-        root.hidden = true;
-        hooks.onClose?.();
+      layer = openLayer(root2, { kind: "dialog", place: "none", focus: box, backdrop: root2.querySelector(".fe-dlg-bg"), onClose: () => {
+        root2.hidden = true;
+        hooks2.onClose?.();
       } });
     }
     function close() {
@@ -2867,12 +3127,12 @@ ${body}`;
         const pane = box.parentElement;
         pane.hidden = true;
         delete box.dataset.dock;
-        root.appendChild(box);
+        root2.appendChild(box);
         if (unfolded) {
           unfolded = false;
           setSidebarShown(false);
         }
-        hooks.onClose?.();
+        hooks2.onClose?.();
         return;
       }
       layer?.close("api");
@@ -2886,13 +3146,13 @@ ${body}`;
       open(tab);
     });
     tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
-    root.querySelector(".fe-dlg-close").addEventListener("click", close);
+    root2.querySelector(".fe-dlg-close").addEventListener("click", close);
     focusTrap(box, { when: () => isOpen() && !inSide() });
     const step2 = (dir) => {
       const i3 = tabs.findIndex((t) => t.classList.contains("on"));
       show(tabs[(i3 + dir + tabs.length) % tabs.length].dataset.tab);
     };
-    const owns = () => !root.hidden || inSide() && box.contains(document.activeElement);
+    const owns = () => !root2.hidden || inSide() && box.contains(document.activeElement);
     mounted.push({ isOpen: owns, step: step2, inSide, close, box });
     return { open, close, isOpen, show };
   }
@@ -2937,7 +3197,7 @@ ${body}`;
       ctx.font = getComputedStyle(el2).font;
       return ctx.measureText((el2.textContent ?? "").trim()).width;
     };
-    const pad = (el2) => {
+    const pad2 = (el2) => {
       if (!el2) return 0;
       const cs = getComputedStyle(el2);
       return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
@@ -2945,8 +3205,8 @@ ${body}`;
     const want = ths.map((th, i3) => {
       const ws = rows.map((r) => textW(r.cells[i3])).sort((a, b) => a - b);
       const p90 = ws.length ? ws[Math.min(ws.length - 1, Math.floor(ws.length * 0.9))] : 0;
-      const body = p90 + pad(rows[0]?.cells[i3]) + 4;
-      const head = textW(th) + pad(th) + 18;
+      const body = p90 + pad2(rows[0]?.cells[i3]) + 4;
+      const head = textW(th) + pad2(th) + 18;
       return Math.max(56, Math.min(420, Math.ceil(Math.max(head, body))));
     });
     const total = want.reduce((a, b) => a + b, 0);
@@ -2961,7 +3221,7 @@ ${body}`;
   function installColumnResize() {
     if (installed) return;
     installed = true;
-    const fitAll = (root) => requestAnimationFrame(() => root.querySelectorAll("table.fe-rz:not(.fe-rz-fixed)").forEach(fitColumns));
+    const fitAll = (root2) => requestAnimationFrame(() => root2.querySelectorAll("table.fe-rz:not(.fe-rz-fixed)").forEach(fitColumns));
     new MutationObserver((muts) => {
       for (const m of muts) for (const n of m.addedNodes) {
         if (n instanceof Element && (n.matches("table.fe-rz") || n.querySelector("table.fe-rz"))) fitAll(n.parentNode ?? n);
@@ -3733,8 +3993,8 @@ ${body}`;
     }
     return u;
   }
-  function linkBareUrls(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  function linkBareUrls(root2) {
+    const walker = document.createTreeWalker(root2, NodeFilter.SHOW_TEXT);
     const textNodes = [];
     while (walker.nextNode()) textNodes.push(walker.currentNode);
     for (const node of textNodes) {
@@ -3829,7 +4089,7 @@ ${body}`;
   var LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
   function frontMatterRows(lines) {
     const rows = [];
-    const unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
+    const unquote2 = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
     for (const l of lines) {
       const kv = /^([\w.-]+)\s*:\s*(.*)$/.exec(l);
       const item2 = /^\s+-\s+(.*)$/.exec(l);
@@ -3837,9 +4097,9 @@ ${body}`;
       if (kv) {
         const v = kv[2].trim();
         const flow = /^\[(.*)\]$/.exec(v);
-        rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote).filter(Boolean) } : { key: kv[1], value: unquote(v) });
+        rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote2).filter(Boolean) } : { key: kv[1], value: unquote2(v) });
       } else if (item2 && last) {
-        (last.items ??= []).push(unquote(item2[1]));
+        (last.items ??= []).push(unquote2(item2[1]));
       } else if (/^\s+\S/.test(l) && last && !last.items) {
         last.value = (/^[|>][-+]?$/.test(last.value) ? "" : last.value + " ") + l.trim();
       }
@@ -4380,6 +4640,59 @@ ${answer}`;
     render2();
     openMenu = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu", focus: menu.querySelector(".fe-pm-add input") });
   }
+  var pad = (n) => String(n).padStart(2, "0");
+  var localValue = (iso) => {
+    const d = new Date(iso);
+    return isFinite(+d) ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
+  };
+  var whenShort = (iso) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  var plain = (u) => u.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  function reminderLabel(p, now = Date.now()) {
+    const st = reminderState(p, now);
+    if (st === "none") return "Remind";
+    return `${st === "missed" ? "Missed " : ""}${whenShort(p.remindAt)}${p.remindRepeat ? ` \xB7 ${p.remindRepeat}` : ""}${p.remindOn === "phone" ? " \xB7 on phone" : ""}`;
+  }
+  function openReminderMenu(anchor, props, apply) {
+    closePropsMenu();
+    const menu = document.createElement("div");
+    menu.className = "fe-pmenu fe-rem";
+    const st = reminderState(props);
+    const seed = props.remindAt ? localValue(props.remindAt) : localValue(new Date(Date.now() + 36e5).toISOString());
+    menu.innerHTML = `
+    <form class="fe-rem-form">
+      <label class="fe-pm-lbl" for="fe-rem-at">Remind me${st === "missed" ? " (missed)" : ""}</label>
+      <input id="fe-rem-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
+      <label class="fe-pm-lbl" for="fe-rem-repeat">Repeats</label>
+      <select id="fe-rem-repeat" class="tb" data-size="sm">${[["", "Does not repeat"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"]].map(([v, t]) => `<option value="${v}"${(props.remindRepeat ?? "") === v ? " selected" : ""}>${t}</option>`).join("")}</select>
+      <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
+      <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== "phone" ? " selected" : ""}>This Mac</option><option value="phone"${props.remindOn === "phone" ? " selected" : ""}>The phone</option></select>
+      <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? " checked" : ""}><span>Keep ringing until dismissed</span></label>
+      <div class="fe-rem-acts">
+        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? "Update" : "Set reminder"}</span></button>
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ""}
+      </div>
+    </form>`;
+    const done = async (c) => {
+      await apply(c);
+      closePropsMenu();
+    };
+    menu.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-rem]");
+      if (!b) return;
+      e.preventDefault();
+      if (b.dataset.rem === "clear") void done({ remind: null });
+      else if (props.remindAt && props.remindRepeat) void done({ remind: { at: nextRing(props.remindAt, props.remindRepeat), repeat: props.remindRepeat, on: props.remindOn, persist: props.remindPersist } });
+      else void done({ remind: null });
+    });
+    menu.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const at = new Date(menu.querySelector("#fe-rem-at").value);
+      if (!isFinite(+at)) return;
+      const repeat = menu.querySelector("#fe-rem-repeat").value;
+      void done({ remind: { at: at.toISOString().replace(/\.\d{3}Z$/, "Z"), ...repeat ? { repeat } : {}, on: menu.querySelector("#fe-rem-on").value, persist: menu.querySelector("#fe-rem-persist").checked } });
+    });
+    openMenu = openLayer(menu, { kind: "popover", anchor, role: "dialog", group: "menu", focus: menu.querySelector("#fe-rem-at") });
+  }
   function mountMetaBar(host, o) {
     const draw = () => {
       const p = o.props();
@@ -4389,7 +4702,11 @@ ${answer}`;
       <button data-size="sm" class="btn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
       <button data-size="sm" class="btn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
       ${p.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
-      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>`;
+      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>
+      <button class="btn fe-chip-btn fe-chip-rem${p.remindAt ? " active" : ""}${reminderState(p) === "missed" ? " missed" : ""}" data-size="sm" data-m="remind" title="${p.remindAt ? "Change or clear this reminder" : "Set a reminder"}">${UI_ICON.clock}<span>${esc(reminderLabel(p))}</span></button>
+      ${p.agent ? `<span class="chip fe-chip-agent" title="This note was made or last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ""}
+      ${p.expires ? `<span class="chip fe-chip-exp${Date.parse(p.expires) <= Date.now() ? " expired" : ""}" title="After this time the note is listed under Expired. It is never deleted.">${UI_ICON.clock}<span>${Date.parse(p.expires) <= Date.now() ? "Expired" : "Expires"} ${esc(whenShort(p.expires))}</span></span>` : ""}
+      ${p.url ? `<span class="chip fe-chip-url" title="${esc(p.url)}">${UI_ICON.link}<span class="fe-chip-url-t">${esc(plain(p.url))}</span><button class="btn" data-icon data-size="xs" data-m="url-open" title="Open ${esc(p.url)}" aria-label="Open the link">${UI_ICON.tab}</button><button class="btn" data-icon data-size="xs" data-m="url-copy" title="Copy the link" aria-label="Copy the link">${UI_ICON.copy ?? UI_ICON.link}</button></span>` : ""}`;
       const btn = host.querySelector("#fe-meta-title");
       btn?.addEventListener("click", () => {
         const box = document.createElement("textarea");
@@ -4439,6 +4756,15 @@ ${answer}`;
       if (b.dataset.m === "pin") {
         await o.apply({ pinned: !p.pinned });
         draw();
+      } else if (b.dataset.m === "remind") openReminderMenu(b, p, async (c) => {
+        const r = await o.apply(c);
+        draw();
+        return r;
+      });
+      else if (b.dataset.m === "url-open") window.open(p.url, "_blank", "noopener");
+      else if (b.dataset.m === "url-copy") {
+        void navigator.clipboard?.writeText(p.url).catch(() => void 0);
+        b.title = "Copied";
       } else if (b.dataset.m === "untag") {
         await o.apply({ tags: p.tags.filter((t) => t !== b.dataset.tag) });
         draw();
@@ -4770,41 +5096,41 @@ ${body}
   function llmAvailability() {
     return new Promise((resolve) => {
       let done = false;
-      const settle = (res) => {
+      const settle2 = (res) => {
         if (done) return;
         done = true;
         resolve(res);
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ kind: "unavailable", reason: "extension messaging unavailable" });
+        settle2({ kind: "unavailable", reason: "extension messaging unavailable" });
         return;
       }
-      const timer2 = setTimeout(() => {
+      const timer3 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
         }
-        settle({ kind: "unavailable", reason: "status check timed out" });
+        settle2({ kind: "unavailable", reason: "status check timed out" });
       }, 5e3);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         try {
           port.disconnect();
         } catch {
         }
         if (msg.t === "status" && msg.data?.server === "up") {
-          settle({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
+          settle2({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
         } else if (msg.t === "status") {
-          settle({ kind: "down", status: msg.data });
+          settle2({ kind: "down", status: msg.data });
         } else {
-          settle({ kind: "unavailable", reason: msg.message || "lm host not found" });
+          settle2({ kind: "unavailable", reason: msg.message || "lm host not found" });
         }
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer2);
-        settle({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
+        clearTimeout(timer3);
+        settle2({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
       });
       port.postMessage({ op: "status" });
     });
@@ -4822,7 +5148,7 @@ ${body}
   function llmModels() {
     return new Promise((resolve) => {
       let done = false;
-      const settle = (r) => {
+      const settle2 = (r) => {
         if (!done) {
           done = true;
           resolve(r);
@@ -4830,28 +5156,28 @@ ${body}
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ tiers: [], gemini: [], gpt: [] });
+        settle2({ tiers: [], gemini: [], gpt: [] });
         return;
       }
-      const timer2 = setTimeout(() => {
+      const timer3 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
         }
-        settle({ tiers: [], gemini: [], gpt: [] });
+        settle2({ tiers: [], gemini: [], gpt: [] });
       }, 2e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         try {
           port.disconnect();
         } catch {
         }
-        settle(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
+        settle2(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer2);
-        settle({ tiers: [], gemini: [], gpt: [] });
+        clearTimeout(timer3);
+        settle2({ tiers: [], gemini: [], gpt: [] });
       });
       port.postMessage({ op: "models" });
     });
@@ -4901,7 +5227,7 @@ ${body}
         resolve(empty);
         return;
       }
-      const timer2 = setTimeout(() => {
+      const timer3 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
@@ -4910,7 +5236,7 @@ ${body}
       }, 3e3);
       port.onMessage.addListener((m) => {
         if (m?.t !== t) return;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         try {
           port.disconnect();
         } catch {
@@ -4918,7 +5244,7 @@ ${body}
         resolve(read2(m));
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         resolve(empty);
       });
       port.postMessage(msg);
@@ -4976,7 +5302,7 @@ ${body}
   function llmWarm(on) {
     return new Promise((resolve) => {
       let done = false;
-      const settle = (r) => {
+      const settle2 = (r) => {
         if (!done) {
           done = true;
           resolve(r);
@@ -4984,28 +5310,28 @@ ${body}
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ ok: false, message: "AI host not installed" });
+        settle2({ ok: false, message: "AI host not installed" });
         return;
       }
-      const timer2 = setTimeout(() => {
+      const timer3 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
         }
-        settle({ ok: false, message: "timed out" });
+        settle2({ ok: false, message: "timed out" });
       }, 3e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "warm" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         try {
           port.disconnect();
         } catch {
         }
-        settle(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
+        settle2(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer2);
-        settle({ ok: false, message: chrome.runtime.lastError?.message });
+        clearTimeout(timer3);
+        settle2({ ok: false, message: chrome.runtime.lastError?.message });
       });
       port.postMessage({ op: "warm", on });
     });
@@ -5136,7 +5462,7 @@ ${body}
     history.replaceState(null, "", hash);
   }
 
-  // node_modules/yaml/browser/dist/nodes/identity.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -5172,7 +5498,7 @@ ${body}
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // node_modules/yaml/browser/dist/visit.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -5322,7 +5648,7 @@ ${body}
     }
   }
 
-  // node_modules/yaml/browser/dist/doc/directives.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5485,7 +5811,7 @@ ${body}
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // node_modules/yaml/browser/dist/doc/anchors.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5494,9 +5820,9 @@ ${body}
     }
     return true;
   }
-  function anchorNames(root) {
+  function anchorNames(root2) {
     const anchors = /* @__PURE__ */ new Set();
-    visit(root, {
+    visit(root2, {
       Value(_key, node) {
         if (node.anchor)
           anchors.add(node.anchor);
@@ -5545,7 +5871,7 @@ ${body}
     };
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -5589,7 +5915,7 @@ ${body}
     return reviver.call(obj, key, val);
   }
 
-  // node_modules/yaml/browser/dist/nodes/toJS.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -5612,7 +5938,7 @@ ${body}
     return value;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -5644,7 +5970,7 @@ ${body}
     }
   };
 
-  // node_modules/yaml/browser/dist/nodes/Alias.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -5735,7 +6061,7 @@ ${body}
     return 1;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -5755,7 +6081,7 @@ ${body}
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // node_modules/yaml/browser/dist/doc/createNode.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -5822,7 +6148,7 @@ ${body}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Collection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -5954,7 +6280,7 @@ ${body}
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -5963,7 +6289,7 @@ ${body}
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -6090,7 +6416,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6116,27 +6442,27 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return true;
   }
   function doubleQuotedString(value, ctx) {
-    const json = JSON.stringify(value);
+    const json2 = JSON.stringify(value);
     if (ctx.options.doubleQuotedAsJSON)
-      return json;
+      return json2;
     const { implicitKey } = ctx;
     const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
     const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
     let str = "";
     let start = 0;
-    for (let i3 = 0, ch = json[i3]; ch; ch = json[++i3]) {
-      if (ch === " " && json[i3 + 1] === "\\" && json[i3 + 2] === "n") {
-        str += json.slice(start, i3) + "\\ ";
+    for (let i3 = 0, ch = json2[i3]; ch; ch = json2[++i3]) {
+      if (ch === " " && json2[i3 + 1] === "\\" && json2[i3 + 2] === "n") {
+        str += json2.slice(start, i3) + "\\ ";
         i3 += 1;
         start = i3;
         ch = "\\";
       }
       if (ch === "\\")
-        switch (json[i3 + 1]) {
+        switch (json2[i3 + 1]) {
           case "u":
             {
-              str += json.slice(start, i3);
-              const code = json.substr(i3 + 2, 4);
+              str += json2.slice(start, i3);
+              const code = json2.substr(i3 + 2, 4);
               switch (code) {
                 case "0000":
                   str += "\\0";
@@ -6166,23 +6492,23 @@ ${indent}${text.slice(fold + 1, end2)}`;
                   if (code.substr(0, 2) === "00")
                     str += "\\x" + code.substr(2);
                   else
-                    str += json.substr(i3, 6);
+                    str += json2.substr(i3, 6);
               }
               i3 += 5;
               start = i3 + 1;
             }
             break;
           case "n":
-            if (implicitKey || json[i3 + 2] === '"' || json.length < minMultiLineLength) {
+            if (implicitKey || json2[i3 + 2] === '"' || json2.length < minMultiLineLength) {
               i3 += 1;
             } else {
-              str += json.slice(start, i3) + "\n\n";
-              while (json[i3 + 2] === "\\" && json[i3 + 3] === "n" && json[i3 + 4] !== '"') {
+              str += json2.slice(start, i3) + "\n\n";
+              while (json2[i3 + 2] === "\\" && json2[i3 + 3] === "n" && json2[i3 + 4] !== '"') {
                 str += "\n";
                 i3 += 2;
               }
               str += indent;
-              if (json[i3 + 2] === " ")
+              if (json2[i3 + 2] === " ")
                 str += "\\";
               i3 += 1;
               start = i3 + 1;
@@ -6192,7 +6518,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
             i3 += 1;
         }
     }
-    str = start ? str + json.slice(start) : json;
+    str = start ? str + json2.slice(start) : json2;
     return implicitKey ? str : foldFlowLines(str, indent, FOLD_QUOTED, getFoldOptions(ctx, false));
   }
   function singleQuotedString(value, ctx) {
@@ -6365,7 +6691,7 @@ ${indent}`);
     return res;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringify.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6478,7 +6804,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -6601,7 +6927,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // node_modules/yaml/browser/dist/log.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -6611,7 +6937,7 @@ ${ctx.indent}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -6658,7 +6984,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -6711,7 +7037,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // node_modules/yaml/browser/dist/nodes/Pair.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -6740,7 +7066,7 @@ ${ctx.indent}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -6875,7 +7201,7 @@ ${indent}${end}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -7006,7 +7332,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/map.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -7020,7 +7346,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -7124,7 +7450,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // node_modules/yaml/browser/dist/schema/common/seq.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -7138,7 +7464,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/common/string.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -7150,7 +7476,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/null.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -7161,7 +7487,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // node_modules/yaml/browser/dist/schema/core/bool.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -7178,7 +7504,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -7199,7 +7525,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // node_modules/yaml/browser/dist/schema/core/float.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7235,7 +7561,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/core/int.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -7271,7 +7597,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/core/schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -7286,7 +7612,7 @@ ${indent}${end}`;
     float
   ];
 
-  // node_modules/yaml/browser/dist/schema/json/schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -7344,7 +7670,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7400,7 +7726,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7466,7 +7792,7 @@ ${cn.comment}` : item2.comment;
     createNode: createPairs
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7532,7 +7858,7 @@ ${cn.comment}` : item2.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -7556,7 +7882,7 @@ ${cn.comment}` : item2.comment;
     stringify: boolStringify
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7595,7 +7921,7 @@ ${cn.comment}` : item2.comment;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -7664,7 +7990,7 @@ ${cn.comment}` : item2.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -7743,7 +8069,7 @@ ${cn.comment}` : item2.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -7822,7 +8148,7 @@ ${cn.comment}` : item2.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -7847,7 +8173,7 @@ ${cn.comment}` : item2.comment;
     timestamp
   ];
 
-  // node_modules/yaml/browser/dist/schema/tags.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -7918,7 +8244,7 @@ ${cn.comment}` : item2.comment;
     }, []);
   }
 
-  // node_modules/yaml/browser/dist/schema/Schema.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -7939,7 +8265,7 @@ ${cn.comment}` : item2.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -8010,7 +8336,7 @@ ${cn.comment}` : item2.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/Document.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -8261,11 +8587,11 @@ ${cn.comment}` : item2.comment;
         throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
     }
     // json & jsonArg are only used from toJSON()
-    toJS({ json, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+    toJS({ json: json2, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
       const ctx = {
         anchors: /* @__PURE__ */ new Map(),
         doc: this,
-        keep: !json,
+        keep: !json2,
         mapAsMap: mapAsMap === true,
         mapKeyWarned: false,
         maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
@@ -8302,7 +8628,7 @@ ${cn.comment}` : item2.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // node_modules/yaml/browser/dist/errors.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name2, pos, code, message) {
       super();
@@ -8358,7 +8684,7 @@ ${pointer}
     }
   };
 
-  // node_modules/yaml/browser/dist/compose/resolve-props.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8488,7 +8814,7 @@ ${pointer}
     };
   }
 
-  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8524,7 +8850,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8535,7 +8861,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8544,7 +8870,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -8640,7 +8966,7 @@ ${pointer}
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -8682,7 +9008,7 @@ ${pointer}
     return seq2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-end.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -8719,7 +9045,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -8899,7 +9225,7 @@ ${pointer}
     return coll;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-collection.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -8951,7 +9277,7 @@ ${pointer}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -9127,7 +9453,7 @@ ${pointer}
     return lines;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -9338,7 +9664,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9409,7 +9735,7 @@ ${pointer}
     return tag;
   }
 
-  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9434,7 +9760,7 @@ ${pointer}
     return offset;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-node.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9522,7 +9848,7 @@ ${pointer}
     return alias;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-doc.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -9555,7 +9881,7 @@ ${pointer}
     return doc;
   }
 
-  // node_modules/yaml/browser/dist/compose/composer.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -9746,7 +10072,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/cst-visit.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -9802,7 +10128,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item2, path) : ctrl;
   }
 
-  // node_modules/yaml/browser/dist/parse/cst.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -9867,7 +10193,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // node_modules/yaml/browser/dist/parse/lexer.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10439,7 +10765,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/line-counter.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10464,7 +10790,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/parser.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -11310,7 +11636,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/public-api.js
+  // ../better-file-browser/node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
@@ -11962,9 +12288,9 @@ ${end.comment}` : end.comment;
     document.getElementById("fe-ql-ai-q").focus();
     return true;
   }
-  function setAiBusy(busy) {
-    document.getElementById("fe-ql-ai-stop").hidden = !busy;
-    document.getElementById("fe-ql-ai-retry").hidden = busy || !aiRun || document.getElementById("fe-ql-ai-out").hidden;
+  function setAiBusy(busy2) {
+    document.getElementById("fe-ql-ai-stop").hidden = !busy2;
+    document.getElementById("fe-ql-ai-retry").hidden = busy2 || !aiRun || document.getElementById("fe-ql-ai-out").hidden;
   }
   var aiExt = "";
   function setupAi(e, ext2) {
@@ -12163,7 +12489,7 @@ ${end.comment}` : end.comment;
     nameEl.hidden = true;
     document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
   }
-  var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  var stripFrontMatter = (t) => splitNote(t).body;
   function noteAction(name2) {
     if (!edit?.actions) return false;
     if (name2 === "rename") edit.actions.rename(edit.rel, true);
@@ -12177,16 +12503,16 @@ ${end.comment}` : end.comment;
     }
     closePreview();
   }
-  function openNote(root, doc, onSaved, actions) {
+  function openNote(root2, doc, onSaved, actions) {
     if (edit && edit.dirty) void saveNote();
     currentEntry = null;
     reqSeq++;
     const { head, body: noteBody } = splitNote(doc.text);
-    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
+    edit = { root: root2, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
     currentText = doc.text;
     document.getElementById("fe-ql-icon").innerHTML = "";
     const nameEl = document.getElementById("fe-ql-name");
-    nameEl.href = fileHref(root.replace(/\/$/, "") + "/" + doc.rel);
+    nameEl.href = fileHref(root2.replace(/\/$/, "") + "/" + doc.rel);
     document.getElementById("fe-ql-open").href = nameEl.href;
     resetAiUi();
     const copyBtn = document.getElementById("fe-ql-copy");
@@ -12229,7 +12555,7 @@ ${end.comment}` : end.comment;
     const view = document.getElementById("fe-ed-view");
     ta.value = noteBody;
     edit.ta = ta;
-    const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
+    const buf = attachBuffer(ta, `note:${root2}/${doc.rel}`);
     const apply = (r) => {
       buf.snap();
       ta.value = r.text;
@@ -12298,7 +12624,7 @@ ${end.comment}` : end.comment;
       hist.hidden = false;
       hist.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
       try {
-        const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
+        const { versions: vs, repo } = await notes.history(root2, edit?.rel ?? doc.rel);
         if (!vs.length) {
           hist.innerHTML = emptyHtml("empty", "No versions yet", { inline: true, hint: repo === false ? "The notes folder is not a git repository; Switchboard makes it one on its first save." : "This note has not been committed to the notes folder's git history." });
           return;
@@ -12316,7 +12642,7 @@ ${end.comment}` : end.comment;
     const showVersion = async (sha) => {
       hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
       try {
-        const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
+        const v = await notes.version(root2, edit?.rel ?? doc.rel, sha);
         view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
         document.getElementById("fe-hist-use").addEventListener("click", () => {
           buf.snap();
@@ -12336,16 +12662,21 @@ ${end.comment}` : end.comment;
     }));
     const addImage = async (file) => {
       const st2 = edit;
-      if (!st2 || st2.root !== root) return;
+      if (!st2 || st2.root !== root2) return;
+      if (file.size > 20 * 1024 * 1024) {
+        editHeader("Adding the image: over 20 MB, so it is not added");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) deps.toast?.("That picture is over 5 MB and stays in the notes history for good");
       const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const rel = `attachments/${slugForTitle(noteTitle(st2.rel, st2.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
+      const rel = attachmentRel(st2.rel, ext2);
       const b64 = await new Promise((res) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1] || "");
         r.readAsDataURL(file);
       });
       try {
-        await notes.writeBinary(root, rel, b64);
+        await notes.writeBinary(root2, rel, b64);
         const depth = st2.rel.split("/").length - 1;
         buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
       } catch (err) {
@@ -12473,7 +12804,7 @@ ${end.comment}` : end.comment;
     });
     const st = edit;
     const change = (fn, keys2) => {
-      if (/^<{7} /m.test(st.text)) {
+      if (hasClash(st.text)) {
         editHeader("settle the two versions before changing properties");
         return false;
       }
@@ -12523,8 +12854,13 @@ ${end.comment}` : end.comment;
     }
     st.saving = true;
     const version = st.version;
+    if (st.base === "" && !st.head && /^untitled-/.test(st.rel.split("/").pop()) && st.ta?.value.trim()) {
+      st.head = setField(st.head, "created", isoNow());
+      st.touched.add("created");
+      st.text = st.head + st.ta.value;
+    }
     let text = stampUpdated(st.text);
-    if (frontmatterDrift(st.base, text, st.touched).length) {
+    if (!hasClash(st.base) && frontmatterDrift(st.base, text, st.touched).length) {
       if (st.ta && !st.head) {
         st.ta.value = "\n" + st.ta.value;
         st.text = st.head + st.ta.value;
@@ -12735,16 +13071,16 @@ ${end.comment}` : end.comment;
     edge.title = "Show the sidebar";
     fe.append(edge);
     let layer = null;
-    let timer2 = null;
+    let timer3 = null;
     const peeking = () => !!layer?.open;
     const typing = () => !!side.querySelector('input:focus, textarea:focus, [contenteditable="true"]:focus');
     const syncEdge = () => {
       edge.hidden = peeking() || sidebarShown();
     };
     const stay = () => {
-      if (timer2) {
-        clearTimeout(timer2);
-        timer2 = null;
+      if (timer3) {
+        clearTimeout(timer3);
+        timer3 = null;
       }
     };
     const open = () => {
@@ -12775,8 +13111,8 @@ ${end.comment}` : end.comment;
     const later = () => {
       stay();
       const ms = getSettings().peekCloseMs ?? 500;
-      if (ms) timer2 = setTimeout(() => {
-        timer2 = null;
+      if (ms) timer3 = setTimeout(() => {
+        timer3 = null;
         if (!typing()) close();
       }, ms);
     };
@@ -12809,13 +13145,13 @@ ${end.comment}` : end.comment;
     if (!el2 || el2.closest(NOT_HERE)) return null;
     return el2.closest(SURFACES);
   }
-  function scroller(start, root, axis) {
+  function scroller(start, root2, axis) {
     for (let n = start; n; n = n.parentElement) {
       const e = n, cs = getComputedStyle(e);
       const over = axis === "x" ? cs.overflowX : cs.overflowY;
       const room = axis === "x" ? e.scrollWidth > e.clientWidth + 1 : e.scrollHeight > e.clientHeight + 1;
       if (room && (over === "auto" || over === "scroll")) return e;
-      if (n === root) break;
+      if (n === root2) break;
     }
     return null;
   }
@@ -12824,10 +13160,10 @@ ${end.comment}` : end.comment;
     let marked = null;
     let drag = null;
     const key = () => getSettings().panKey ?? "Shift";
-    const mark = (root) => {
-      if (root === marked) return;
+    const mark = (root2) => {
+      if (root2 === marked) return;
       marked?.removeAttribute("data-pan-on");
-      marked = root;
+      marked = root2;
       marked?.setAttribute("data-pan-on", "");
     };
     document.addEventListener("pointermove", (e) => {
@@ -12845,10 +13181,10 @@ ${end.comment}` : end.comment;
     const app = document.getElementById("fe") ?? document.body;
     app.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || !held2(e, key())) return;
-      const root = surfaceAt(e.target);
-      if (!root) return;
+      const root2 = surfaceAt(e.target);
+      if (!root2) return;
       const start = e.target;
-      const ex = scroller(start, root, "x"), ey = scroller(start, root, "y");
+      const ex = scroller(start, root2, "x"), ey = scroller(start, root2, "y");
       if (!ex && !ey) return;
       e.preventDefault();
       getSelection()?.removeAllRanges();
@@ -13103,20 +13439,20 @@ ${end.comment}` : end.comment;
       } else if (e.target === host) input.focus();
     });
   }
-  function upgradeControls(root = document) {
-    root.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
+  function upgradeControls(root2 = document) {
+    root2.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
       h.dataset.up = "1";
       upgradeSeg(h);
     });
-    root.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
+    root2.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
       h.dataset.up = "1";
       upgradeSlider(h);
     });
-    root.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
+    root2.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
       h.dataset.up = "1";
       upgradeDd(h);
     });
-    root.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
+    root2.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
       h.dataset.up = "1";
       upgradeChips(h);
     });
@@ -13158,8 +13494,8 @@ ${end.comment}` : end.comment;
     return to;
   }
   function noteOf(path) {
-    const root = (getSettings().notesRoot || "").replace(/\/$/, "");
-    return root && path.startsWith(root + "/") && /\.md$/i.test(path) ? { root, rel: path.slice(root.length + 1) } : null;
+    const root2 = (getSettings().notesRoot || "").replace(/\/$/, "");
+    return root2 && path.startsWith(root2 + "/") && /\.md$/i.test(path) ? { root: root2, rel: path.slice(root2.length + 1) } : null;
   }
   var KEEP_BTN = `<button id="fe-fp-keep" class="btn" title="Name, Saved and Notes for this file">${PI.bm}<span>Keep</span></button>`;
   function mountKeep(app) {
@@ -13338,8 +13674,8 @@ ${t}`)) say("Note title saved");
   function docViewsFor(on, path, names = []) {
     return views.filter((v) => v.on === on && v.claims(path, names));
   }
-  function markDocView(root, id) {
-    root.dataset.docview = id;
+  function markDocView(root2, id) {
+    root2.dataset.docview = id;
   }
 
   // src/dp-io.ts
@@ -13475,8 +13811,8 @@ ${t}`)) say("Note title saved");
       fmd: svg16('<rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M4 10.5v-5l2 2.5 2-2.5v5M11.5 5.5v5M10 9l1.5 1.5L13 9"/>'),
       ftxt: svg16('<path d="M3 4h10M3 7h10M3 10h7M3 13h5"/>')
     });
-    const plain3 = (t) => String(t ?? "").replace(/<br\s*\/?>/gi, " \xB7 ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-    const lines = (t) => String(t ?? "").split(/<br\s*\/?>/i).map(plain3).filter(Boolean);
+    const plain4 = (t) => String(t ?? "").replace(/<br\s*\/?>/gi, " \xB7 ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    const lines = (t) => String(t ?? "").split(/<br\s*\/?>/i).map(plain4).filter(Boolean);
     const bare = (t) => t.replace(/^[^\p{L}\p{N}]+/u, "");
     let instances = 0, active = null;
     function readDoc(md2) {
@@ -13570,7 +13906,7 @@ ${t}`)) say("Note title saved");
       for (let i3 = 0; i3 < s.length; i3++) h = (h << 5) + h + s.charCodeAt(i3) | 0;
       return (h >>> 0).toString(36) + s.length.toString(36);
     };
-    function mount(root, opts) {
+    function mount(root2, opts) {
       const me = ++instances, KEY = "dl-" + (opts.key ?? "lab") + "-", compact = !!opts.compact;
       const store2 = opts.store ?? {
         get(k, d) {
@@ -13614,15 +13950,15 @@ ${t}`)) say("Note title saved");
       const EXPORTS = [["svg", ICON.fsvg, "SVG", "The picture, sharp at any size"], ["png", ICON.fpng, "PNG", "The picture as an image, twice the size"], ["pdf", ICON.fpdf, "PDF", "One page holding the picture"], ["md", ICON.fmd, "Markdown", "The mermaid in a fenced block, to paste in a doc"], ["txt", ICON.ftxt, "Text", "The mermaid source alone"]];
       const host = opts.themeHost ?? document.documentElement;
       const tone = () => {
-        root.dataset.tone = host.dataset.theme === "light" ? "light" : "dark";
+        root2.dataset.tone = host.dataset.theme === "light" ? "light" : "dark";
       };
       tone();
-      root.classList.add("dl");
-      root.classList.toggle("dl-compact", compact);
-      if (opts.panel === false || compact) root.classList.add("dl-nopanel");
-      if (opts.height) root.style.setProperty("--dl-height", opts.height);
+      root2.classList.add("dl");
+      root2.classList.toggle("dl-compact", compact);
+      if (opts.panel === false || compact) root2.classList.add("dl-nopanel");
+      if (opts.height) root2.style.setProperty("--dl-height", opts.height);
       const modeBtn = (m, icon2, name2, note2) => `<button type="button" role="tab" data-mode="${m}" title="${esc2(name2 + ": " + note2)}">${icon2}<b>${name2}</b></button>`;
-      root.innerHTML = `
+      root2.innerHTML = `
       <div class="dl-top">
         ${opts.title ? `<div class="dl-title"><span class="dl-title-icon">${opts.icon ?? ICON.diagram}</span><div><b>${esc2(opts.title)}</b><small class="dl-subtitle">${esc2(opts.subtitle ?? "")}</small></div></div>` : ""}
         ${compact ? "" : `<div class="dl-modes" role="tablist" aria-label="How to read the diagram">
@@ -13672,22 +14008,22 @@ ${t}`)) say("Note title saved");
         <aside class="dl-panel" aria-live="polite"></aside>
       </div>
       <pre class="dl-raw" hidden></pre>`;
-      const $ = (s) => root.querySelector(s);
+      const $ = (s) => root2.querySelector(s);
       const stage = $(".dl-stage"), world = $(".dl-world"), panel = $(".dl-panel"), hint = $(".dl-hint");
-      root.addEventListener("pointerenter", () => {
+      root2.addEventListener("pointerenter", () => {
         active = me;
       });
-      root.addEventListener("focusin", () => {
+      root2.addEventListener("focusin", () => {
         active = me;
       });
       if (!active || !compact) active = me;
       let toastT;
-      const toast = (t, busy = false) => {
+      const toast = (t, busy2 = false) => {
         const el2 = $(".dl-toast");
         el2.textContent = t;
-        el2.classList.toggle("dl-busy", busy);
+        el2.classList.toggle("dl-busy", busy2);
         clearTimeout(toastT);
-        if (!busy) toastT = setTimeout(() => {
+        if (!busy2) toastT = setTimeout(() => {
           el2.textContent = "";
           el2.classList.remove("dl-busy");
         }, 2200);
@@ -13697,7 +14033,7 @@ ${t}`)) say("Note title saved");
       const subOf = (id) => lines(graph.nodes.get(id)?.text).slice(1).join(" \xB7 ");
       const kindOf2 = (n) => n.classes.find((c) => graph.classes[c]);
       function keyOf(id, depth = 0) {
-        const m = plain3(graph.nodes.get(id)?.text).match(/\b([A-Z]\d{1,2})\b/);
+        const m = plain4(graph.nodes.get(id)?.text).match(/\b([A-Z]\d{1,2})\b/);
         if (m) return { key: m[1], via: null };
         if (depth > 1) return { key: null, via: null };
         for (const e of graph.in.get(id) ?? []) {
@@ -13718,7 +14054,7 @@ ${t}`)) say("Note title saved");
           if (m.flow) {
             const verts = d.db.getVertices();
             for (const v of verts instanceof Map ? verts.values() : Object.values(verts)) m.nodes.push({ id: v.id, text: v.text, type: v.type, classes: v.classes ?? [] });
-            m.edges = d.db.getEdges().map((e) => ({ id: e.id, start: e.start, end: e.end, text: plain3(e.text) }));
+            m.edges = d.db.getEdges().map((e) => ({ id: e.id, start: e.start, end: e.end, text: plain4(e.text) }));
             const cls = d.db.getClasses();
             for (const [name2, c] of cls instanceof Map ? cls : Object.entries(cls)) {
               const stroke = (c.styles ?? []).map((s) => s.match(/^stroke:\s*(#[0-9a-f]{3,8})/i)?.[1]).find(Boolean);
@@ -13735,7 +14071,7 @@ ${t}`)) say("Note title saved");
           (graph.out.get(e.start) ?? graph.out.set(e.start, []).get(e.start)).push(e);
           (graph.in.get(e.end) ?? graph.in.set(e.end, []).get(e.end)).push(e);
         }
-        root.classList.toggle("dl-plain", !graph.flow);
+        root2.classList.toggle("dl-plain", !graph.flow);
       }
       function reach(id, dir) {
         const seen = /* @__PURE__ */ new Map([[id, 0]]), q = [id], edges = /* @__PURE__ */ new Set();
@@ -13756,8 +14092,8 @@ ${t}`)) say("Note title saved");
       let renders = 0, offsets = {};
       const posKey = () => `pos-${view.layout}-${view.dir}-${view.look}`;
       async function draw() {
-        const font2 = getComputedStyle(root).fontFamily;
-        const config = graph.flow ? { layout: view.layout, look: view.look, theme: "base", themeVariables: { fontFamily: font2, fontSize: "13.5px" }, flowchart: { padding: 16, wrappingWidth: 240, nodeSpacing: 40, rankSpacing: 56 } } : { theme: root.dataset.tone === "light" ? "default" : "dark", themeVariables: { fontFamily: font2 } };
+        const font2 = getComputedStyle(root2).fontFamily;
+        const config = graph.flow ? { layout: view.layout, look: view.look, theme: "base", themeVariables: { fontFamily: font2, fontSize: "13.5px" }, flowchart: { padding: 16, wrappingWidth: 240, nodeSpacing: 40, rankSpacing: 56 } } : { theme: root2.dataset.tone === "light" ? "default" : "dark", themeVariables: { fontFamily: font2 } };
         const head = "---\nconfig:\n" + Object.entries(config).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`).join("\n") + "\n---\n";
         const code = head + (graph.flow ? opts.src.replace(/^(\s*)(flowchart|graph)\s+\w+/m, `$1$2 ${view.dir}`) : opts.src);
         const ck = `s:${hashOf2(code)}`;
@@ -13998,7 +14334,7 @@ ${t}`)) say("Note title saved");
         g.innerHTML = lines2.map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join("");
       }
       window.addEventListener("pointermove", (e) => {
-        if (!root.isConnected) return;
+        if (!root2.isConnected) return;
         if (!drag) return;
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (!drag.moved && Math.hypot(dx, dy) < 4) return;
@@ -14042,7 +14378,7 @@ ${t}`)) say("Note title saved");
         guide(lines2);
       });
       window.addEventListener("pointerup", (e) => {
-        if (!root.isConnected) return;
+        if (!root2.isConnected) return;
         if (!drag) return;
         const d = drag;
         drag = null;
@@ -14175,7 +14511,7 @@ ${t}`)) say("Note title saved");
       }
       function pickClass(name2) {
         legendPick = name2;
-        root.querySelectorAll(".dl-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.cls === name2)));
+        root2.querySelectorAll(".dl-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.cls === name2)));
         $(".dl-legend-note").textContent = name2 ? doc.legend.get(name2)?.meaning ?? "" : "";
         if (!name2) {
           modes[view.mode].refresh();
@@ -14191,7 +14527,7 @@ ${t}`)) say("Note title saved");
       let found = [], foundAt = 0;
       function runFind() {
         const q = findIn.value.trim().toLowerCase();
-        found = q ? [...graph.nodes.values()].filter((n) => (n.id + " " + plain3(n.text)).toLowerCase().includes(q)).slice(0, 8) : [];
+        found = q ? [...graph.nodes.values()].filter((n) => (n.id + " " + plain4(n.text)).toLowerCase().includes(q)).slice(0, 8) : [];
         foundAt = 0;
         paintFind();
         if (found.length) highlight({ nodes: found.map((n) => n.id) });
@@ -14576,10 +14912,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           typeof opts.expand === "function" ? opts.expand({ ...opts, compact: false, expand: false }) : openModal();
           return;
         }
-        if (kind === "panel") return showPanel(root.classList.contains("dl-panel-off"));
-        if (kind === "raw") return showRaw(!root.classList.contains("dl-raw-on"));
+        if (kind === "panel") return showPanel(root2.classList.contains("dl-panel-off"));
+        if (kind === "raw") return showRaw(!root2.classList.contains("dl-raw-on"));
         if (kind === "close") return opts.onClose?.();
-        opts.onTool?.(kind, root.querySelector(`[data-act="${kind}"]`));
+        opts.onTool?.(kind, root2.querySelector(`[data-act="${kind}"]`));
       }
       $(".dl-acts").addEventListener("click", (e) => {
         const x2 = e.target.closest("[data-export]");
@@ -14592,13 +14928,13 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         if (b) act(b.dataset.act);
       });
       function closeMenus(except) {
-        root.querySelectorAll(".dl-menu").forEach((m) => {
+        root2.querySelectorAll(".dl-menu").forEach((m) => {
           if (m === except) return;
           m.querySelector(".dl-menu-list").hidden = true;
           m.querySelector(".dl-menu-btn").setAttribute("aria-expanded", "false");
         });
       }
-      root.addEventListener("click", (e) => {
+      root2.addEventListener("click", (e) => {
         const btn = e.target.closest(".dl-menu-btn");
         if (btn) {
           const m = btn.closest(".dl-menu"), list3 = m.querySelector(".dl-menu-list");
@@ -14618,12 +14954,12 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }, true);
       document.addEventListener("scroll", () => closeMenus(), true);
       function showPanel(on) {
-        root.classList.toggle("dl-panel-off", !on);
+        root2.classList.toggle("dl-panel-off", !on);
         $('[data-act="panel"]')?.setAttribute("aria-pressed", String(on));
         store2.set("panel", on);
       }
       const panelW = (w) => {
-        root.style.setProperty("--dl-panel", Math.round(w) + "px");
+        root2.style.setProperty("--dl-panel", Math.round(w) + "px");
       };
       if (store2.get("panelW", 0)) panelW(store2.get("panelW", 320));
       if (!compact && store2.get("panel", true) === false) showPanel(false);
@@ -14631,13 +14967,13 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         e.preventDefault();
         const r = $(".dl-main").getBoundingClientRect(), bar = e.currentTarget;
         bar.setPointerCapture(e.pointerId);
-        root.classList.add("dl-resizing");
+        root2.classList.add("dl-resizing");
         const move = (m) => panelW(Math.max(240, Math.min(r.width * 0.6, r.right - m.clientX)));
         const up = () => {
           bar.removeEventListener("pointermove", move);
           bar.removeEventListener("pointerup", up);
-          root.classList.remove("dl-resizing");
-          store2.set("panelW", parseInt(root.style.getPropertyValue("--dl-panel"), 10));
+          root2.classList.remove("dl-resizing");
+          store2.set("panelW", parseInt(root2.style.getPropertyValue("--dl-panel"), 10));
         };
         bar.addEventListener("pointermove", move);
         bar.addEventListener("pointerup", up);
@@ -14646,7 +14982,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         const pre = $(".dl-raw");
         if (on) pre.textContent = opts.src;
         pre.hidden = !on;
-        root.classList.toggle("dl-raw-on", on);
+        root2.classList.toggle("dl-raw-on", on);
         const b = $('[data-act="raw"]');
         b.setAttribute("aria-pressed", String(on));
         b.title = b.ariaLabel = on ? "Show the diagram" : "Show the mermaid text";
@@ -14677,7 +15013,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         if (!modes[m]) m = "navigate";
         view.mode = m;
         store2.set("mode", m);
-        root.querySelectorAll(".dl-modes [data-mode]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === m)));
+        root2.querySelectorAll(".dl-modes [data-mode]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === m)));
         legendPick = null;
         buildLegend();
         nav.hov = null;
@@ -14685,7 +15021,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }
       function paintOpts() {
         stage.dataset.style = view.style;
-        root.querySelectorAll("[data-opt]").forEach((s) => s.querySelectorAll("button[data-v]").forEach((b) => b.setAttribute(b.role === "menuitemradio" ? "aria-checked" : "aria-pressed", String(view[s.dataset.opt] === b.dataset.v))));
+        root2.querySelectorAll("[data-opt]").forEach((s) => s.querySelectorAll("button[data-v]").forEach((b) => b.setAttribute(b.role === "menuitemradio" ? "aria-checked" : "aria-pressed", String(view[s.dataset.opt] === b.dataset.v))));
       }
       async function setOpt(opt, v) {
         view[opt] = v;
@@ -14702,11 +15038,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           modes[view.mode].enter();
         }
       }
-      root.querySelector(".dl-modes")?.addEventListener("click", (e) => {
+      root2.querySelector(".dl-modes")?.addEventListener("click", (e) => {
         const b = e.target.closest("[data-mode]");
         if (b) setMode(b.dataset.mode);
       });
-      root.querySelector(".dl-opts").addEventListener("click", (e) => {
+      root2.querySelector(".dl-opts").addEventListener("click", (e) => {
         const b = e.target.closest("[data-opt] button[data-v]");
         if (b) setOpt(b.closest("[data-opt]").dataset.opt, b.dataset.v);
       });
@@ -14717,15 +15053,15 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         ({ in: () => zoomAt(w / 2, h / 2, 1.25), out: () => zoomAt(w / 2, h / 2, 0.8), one: () => zoomAt(w / 2, h / 2, 1 / cam.k), width: () => fitWidth(), all: () => fitAll() })[b.dataset.z]();
       });
       const onKey = (e) => {
-        if (active !== me || !root.isConnected || e.target.closest?.("input, textarea, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
-        if (compact && !root.contains(document.activeElement)) return;
-        if (root.closest(".dl-modal") == null && document.querySelector(".dl-modal")) return;
+        if (active !== me || !root2.isConnected || e.target.closest?.("input, textarea, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (compact && !root2.contains(document.activeElement)) return;
+        if (root2.closest(".dl-modal") == null && document.querySelector(".dl-modal")) return;
         const { w, h } = size(), k = e.key;
         const take = () => {
           e.preventDefault();
           e.stopPropagation();
         };
-        if (k === "Escape" && root.querySelector(".dl-menu-list:not([hidden])")) {
+        if (k === "Escape" && root2.querySelector(".dl-menu-list:not([hidden])")) {
           take();
           closeMenus();
           return;
@@ -14772,10 +15108,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       };
       document.addEventListener("keydown", onKey, true);
       const themed = new MutationObserver(() => {
-        if (!root.isConnected) return;
-        const was = root.dataset.tone;
+        if (!root2.isConnected) return;
+        const was = root2.dataset.tone;
         tone();
-        if (!graph.flow && was !== root.dataset.tone) draw().then((ok) => ok && fitDefault(false));
+        if (!graph.flow && was !== root2.dataset.tone) draw().then((ok) => ok && fitDefault(false));
         else buildMini();
       });
       themed.observe(host, { attributes: true, attributeFilter: ["data-theme"] });
@@ -14793,7 +15129,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         }
         const w = stage.clientWidth, k = Math.max(READ_FLOOR, Math.min(1, (w - 32) / els2.W));
         const h = Math.min(Math.round(els2.H * k + 32), Math.round(innerHeight * 0.7));
-        root.style.setProperty("--dl-height", `${h + $(".dl-top").offsetHeight + 2}px`);
+        root2.style.setProperty("--dl-height", `${h + $(".dl-top").offsetHeight + 2}px`);
         cam.k = k;
         cam.x = Math.max(16, (w - els2.W * k) / 2);
         cam.y = 16;
@@ -14819,10 +15155,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           fitDefault(false);
           setMode(view.mode);
         }
-        root.dataset.ready = "1";
+        root2.dataset.ready = "1";
         opts.onReady?.(els2.svg);
       })();
-      return { root, setMode, setOpt, view, fit: () => fitDefault(true) };
+      return { root: root2, setMode, setOpt, view, fit: () => fitDefault(true) };
     }
     window.MermaidLab = { mount };
   })();
@@ -15238,44 +15574,44 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
   var viewer = null;
   var marksShown = true;
-  function showMarks(root, on) {
+  function showMarks(root2, on) {
     marksShown = on;
-    root.classList.toggle("marks-off", !on);
+    root2.classList.toggle("marks-off", !on);
   }
   bind("dp-view-step", (k) => viewer?.step?.(k === "\u2190" ? -1 : 1), () => !!viewer?.layer.open);
   function shell(title, label) {
-    const root = document.createElement("div");
-    root.className = "fe-dlg fe-dv-view";
-    root.innerHTML = `<div class="fe-dlg-bg scrim"></div>
+    const root2 = document.createElement("div");
+    root2.className = "fe-dlg fe-dv-view";
+    root2.innerHTML = `<div class="fe-dlg-bg scrim"></div>
     <div class="panel fe-dv-view-box" role="dialog" aria-label="${esc(label)}" tabindex="-1">
       <header class="bar fe-dv-view-head"><b class="fe-dv-view-title">${esc(title)}</b><span class="fe-dv-view-tools"></span>${actBtn("close", UI_ICON.close, "Close (Esc)")}</header>
       <div class="fe-dv-view-body"></div>
     </div>`;
-    (document.getElementById("fe") ?? document.body).append(root);
-    return { root, body: root.querySelector(".fe-dv-view-body"), head: root.querySelector(".fe-dv-view-head") };
+    (document.getElementById("fe") ?? document.body).append(root2);
+    return { root: root2, body: root2.querySelector(".fe-dv-view-body"), head: root2.querySelector(".fe-dv-view-head") };
   }
-  function openShell(root, onClose) {
-    const layer = openLayer(root, {
+  function openShell(root2, onClose) {
+    const layer = openLayer(root2, {
       kind: "dialog",
       place: "none",
-      focus: root.querySelector(".fe-dv-view-box"),
-      backdrop: root.querySelector(".fe-dlg-bg"),
+      focus: root2.querySelector(".fe-dv-view-box"),
+      backdrop: root2.querySelector(".fe-dlg-bg"),
       onClose: () => {
-        root.remove();
+        root2.remove();
         viewer = null;
         onClose?.();
       }
     });
-    root.querySelector('[data-media="close"]').addEventListener("click", () => layer.close("api"));
+    root2.querySelector('[data-media="close"]').addEventListener("click", () => layer.close("api"));
     return layer;
   }
   function openFocus(set2, at, notify) {
     viewer?.layer.close("replaced");
-    const { root, body, head } = shell("", "Large view");
+    const { root: root2, body, head } = shell("", "Large view");
     const anyMarks = set2.some((m) => m.marks);
     head.querySelector(".fe-dv-view-tools").innerHTML = (anyMarks ? actBtn("marks", UI_ICON.eye, "Show or hide the marks", ' aria-pressed="true"') : "") + (set2.length > 1 ? actBtn("prev", UI_ICON.prev, "Previous (\u2190)") + actBtn("next", UI_ICON.next, "Next (\u2192)") : "");
     const marksBtn = head.querySelector('[data-media="marks"]');
-    root.classList.toggle("marks-off", !marksShown);
+    root2.classList.toggle("marks-off", !marksShown);
     marksBtn?.setAttribute("aria-pressed", String(marksShown));
     let i3 = at;
     const draw = () => {
@@ -15309,18 +15645,18 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     head.querySelector('[data-media="prev"]')?.addEventListener("click", () => step2(-1));
     head.querySelector('[data-media="next"]')?.addEventListener("click", () => step2(1));
     marksBtn?.addEventListener("click", () => {
-      const off = root.classList.toggle("marks-off");
+      const off = root2.classList.toggle("marks-off");
       marksBtn.setAttribute("aria-pressed", String(!off));
     });
     draw();
-    viewer = { layer: openShell(root), step: step2 };
+    viewer = { layer: openShell(root2), step: step2 };
   }
   function openDiagram(o) {
     viewer?.layer.close("replaced");
-    const { root, body } = shell(o.name || "Diagram", "Diagram, large");
-    root.classList.add("fe-dv-view-diagram");
+    const { root: root2, body } = shell(o.name || "Diagram", "Diagram, large");
+    root2.classList.add("fe-dv-view-diagram");
     body.innerHTML = '<div class="fe-dv-diagram"></div>';
-    const layer = openShell(root);
+    const layer = openShell(root2);
     viewer = { layer };
     void mountDiagram(body.firstElementChild, {
       ...o,
@@ -15335,7 +15671,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
   function openCompare(a, b, labels, onClose) {
     viewer?.layer.close("replaced");
-    const { root, body, head } = shell(`${labels[0]}  \xB7  ${labels[1]}`, "Compare two");
+    const { root: root2, body, head } = shell(`${labels[0]}  \xB7  ${labels[1]}`, "Compare two");
     head.querySelector(".fe-dv-view-tools").innerHTML = actBtn("out", UI_ICON.zoomOut, "Zoom out both") + actBtn("fit", UI_ICON.fit, "Fit both") + actBtn("in", UI_ICON.zoomIn, "Zoom in both");
     body.classList.add("fe-dv-compare");
     body.innerHTML = [a, b].map((m, k) => `<section class="fe-dv-cmp-pane" data-kind="${m.kind}">
@@ -15368,7 +15704,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       });
     });
     body.style.setProperty("--mock-tall", `${MOCK_TALL}px`);
-    viewer = { layer: openShell(root, onClose) };
+    viewer = { layer: openShell(root2, onClose) };
   }
   var proseImgs = (box) => [...box.querySelectorAll(".fe-md img")].filter((i3) => !i3.closest(".fe-dv-media, a"));
   function wireMedia(box, notify) {
@@ -15435,7 +15771,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
 
   // src/docview-clamp.ts
   var clampHtml = (inner, lines = 3) => `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-variant="ghost" data-size="sm" aria-expanded="false" hidden>More</button></div>`;
-  function wireClamps(root) {
+  function wireClamps(root2) {
     const check = (c) => {
       if (c.classList.contains("open")) return;
       const inner = c.querySelector(".fe-dv-clamp-in");
@@ -15443,8 +15779,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       c.querySelector(".fe-dv-more").hidden = inner.scrollHeight <= inner.clientHeight + 1;
     };
     const ro = new ResizeObserver((entries) => entries.forEach((e) => check(e.target.parentElement)));
-    root.querySelectorAll(".fe-dv-clamp-in").forEach((i3) => ro.observe(i3));
-    root.addEventListener("click", (e) => {
+    root2.querySelectorAll(".fe-dv-clamp-in").forEach((i3) => ro.observe(i3));
+    root2.addEventListener("click", (e) => {
       const more = e.target.closest(".fe-dv-more");
       if (!more) return;
       e.stopPropagation();
@@ -15580,7 +15916,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
   var originLine = (o) => [o?.project, o?.topic, o?.goal && `goal ${o.goal}`, o?.milestone, o?.card && `card ${o.card}`].filter(Boolean).join(" \xB7 ");
   function initDpLens(box, go2) {
-    let all = [], q = "", loaded = false, timer2 = null;
+    let all = [], q = "", loaded = false, timer3 = null;
     const folded = /* @__PURE__ */ new Set(["never", "archived"]);
     const archived = () => new Set(archivedPref.get());
     box.innerHTML = `<div class="bar fe-lens-tools" data-inset hidden>
@@ -15687,19 +16023,19 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       row2.answered = Date.now() / 1e3;
       row2.seen = true;
       paint();
-      if (timer2) void load();
+      if (timer3) void load();
     });
     document.addEventListener("bfb-lens", (e) => {
       const on = e.detail === "decisions";
-      if (timer2) {
-        clearInterval(timer2);
-        timer2 = null;
+      if (timer3) {
+        clearInterval(timer3);
+        timer3 = null;
       }
       if (!on) return;
       if (!loaded) rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
       loaded = true;
       void load();
-      timer2 = setInterval(() => {
+      timer3 = setInterval(() => {
         if (!document.hidden) void load();
       }, 1e4);
     });
@@ -15798,7 +16134,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const panelBtn = q("#fe-dp-panel"), copyBtn = q("#fe-dp-copy"), submitBtn = q("#fe-dp-submit");
     const sentBox = q("#fe-dp-sent");
     let mode = slug ? "gcc" : "outside";
-    let text = "", sent = null, seq2 = 0, busy = false;
+    let text = "", sent = null, seq2 = 0, busy2 = false;
     let pending3 = Promise.resolve();
     const setNote = (msg, tone, cause = "") => {
       note2.hidden = !msg;
@@ -15811,7 +16147,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const p = progress(cfg, host.state());
       copyBtn.querySelector("span").textContent = p.flagged ? `Copy (${p.flagged})` : "Copy";
       submitBtn.textContent = sent ? "Replace answer" : "Submit";
-      submitBtn.disabled = mode !== "gcc" || busy;
+      submitBtn.disabled = mode !== "gcc" || busy2;
       submitBtn.title = mode === "outside" ? "This page is not in gcc's registry, so it cannot be sent; Copy gives the picks line" : mode === "down" ? "gcc cannot be reached, so nothing can be sent; Copy gives the picks line" : sent ? "Send a new answer in place of the one already sent (s or \u2318\u21A9)" : "Send the answer to the agent that asked (s or \u2318\u21A9)";
     };
     const compose = () => {
@@ -15841,18 +16177,18 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         setNote("Answer path down: gcc could not compose the answer, so nothing can be sent. Copy the picks line and paste it to the agent.", "danger", errorText(err));
       });
     };
-    let timer2 = null;
+    let timer3 = null;
     const changed = () => {
       paintButtons();
-      if (timer2) clearTimeout(timer2);
-      timer2 = setTimeout(() => {
+      if (timer3) clearTimeout(timer3);
+      timer3 = setTimeout(() => {
         pending3 = compose();
       }, 150);
     };
     const fresh = async () => {
-      if (timer2) {
-        clearTimeout(timer2);
-        timer2 = null;
+      if (timer3) {
+        clearTimeout(timer3);
+        timer3 = null;
         pending3 = compose();
       }
       await pending3;
@@ -15919,7 +16255,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       changed();
     };
     const submit = async () => {
-      if (busy) return;
+      if (busy2) return;
       await fresh();
       if (mode !== "gcc" || !slug) {
         const ok = await copyToClipboard(text);
@@ -15929,7 +16265,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }
       const replace = !!sent;
       if (replace && !confirm("Replace the answer you already sent? The agent is told again.")) return;
-      busy = true;
+      busy2 = true;
       paintButtons();
       try {
         const r = await dpIo().dp("submit", slug, { answer: text, replace });
@@ -15953,7 +16289,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           toast(`Not sent: ${errorText(err)}`);
         }
       } finally {
-        busy = false;
+        busy2 = false;
         paintButtons();
       }
     };
@@ -16348,16 +16684,16 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     while (top.parent) top = top.parent;
     return top;
   }
-  function readDirections(root) {
+  function readDirections(root2) {
     const sections = [];
     const rows = [];
     const stack2 = [];
     let lastUpdated = null;
-    for (const p of root.querySelectorAll("p, li")) {
+    for (const p of root2.querySelectorAll("p, li")) {
       lastUpdated = lastUpdatedOf(p.textContent ?? "");
       if (lastUpdated) break;
     }
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    const walker = document.createTreeWalker(root2, NodeFilter.SHOW_ELEMENT, {
       acceptNode: (n) => /^(H[23]|TABLE|P|LI)$/.test(n.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
     });
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -16434,8 +16770,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const days = m.lastUpdated ? Math.floor((now.getTime() - m.lastUpdated.getTime()) / 864e5) : null;
     return { you, ready, staleDays: days !== null && days > STALE_DAYS ? days : null, waiting: tasks.filter((r) => r.state === "waiting").length };
   }
-  var plain = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
-  var item = (r, i3, sub, tip) => `<li><button type="button" class="fe-dir-next-i" data-row="${i3}"${tip ? ` title="${esc(tip)}"` : ""}>${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ""}<span class="fe-dir-next-t">${esc(plain(r.text || r.section?.title || "Row"))}</span>${sub ? `<span class="fe-dir-next-sub">${sub}</span>` : ""}</button></li>`;
+  var plain2 = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
+  var item = (r, i3, sub, tip) => `<li><button type="button" class="fe-dir-next-i" data-row="${i3}"${tip ? ` title="${esc(tip)}"` : ""}>${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ""}<span class="fe-dir-next-t">${esc(plain2(r.text || r.section?.title || "Row"))}</span>${sub ? `<span class="fe-dir-next-sub">${sub}</span>` : ""}</button></li>`;
   function nextHeadHtml(m, h) {
     const at = (r) => m.rows.indexOf(r);
     const inState = (s) => m.rows.filter((r) => !r.summary && (r.el.dataset.state ?? r.state) === s).length;
@@ -16447,9 +16783,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       ${rows.length ? `<ol>${rows.slice(0, CAP).map((r) => item(r, at(r), sub(r), tip(r))).join("")}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
     </div>`;
     };
-    const youSub = (r) => r.need ? esc(r.need) : r.section && !r.asks ? esc(plain(r.section.title)) : "";
+    const youSub = (r) => r.need ? esc(r.need) : r.section && !r.asks ? esc(plain2(r.section.title)) : "";
     const youTip = (r) => [r.need, r.silent && `If you say nothing: ${r.silent}`].filter(Boolean).join("\n");
-    const readySub = (r) => [r.when, r.section && plain(r.section.title)].filter(Boolean).map((s) => esc(s)).join(" \xB7 ");
+    const readySub = (r) => [r.when, r.section && plain2(r.section.title)].filter(Boolean).map((s) => esc(s)).join(" \xB7 ");
     return `${group2("you", "On you", h.you, youSub, youTip, "Nothing waits on you.", "needs")}${group2("ready", "Ready for an agent", h.ready, readySub, () => "", "Nothing is ready to pick up.", "ready")}`;
   }
 
@@ -16518,15 +16854,15 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   };
   var standing = (s) => !!s && /where things stand|state today|current state/i.test(s.title);
   var isAccepted = (el2) => /^\s*(✅|accepted when|done when)/i.test(el2.textContent ?? "");
-  function applyView(root, model, f) {
+  function applyView(root2, model, f) {
     const narrowed = isFiltered(f);
     const overview = f.depth === "overview" && !narrowed;
-    root.dataset.dirView = overview ? "overview" : narrowed ? "filtered" : "all";
+    root2.dataset.dirView = overview ? "overview" : narrowed ? "filtered" : "all";
     for (const r of model.rows) r.el.hidden = !rowShown(r, f);
-    const kids = [...root.children];
+    const kids = [...root2.children];
     const filtered = overview || narrowed;
     const known = new Set(model.rows.map((r) => r.el));
-    root.querySelectorAll("tbody tr").forEach((tr) => {
+    root2.querySelectorAll("tbody tr").forEach((tr) => {
       if (!known.has(tr) && !tr.closest(".fe-dir-list")) tr.toggleAttribute("data-view-hide", filtered);
     });
     for (const k of kids) {
@@ -16636,7 +16972,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     { id: "parked", label: "parked" },
     { id: "done", label: "done" }
   ];
-  var plain2 = (t) => t.replace(/[\u{1F300}-\u{1FAFF}☀-➿⏩-⏺️]/gu, "").replace(/\s{2,}/g, " ").trim();
+  var plain3 = (t) => t.replace(/[\u{1F300}-\u{1FAFF}☀-➿⏩-⏺️]/gu, "").replace(/\s{2,}/g, " ").trim();
   var GOOGLE = { document: "Google Doc", spreadsheets: "Google Sheet", presentation: "Google Slides" };
   function linkOf(raw, href = raw) {
     if (!raw || raw.startsWith("#") || /^(mailto|javascript):/i.test(raw)) return null;
@@ -16689,7 +17025,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (r.summary) continue;
       const d = directionOf(r.section, m);
       const key = d === "other" ? "other" : d ? String(m.sections.indexOf(d)) : "none";
-      const title = d === "other" ? "Other sections" : d ? plain2(d.title) : "Before the first heading";
+      const title = d === "other" ? "Other sections" : d ? plain3(d.title) : "Before the first heading";
       if (!groups.has(key)) groups.set(key, { key, title, section: d && d !== "other" ? d : null, rows: [] });
       groups.get(key).rows.push(r);
     }
@@ -16711,7 +17047,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const n = (rs, s) => rs.filter((r) => r.el.dataset.state === s).length;
       const legend = STATES.filter((s) => n(shown, s.id)).map((s) => `<span data-state="${s.id}"><i></i>${n(shown, s.id)} ${s.label}</span>`).join("");
       const next = shown.filter((r) => r.el.dataset.state === "needs" || r.el.dataset.state === "ready").slice(0, 3);
-      const nextHtml = next.length ? next.map((r) => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ""}<span>${esc(plain2(r.text || "Row"))}</span></span>`).join("") : '<span class="fe-dc-none">Nothing to pick up</span>';
+      const nextHtml = next.length ? next.map((r) => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ""}<span>${esc(plain3(r.text || "Row"))}</span></span>`).join("") : '<span class="fe-dc-none">Nothing to pick up</span>';
       return `<button type="button" class="fe-dc" data-goto="${esc(g.key)}" title="Show these rows in the list"><span class="fe-dc-hd">${ringHtml(n(g.rows, "done"), g.rows.length)}<span class="fe-dc-t">${esc(g.title)}</span></span><span class="fe-dc-legend">${legend}</span><span class="fe-dc-next">${nextHtml}</span></button>`;
     }).join("");
     return cards2 ? `<div class="fe-dc-grid">${cards2}</div>` : "";
@@ -16728,8 +17064,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const rows = folded ? "" : shown.map((r) => {
         const st = r.el.dataset.state;
         const label = STATES.find((s) => s.id === st)?.label;
-        const sub = r.need || (r.section && r.section !== g.section ? plain2(r.section.title) : "");
-        return `<tr data-row="${at(r)}"${st ? ` data-state="${st}"` : ""}><td class="fe-dl-st">${st ? pillHtml(st, label) : '<span class="fe-dl-none">unmarked</span>'}</td><td class="fe-dl-id">${r.id ? esc(r.id) : ""}</td><td class="fe-dl-t"><span class="fe-dl-tx">${esc(plain2(r.text || "Row"))}</span>${sub ? `<span class="fe-dl-sub">${esc(plain2(sub))}</span>` : ""}</td>` + (linked ? `<td class="fe-dl-links">${chipsHtml2(links.get(r) ?? [])}</td>` : "") + `<td class="fe-dl-when">${r.when ?? ""}</td></tr>`;
+        const sub = r.need || (r.section && r.section !== g.section ? plain3(r.section.title) : "");
+        return `<tr data-row="${at(r)}"${st ? ` data-state="${st}"` : ""}><td class="fe-dl-st">${st ? pillHtml(st, label) : '<span class="fe-dl-none">unmarked</span>'}</td><td class="fe-dl-id">${r.id ? esc(r.id) : ""}</td><td class="fe-dl-t"><span class="fe-dl-tx">${esc(plain3(r.text || "Row"))}</span>${sub ? `<span class="fe-dl-sub">${esc(plain3(sub))}</span>` : ""}</td>` + (linked ? `<td class="fe-dl-links">${chipsHtml2(links.get(r) ?? [])}</td>` : "") + `<td class="fe-dl-when">${r.when ?? ""}</td></tr>`;
       }).join("");
       return `<tbody data-group="${esc(g.key)}"><tr class="fe-dl-g"><th colspan="${cols}"><span class="fe-dl-gh"><button type="button" class="fe-dl-fold" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} these rows">${esc(g.title)}</button>${meterOf(g.rows)}<span class="fe-dl-n">${shown.length}${shown.length !== g.rows.length ? ` of ${g.rows.length}` : ""}</span>${g.section ? `<button type="button" class="fe-dl-go" data-sec="${esc(g.section.el.id)}" title="Read this section in the doc">In doc</button>` : ""}</span></th></tr>${rows}</tbody>`;
     }).join("");
@@ -16756,7 +17092,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       quiet = false;
     } };
   }
-  function mountList(bar, m, hooks) {
+  function mountList(bar, m, hooks2) {
     const box = document.createElement("div");
     box.className = "fe-dir-list";
     box.hidden = true;
@@ -16793,11 +17129,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }
       const sec = t.closest("[data-sec]");
       if (sec) {
-        hooks.section(sec.dataset.sec);
+        hooks2.section(sec.dataset.sec);
         return;
       }
       const row2 = m.rows[Number(t.closest("tr[data-row]")?.dataset.row)]?.el;
-      if (row2) hooks.row(row2);
+      if (row2) hooks2.row(row2);
     });
     return { paint };
   }
@@ -16842,10 +17178,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const total = DIR_STATES.reduce((n, s) => n + t[s.id], 0);
     return meterHtml(tallies(t), `${t.done}/${total}`, `${t.done} of ${total} done`);
   };
-  function enhanceDirections(root) {
-    if (root.dataset.directions) return;
-    const model = readDirections(root);
-    const allRows = [...root.querySelectorAll("tbody tr")];
+  function enhanceDirections(root2) {
+    if (root2.dataset.directions) return;
+    const model = readDirections(root2);
+    const allRows = [...root2.querySelectorAll("tbody tr")];
     const keyRows = allRows.filter((r) => isKeyRow(r.textContent ?? ""));
     const rows = allRows.filter((r) => !keyRows.includes(r));
     const headingOf = (r) => {
@@ -16856,7 +17192,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const worded = new Map(model.rows.map((r) => [r.el, r.state]));
     const states = rows.map((r) => rowState(r.textContent ?? "") ?? (asksOwner(headingOf(r)) ? "needs" : null) ?? worded.get(r) ?? null);
     if (!states.some(Boolean)) return;
-    root.dataset.directions = "on";
+    root2.dataset.directions = "on";
     const summaries = new Set(model.rows.filter((r) => r.summary).map((r) => r.el));
     rows.forEach((r, i3) => {
       if (states[i3] && !summaries.has(r)) r.dataset.state = states[i3];
@@ -16881,11 +17217,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }
     }
     for (const r of keyRows) r.hidden = true;
-    for (const p of root.querySelectorAll(":scope > p, :scope > ul > li")) {
+    for (const p of root2.querySelectorAll(":scope > p, :scope > ul > li")) {
       const text = p.textContent ?? "";
       if (isMarkKey(text) || /^\s*\**reader\**\s*:/i.test(text) || model.lastUpdated && /^\s*\**last updated/i.test(text)) p.hidden = true;
     }
-    const heads = [...root.querySelectorAll("h2, h3")];
+    const heads = [...root2.querySelectorAll("h2, h3")];
     for (const h of heads) {
       const level2 = Number(h.tagName[1]);
       const mine = [];
@@ -16897,7 +17233,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const m = meter(t);
       if (!m) continue;
       const name2 = (h.firstChild?.textContent ?? "").trim();
-      for (const td of root.querySelectorAll("tbody td:first-child")) {
+      for (const td of root2.querySelectorAll("tbody td:first-child")) {
         if (td.dataset.dirLink || td.textContent?.trim() !== name2 || !h.id) continue;
         td.dataset.dirLink = "1";
         td.innerHTML = `<a href="#${esc(h.id)}">${esc(name2)}</a>${m}`;
@@ -16909,9 +17245,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const bar = document.createElement("div");
     bar.className = "fe-dir-sum";
     bar.innerHTML = `<div class="fe-dir-chips">${chipBarHtml(tallies(all))}</div><label class="fe-dir-q" title="Narrow the rows to those holding these words"><input type="search" placeholder="Filter rows" spellcheck="false" autocomplete="off" aria-label="Filter rows"></label><span class="fe-dir-status" aria-live="polite"></span>`;
-    const h1 = root.querySelector("h1");
+    const h1 = root2.querySelector("h1");
     if (h1) h1.after(bar);
-    else root.prepend(bar);
+    else root2.prepend(bar);
     const chips = bar.querySelector(".fe-dir-chips");
     const qBox = bar.querySelector(".fe-dir-q input");
     const status = bar.querySelector(".fe-dir-status");
@@ -16963,9 +17299,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       });
     }
     function render2() {
-      applyView(root, model, f);
+      applyView(root2, model, f);
       list3.paint(f);
-      root.dataset.dirLayout = f.layout;
+      root2.dataset.dirLayout = f.layout;
       layoutSeg.set(f.layout);
       depthSeg.set(f.depth);
       chips.querySelectorAll(".fe-dv-chip").forEach((c) => c.setAttribute("aria-pressed", String(f.states.has(c.dataset.state))));
@@ -17025,7 +17361,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (!row2) return;
       if (f.layout === "list") {
         if (row2.hidden) set2({ states: /* @__PURE__ */ new Set(), q: "", depth: "full" });
-        const hit = listRow(root, at);
+        const hit = listRow(root2, at);
         if (hit) {
           hit.scrollIntoView({ block: "center", behavior: "smooth" });
           flashRow(hit);
@@ -17044,7 +17380,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         render2();
       }
     });
-    new ResizeObserver(() => root.style.setProperty("--dir-bar-h", `${bar.offsetHeight}px`)).observe(bar);
+    new ResizeObserver(() => root2.style.setProperty("--dir-bar-h", `${bar.offsetHeight}px`)).observe(bar);
     render2();
     markOutline(model);
   }
@@ -17052,11 +17388,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     id: "directions",
     on: "file",
     claims: (path) => isDirectionsDoc(path),
-    mount({ root, toast }) {
-      if (root.dataset.docview) return true;
-      enhanceDirections(root);
-      markDocView(root, "directions");
-      wireMedia(root, toast);
+    mount({ root: root2, toast }) {
+      if (root2.dataset.docview) return true;
+      enhanceDirections(root2);
+      markDocView(root2, "directions");
+      wireMedia(root2, toast);
       return true;
     }
   };
@@ -17107,9 +17443,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     show(filesPref.get() !== "1");
     return shown;
   }
-  function decorateFileView(root, path, toast) {
+  function decorateFileView(root2, path, toast) {
     const base2 = fileHref(path.replace(/[^/]*$/, ""));
-    for (const v of docViewsFor("file", path)) Promise.resolve().then(() => v.mount({ root, base: base2, path, toast })).catch(() => {
+    for (const v of docViewsFor("file", path)) Promise.resolve().then(() => v.mount({ root: root2, base: base2, path, toast })).catch(() => {
     });
   }
 
@@ -18718,6 +19054,12 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-sh{padding:var(--sp-4) var(--sp-6) var(--sp-2)}
 .fe-hint{font-size:var(--fs-md);color:var(--dm);font-style:italic;line-height:1.7;padding:var(--sp-3) var(--sp-6)}
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-4)}
+.fe-nt-marks{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:2px}.fe-nt-mark{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);color:var(--dm)}.fe-nt-mark svg{width:11px;height:11px;flex:none}.fe-nt-mark.rem.missed{color:var(--gold)}.fe-nt-mark.agent{color:var(--nc-purple)}
+.fe-chip-rem.missed,.fe-chip-exp.expired{color:var(--gold)}.fe-chip-url-t{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
+.fe-hp-wait.faded{opacity:.55}.fe-hp-wait[data-kind="reminder"] .fe-hp-link-tags i{color:var(--gold)}
+.fe-clash-btn{color:var(--gold);flex:none}.fe-pl-item.fe-clash .fe-pl-label{color:var(--gold)}.fe-clash-menu{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}
+.fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"],.fe-where[data-state="trouble"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
 .fe-lens-tools{padding:var(--sp-1) var(--sp-3) var(--sp-4)}
@@ -20739,13 +21081,13 @@ button.chip:disabled{opacity:.45;cursor:default}
     const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
     let base2 = doc.text;
     let saving = false;
-    let failed = "";
+    let failed2 = "";
     const saved = modePref.get();
     let mode = fmt && saved && MODES.some((m) => m.id === saved) ? saved : "raw";
     if (mode === "split" && matchMedia("(max-width:760px)").matches) mode = "raw";
     let diags = [];
     let checkTimer = 0;
-    let timer2 = 0;
+    let timer3 = 0;
     const isDirty = () => tw.text() !== base2;
     let curRow = -1;
     const markLine = () => {
@@ -20930,9 +21272,9 @@ and ${diags.length - 12} more` : "");
     };
     const paint = () => {
       const dirty = isDirty();
-      state.innerHTML = saving ? "Saving\u2026" : failed && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
-      state.className = saving ? "busy" : failed && dirty ? "failed" : dirty ? "dirty" : "saved";
-      state.title = failed && dirty ? failed : "";
+      state.innerHTML = saving ? "Saving\u2026" : failed2 && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
+      state.className = saving ? "busy" : failed2 && dirty ? "failed" : dirty ? "dirty" : "saved";
+      state.title = failed2 && dirty ? failed2 : "";
       renderView();
     };
     let shown = "";
@@ -20985,7 +21327,7 @@ and ${diags.length - 12} more` : "");
         const r = await notes.fileWrite(host.root, host.rel, text, expect);
         doc = { text, mtime: r.mtime };
         base2 = text;
-        failed = "";
+        failed2 = "";
         banner.hidden = true;
         diffBox.hidden = true;
         host.saved(text);
@@ -20998,8 +21340,8 @@ and ${diags.length - 12} more` : "");
             retryAt = now.mtime;
           } else showConflict();
         } else {
-          failed = errorText(e, "Saving");
-          host.status(failed);
+          failed2 = errorText(e, "Saving");
+          host.status(failed2);
         }
       } finally {
         saving = false;
@@ -21008,7 +21350,7 @@ and ${diags.length - 12} more` : "");
       if (retryAt) await write(retryAt);
     };
     const save = (asked = true) => {
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       if (saving || !isDirty()) return;
       if (!banner.hidden) {
         if (asked) askToChoose();
@@ -21023,8 +21365,8 @@ and ${diags.length - 12} more` : "");
       setTimeout(() => banner.classList.remove("flash"), 700);
     };
     const later = () => {
-      clearTimeout(timer2);
-      timer2 = window.setTimeout(() => save(false), AUTOSAVE_MS);
+      clearTimeout(timer3);
+      timer3 = window.setTimeout(() => save(false), AUTOSAVE_MS);
     };
     function showConflict() {
       banner.hidden = false;
@@ -21089,7 +21431,7 @@ and ${diags.length - 12} more` : "");
       }
     };
     const close = async () => {
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       if (isDirty() && !saving && banner.hidden) await write(doc.mtime);
       if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
       stopWatch();
@@ -21493,8 +21835,8 @@ and ${diags.length - 12} more` : "");
       `Answer: bfb-docs comments reply|done ${path} <thread> "text"`
     ];
     const body = threads.map((t) => {
-      const where = t.place.line !== null ? `line ${t.place.line}` : "not found in the file";
-      const meta = [short(t.id), where, t.status, ...(t.tags ?? []).map((g) => "#" + g), t.due ? `due ${t.due}` : ""].filter(Boolean).join(" \xB7 ");
+      const where2 = t.place.line !== null ? `line ${t.place.line}` : "not found in the file";
+      const meta = [short(t.id), where2, t.status, ...(t.tags ?? []).map((g) => "#" + g), t.due ? `due ${t.due}` : ""].filter(Boolean).join(" \xB7 ");
       const quote = t.anchor.exact.length > 200 ? t.anchor.exact.slice(0, 199) + "\u2026" : t.anchor.exact;
       return [
         "",
@@ -21512,11 +21854,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     let notesLine = [];
     let filter = filterPref.get();
     let active = "";
-    let loaded = false, failed = "";
+    let loaded = false, failed2 = "";
     let lastCompanion = null, lastText = "";
     let draft = null;
     let editing = "";
-    let busy = false;
+    let busy2 = false;
     let dueOpen = "";
     const seen = /* @__PURE__ */ new Set();
     const ranges = /* @__PURE__ */ new Map();
@@ -21558,10 +21900,10 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         const to = e.target.closest("[data-to]")?.dataset.to;
         if (!to) return;
         layer.close("pick");
-        const root = o.root();
-        if (!root) return;
+        const root2 = o.root();
+        if (!root2) return;
         o.status(`Sending to ${to}\u2026`);
-        notes.sendThread(root, o.rel(), t.id, to).then(() => o.status(`Sent to ${to}, which wakes it if idle. Its answer appears in this thread.`), (err) => o.status(errorText(err, `Sending to ${to}`)));
+        notes.sendThread(root2, o.rel(), t.id, to).then(() => o.status(`Sent to ${to}, which wakes it if idle. Its answer appears in this thread.`), (err) => o.status(errorText(err, `Sending to ${to}`)));
       });
     };
     const readCompanion = () => fetchFileText(o.href + ".bfb.json").catch(() => "");
@@ -21570,12 +21912,12 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
       r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
       threads = r.threads;
-      failed = "";
+      failed2 = "";
       loaded = true;
     };
     const load = async () => {
-      const root = o.root();
-      if (!root) {
+      const root2 = o.root();
+      if (!root2) {
         loaded = true;
         paint();
         return;
@@ -21583,11 +21925,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       lastCompanion = await readCompanion();
       lastText = o.text();
       try {
-        const r = await notes.commentsRead(root, o.rel());
+        const r = await notes.commentsRead(root2, o.rel());
         take(r);
         notesLine = r.notes;
       } catch (e) {
-        failed = errorText(e, "Reading the comments");
+        failed2 = errorText(e, "Reading the comments");
         loaded = true;
       }
       paint();
@@ -21606,11 +21948,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
     };
     const write = async (ops, what) => {
-      const root = o.root();
-      if (!root || busy) return null;
-      busy = true;
+      const root2 = o.root();
+      if (!root2 || busy2) return null;
+      busy2 = true;
       try {
-        const r = await notes.commentsWrite(root, o.rel(), ops);
+        const r = await notes.commentsWrite(root2, o.rel(), ops);
         take(r);
         const said = r.notes.filter((n) => !notesLine.includes(n));
         if (said.length) o.status(said.join("; "));
@@ -21621,7 +21963,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         o.status(errorText(e, `Saving the ${what.toLowerCase()}`));
         return null;
       } finally {
-        busy = false;
+        busy2 = false;
         paint();
         redraw();
         o.changed();
@@ -21633,9 +21975,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       paint();
     };
     const accept = async (t, commentId) => {
-      const root = o.root();
+      const root2 = o.root();
       const c = t.comments.find((x2) => x2.id === commentId);
-      if (!root || busy || !c?.suggestion || t.place.offset === null) return;
+      if (!root2 || busy2 || !c?.suggestion || t.place.offset === null) return;
       sugMsg = null;
       if (o.editing?.()) {
         sugSay(commentId, "The file is open in the editor. Press Done there, then accept.");
@@ -21644,7 +21986,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const shown = o.text();
       let cur;
       try {
-        cur = await notes.fileRead(root, o.rel());
+        cur = await notes.fileRead(root2, o.rel());
       } catch (e) {
         sugSay(commentId, errorText(e, "Applying the suggestion"));
         return;
@@ -21656,7 +21998,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const start = t.place.offset, end = start + t.place.length;
       const next = cur.text.slice(0, start) + c.suggestion.replace + cur.text.slice(end);
       try {
-        await notes.fileWrite(root, o.rel(), next, cur.mtime);
+        await notes.fileWrite(root2, o.rel(), next, cur.mtime);
       } catch (e) {
         sugSay(commentId, errorText(e, "Applying the suggestion"));
         return;
@@ -21728,7 +22070,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       </div>`;
       }).join("");
       const applied = t.status === "done" && t.comments.some((c) => c.suggestion?.state === "accepted");
-      const where = applied ? "" : t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
+      const where2 = applied ? "" : t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
       const done = t.status === "done";
       const status = `<span class="fe-cm-status" data-state="${done ? "done" : "open"}" role="img" aria-label="${done ? "Done" : "Open"}" title="${done ? "Done" : "Open"}">${done ? UI_ICON.circleCheck : UI_ICON.circleDashed}</span>`;
       const tools = on ? `
@@ -21746,7 +22088,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         <button type="button" class="btn" data-icon data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)" aria-label="Reply">${UI_ICON.send}</button>
       </div>` : "";
       return `<article class="fe-cm-th card${on ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
-      ${on ? "" : status}<blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where}${cs}
+      ${on ? "" : status}<blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where2}${cs}
       ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ""}${tools}</article>`;
     };
     const draftHtml = () => draft ? `<form class="fe-cm-th card fe-cm-new on" data-new aria-label="${draft.attach ? "Attach the thread here" : "New comment"}">
@@ -21768,8 +22110,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         else typed.delete(id);
       });
       const listTop = o.box.querySelector(".fe-cm-list")?.scrollTop ?? 0;
-      const root = o.root();
-      if (!root) {
+      const root2 = o.root();
+      if (!root2) {
         o.box.innerHTML = emptyHtml("empty", "Comments are saved beside this file", { icon: UI_ICON.lock, actions: [{ a: "allow", label: "Allow this folder", title: "Let comments be written in this folder" }] });
         return;
       }
@@ -21777,8 +22119,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         o.box.innerHTML = emptyHtml("loading", "Loading comments\u2026");
         return;
       }
-      if (failed) {
-        o.box.innerHTML = emptyHtml("failed", "Comments could not be read", { icon: UI_ICON.info, hint: failed, actions: [{ a: "retry", label: "Try again", title: "Read the comments again" }] });
+      if (failed2) {
+        o.box.innerHTML = emptyHtml("failed", "Comments could not be read", { icon: UI_ICON.info, hint: failed2, actions: [{ a: "retry", label: "Try again", title: "Read the comments again" }] });
         return;
       }
       const list3 = visible2();
@@ -22252,7 +22594,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return;
       }
       if (a === "retry") {
-        failed = "";
+        failed2 = "";
         loaded = false;
         paint();
         void load();
@@ -22460,7 +22802,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const comp = await readCompanion();
       if (comp === lastCompanion && o.text() === lastText) return;
       void load();
-    }, { pause: () => !o.root() || lastCompanion === null || busy });
+    }, { pause: () => !o.root() || lastCompanion === null || busy2 });
     const placed = () => threads.filter((t) => t.status !== "done" && t.place.offset !== null);
     const step2 = (dir) => {
       const list3 = placed();
@@ -22968,9 +23310,9 @@ ${[[1, 36], [2, 30], [3, 26], [4, 23], [5, 22], [6, 22]].map(([n, sz]) => `<w:st
 <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
 <w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
 </w:numbering>`;
-  function toDocx(root, title) {
+  function toDocx(root2, title) {
     const w = new Writer();
-    w.blocks(root);
+    w.blocks(root2);
     const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${w.body.join("")}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="864" w:right="864" w:bottom="864" w:left="864" w:header="432" w:footer="432" w:gutter="0"/></w:sectPr></w:body></w:document>`;
     const pkg = "http://schemas.openxmlformats.org/package/2006";
@@ -23074,18 +23416,18 @@ ${[[1, 36], [2, 30], [3, 26], [4, 23], [5, 22], [6, 22]].map(([n, sz]) => `<w:st
   function cleanDoc(text, href, page) {
     const holder = document.createElement("div");
     holder.innerHTML = renderFile(text, "md", href, "page");
-    const root = holder.querySelector(".fe-md") ?? holder;
-    const meta = [...root.querySelectorAll(".fe-md-fm dt")].map((dt) => [dt.textContent?.trim() ?? "", dt.nextElementSibling?.textContent?.trim() ?? ""]);
-    root.querySelectorAll(".fe-md-fm, .fe-md-anchor, .fe-md-code-bar, .fe-col-rz, .fe-md-mermaid-source, button").forEach((n) => n.remove());
+    const root2 = holder.querySelector(".fe-md") ?? holder;
+    const meta = [...root2.querySelectorAll(".fe-md-fm dt")].map((dt) => [dt.textContent?.trim() ?? "", dt.nextElementSibling?.textContent?.trim() ?? ""]);
+    root2.querySelectorAll(".fe-md-fm, .fe-md-anchor, .fe-md-code-bar, .fe-col-rz, .fe-md-mermaid-source, button").forEach((n) => n.remove());
     const live2 = [...page.querySelectorAll(".fe-md-mermaid")];
     const diagrams = [];
-    root.querySelectorAll(".fe-md-mermaid").forEach((el2, i3) => {
+    root2.querySelectorAll(".fe-md-mermaid").forEach((el2, i3) => {
       const svg2 = live2[i3]?.querySelector(".dl-world > svg");
       if (svg2) diagrams.push({ el: el2, ...diagramSvg(svg2) });
       else el2.remove();
     });
     const shown = new Map([...page.querySelectorAll(".fe-md img")].map((i3) => [i3.src, i3]));
-    root.querySelectorAll("img").forEach((img) => {
+    root2.querySelectorAll("img").forEach((img) => {
       const src = img.src;
       const data = shown.get(src) && imageData(shown.get(src));
       if (data) {
@@ -23094,11 +23436,11 @@ ${[[1, 36], [2, 30], [3, 26], [4, 23], [5, 22], [6, 22]].map(([n, sz]) => `<w:st
         img.setAttribute("height", String(shown.get(src).naturalHeight));
       } else img.src = src;
     });
-    const title = root.querySelector("h1")?.textContent?.trim() || decodeURIComponent(href.split("/").pop() || "Document").replace(/\.\w+$/, "");
-    return { root, title, meta, diagrams };
+    const title = root2.querySelector("h1")?.textContent?.trim() || decodeURIComponent(href.split("/").pop() || "Document").replace(/\.\w+$/, "");
+    return { root: root2, title, meta, diagrams };
   }
-  function plainHtml(root, opts = {}) {
-    root.querySelectorAll(".fe-md-code").forEach((box) => {
+  function plainHtml(root2, opts = {}) {
+    root2.querySelectorAll(".fe-md-code").forEach((box) => {
       const pre = box.querySelector("pre");
       if (!pre) {
         box.remove();
@@ -23110,14 +23452,14 @@ ${[[1, 36], [2, 30], [3, 26], [4, 23], [5, 22], [6, 22]].map(([n, sz]) => `<w:st
       out.append(code);
       box.replaceWith(out);
     });
-    root.querySelectorAll(".fe-md-l").forEach((l) => l.replaceWith(...l.childNodes));
-    root.querySelectorAll(".fe-md-tablewrap").forEach((w) => {
+    root2.querySelectorAll(".fe-md-l").forEach((l) => l.replaceWith(...l.childNodes));
+    root2.querySelectorAll(".fe-md-tablewrap").forEach((w) => {
       if (opts.wrapTables) {
         w.className = "table-wrap";
         w.removeAttribute("data-sl");
       } else w.replaceWith(...w.childNodes);
     });
-    root.querySelectorAll("*").forEach((el2) => {
+    root2.querySelectorAll("*").forEach((el2) => {
       if (el2.closest("svg")) return;
       for (const a of [...el2.attributes]) {
         if (a.name === "class") {
@@ -23127,7 +23469,7 @@ ${[[1, 36], [2, 30], [3, 26], [4, 23], [5, 22], [6, 22]].map(([n, sz]) => `<w:st
         } else if (a.name.startsWith("data-") || a.name === "style" || a.name === "title" && el2.tagName !== "ABBR") el2.removeAttribute(a.name);
       }
     });
-    return root.innerHTML;
+    return root2.innerHTML;
   }
   var EXPORT_CSS = `
 :root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--mt:#55656f;--dm:#7a8a93;--bd:#dde3e7;--soft:#f4f6f8;--ac:#0b6e69;--head:linear-gradient(135deg,#e8f4f3 0%,#f3f0fa 100%)}
@@ -23176,15 +23518,15 @@ li.fe-task{list-style:none;margin-left:-1.3em}
 @media (max-width:600px){body{font-size:15.5px}.doc-head-in{padding-top:28px;padding-bottom:20px}main,.doc-head-in,.doc-foot{padding-left:16px;padding-right:16px}pre{border-radius:8px;padding:10px 12px}th,td{padding:6px 10px}}
 @media print{.doc-head{background:none}.toc,.anchor{display:none}pre{white-space:pre-wrap}.table-wrap{overflow:visible;border:0}}`;
   function pageHtml(doc, href) {
-    const root = doc.root;
-    const h1 = root.querySelector(":scope > h1");
+    const root2 = doc.root;
+    const h1 = root2.querySelector(":scope > h1");
     h1?.remove();
-    root.querySelectorAll("h1[id], h2[id], h3[id], h4[id]").forEach((h) => h.insertAdjacentHTML("beforeend", `<a class="anchor" href="#${esc(h.id)}" aria-label="Link to this section">#</a>`));
-    const sections = [...root.querySelectorAll("h2[id]")];
-    const words = (root.textContent ?? "").trim().split(/\s+/).filter(Boolean).length;
+    root2.querySelectorAll("h1[id], h2[id], h3[id], h4[id]").forEach((h) => h.insertAdjacentHTML("beforeend", `<a class="anchor" href="#${esc(h.id)}" aria-label="Link to this section">#</a>`));
+    const sections = [...root2.querySelectorAll("h2[id]")];
+    const words = (root2.textContent ?? "").trim().split(/\s+/).filter(Boolean).length;
     const path = decodeURIComponent(new URL(href, location.href).pathname);
     const folder = path.replace(/\/[^/]*$/, "").split("/").slice(-2).join("/");
-    const firstPara = (root.querySelector(":scope > p")?.textContent ?? "").replace(/\s+/g, " ").trim();
+    const firstPara = (root2.querySelector(":scope > p")?.textContent ?? "").replace(/\s+/g, " ").trim();
     const desc = (doc.meta.find(([k]) => /^(description|summary)$/i.test(k))?.[1] || firstPara).slice(0, 160);
     const when2 = /* @__PURE__ */ new Date();
     const facts2 = [
@@ -23195,7 +23537,7 @@ li.fe-task{list-style:none;margin-left:-1.3em}
     ].join("");
     const chips = doc.meta.filter(([k, v]) => k && v && !/^title$/i.test(k)).slice(0, 8).map(([k, v]) => `<li><b>${esc(k)}</b>${esc(v.length > 60 ? v.slice(0, 59) + "\u2026" : v)}</li>`).join("");
     const toc = sections.length >= 3 ? `<details class="toc" open><summary>Contents</summary><ol>${sections.map((h) => `<li><a href="#${esc(h.id)}">${esc((h.firstChild?.textContent ?? h.textContent ?? "").trim())}</a></li>`).join("")}</ol></details>` : "";
-    const body = plainHtml(root, { wrapTables: true });
+    const body = plainHtml(root2, { wrapTables: true });
     return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -23735,7 +24077,7 @@ ${d.message}` : d.message;
       document.getElementById("fe-status-text").textContent = t;
     };
     const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? "";
-    let root = editableRoot(rawPath, opts.editableFolders, home);
+    let root2 = editableRoot(rawPath, opts.editableFolders, home);
     const folder = rawPath.slice(0, rawPath.lastIndexOf("/"));
     editBtn.title = "Edit this file (e)";
     const askToAllow = () => new Promise((resolve) => {
@@ -23770,8 +24112,8 @@ ${d.message}` : d.message;
           const s = getSettings();
           s.editableFolders = [.../* @__PURE__ */ new Set([...s.editableFolders ?? [], a === "folder" ? folder : rawPath])];
           saveSettings(s);
-          root = editableRoot(rawPath, editableFoldersOf(s), home);
-          ok = !!root;
+          root2 = editableRoot(rawPath, editableFoldersOf(s), home);
+          ok = !!root2;
         }
         layer.close("pick");
       });
@@ -23786,9 +24128,9 @@ ${d.message}` : d.message;
     };
     const edit2 = async () => {
       if (editor || editBtn.classList.contains("busy")) return;
-      if (!root) root = editableRoot(rawPath, editableFoldersOf(getSettings()), home);
-      if (!root && !await askToAllow()) return;
-      if (!root) return;
+      if (!root2) root2 = editableRoot(rawPath, editableFoldersOf(getSettings()), home);
+      if (!root2 && !await askToAllow()) return;
+      if (!root2) return;
       editBtn.classList.add("busy");
       const sideWas = sidebarShown();
       if (sideWas) setSidebarShown(false);
@@ -23805,8 +24147,8 @@ ${d.message}` : d.message;
       find.clear();
       editBtn.classList.add("on");
       editor = await openFileEditor(editBox, {
-        root,
-        rel: rawPath.slice(root.length + 1),
+        root: root2,
+        rel: rawPath.slice(root2.length + 1),
         ext: ext2,
         href,
         status,
@@ -23859,8 +24201,8 @@ ${d.message}` : d.message;
       box: cmBox,
       href,
       path: rawPath,
-      root: () => root,
-      rel: () => rawPath.slice((root ?? "").length + 1),
+      root: () => root2,
+      rel: () => rawPath.slice((root2 ?? "").length + 1),
       text: () => text,
       allow: askToAllow,
       status,
@@ -23936,6 +24278,44 @@ ${d.message}` : d.message;
     };
   }
 
+  // src/address.ts
+  function filePathOf(href) {
+    const m = /^file:\/\/(\/[^?#]*)(.*)$/i.exec(href.trim());
+    if (!m) return null;
+    try {
+      return decodeURI(m[1]) + m[2];
+    } catch {
+      return m[1] + m[2];
+    }
+  }
+  function fileHrefOf(path) {
+    const at = path.indexOf("#");
+    const base2 = at < 0 ? path : path.slice(0, at);
+    return "file://" + encodeURI(base2).replace(/\?/g, "%3F").replace(/#/g, "%23") + (at < 0 ? "" : path.slice(at));
+  }
+  function pathOnPhoneBase(href, phoneBase) {
+    if (!phoneBase || !href.startsWith(phoneBase.replace(/\/$/, "") + "/")) return null;
+    try {
+      return decodeURI(href.slice(phoneBase.replace(/\/$/, "").length));
+    } catch {
+      return null;
+    }
+  }
+  function routeLink(href, ctx) {
+    if (ctx.onPhone) {
+      const p2 = filePathOf(href);
+      if (p2 === null) return { to: null };
+      const at = p2.indexOf("#");
+      return { to: ctx.origin + (at < 0 ? p2 : p2.slice(0, at)).split("/").map(encodeURIComponent).join("/") + (at < 0 ? "" : p2.slice(at)) };
+    }
+    const p = pathOnPhoneBase(href, ctx.phoneBase);
+    return p === null ? { to: null } : { to: fileHrefOf(p) };
+  }
+  function copyTarget(path, ctx) {
+    if (ctx.phoneLink) return { text: ctx.phoneLink, say: ctx.onPhone ? "Link copied" : "Link copied. It opens on this Mac and on your phone." };
+    return { text: fileHrefOf(path), say: "Link copied. Phone access is off, so it opens only on this Mac. Turn it on in Settings, Data." };
+  }
+
   // src/phone.ts
   var URL_KEY = "bfb-phone-url";
   var ON_KEY = "bfb-phone-on";
@@ -23943,6 +24323,23 @@ ${d.message}` : d.message;
   function phoneLink(path) {
     const base2 = onPhone() ? location.origin : kvGet(ON_KEY) === "1" ? kvGet(URL_KEY) || "" : "";
     return base2 ? base2 + path.split("/").map(encodeURIComponent).join("/") : "";
+  }
+  async function copyLink(path, toast) {
+    const { text, say } = copyTarget(path, { onPhone: onPhone(), phoneLink: phoneLink(path) });
+    toast(await copyToClipboard(text) ? say : "Copy failed");
+  }
+  function initAddressRouting() {
+    document.addEventListener("click", (e) => {
+      if (e.defaultPrevented || e.button !== 0) return;
+      const a = e.target.closest("a[href]");
+      const href = a?.getAttribute("href") ?? "";
+      if (!a || !/^(file|https?):\/\//i.test(href)) return;
+      const r = routeLink(href, { onPhone: onPhone(), origin: location.origin, phoneBase: onPhone() ? "" : kvGet(ON_KEY) === "1" ? kvGet(URL_KEY) || "" : "" });
+      if (!r.to || r.to === href) return;
+      e.preventDefault();
+      if (a.target === "_blank" || e.metaKey || e.ctrlKey) window.open(r.to, "_blank", "noopener");
+      else location.assign(r.to);
+    }, true);
   }
   async function copyPhoneLink(path, toast) {
     const url = phoneLink(path);
@@ -24043,12 +24440,12 @@ ${d.message}` : d.message;
   function kindOf(path) {
     return path.endsWith("/") ? "folder" : "file";
   }
-  var newId = () => Math.random().toString(36).slice(2, 10);
+  var newId2 = () => Math.random().toString(36).slice(2, 10);
   var pinnedCount = (s) => s.list.filter((t) => t.pinned).length;
   function openTab(s, path, background = false) {
     const found = s.list.find((t) => t.path === path);
     if (found) return background ? s : { ...s, active: found.id };
-    const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
+    const tab = { id: newId2(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
     const i3 = s.list.findIndex((t) => t.id === s.active);
     const list3 = [...s.list];
     list3.splice(Math.max(i3 < 0 ? list3.length : i3 + 1, pinnedCount(s)), 0, tab);
@@ -24692,8 +25089,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       card(UI_ICON.data, T.teal, "Settings, Saved", "In this browser.") + card(UI_ICON.tab, T.pink, "Tabs", "In this Chrome tab only.") + card(UI_ICON.lock, T.green, "Your files", "Never leave the Mac, unless you ask Gemini.")
     ) }
   ];
-  function wireKeyboardMap(root) {
-    const km = root.querySelector(".fe-km");
+  function wireKeyboardMap(root2) {
+    const km = root2.querySelector(".fe-km");
     if (!km) return;
     const caps = [...km.querySelectorAll(".fe-km-cap")];
     const rows = [...km.querySelectorAll(".fe-km-i")];
@@ -24973,7 +25370,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
   async function searchContents(files, read2, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
     const hits = /* @__PURE__ */ new Map();
-    let scanned = 0, failed = 0, next = 0;
+    let scanned = 0, failed2 = 0, next = 0;
     const worker = async () => {
       while (next < files.length && !isCancelled()) {
         const f = files[next++];
@@ -24984,7 +25381,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           if (isCancelled()) break;
           if (hit) hits.set(f.href, hit);
         } catch {
-          failed++;
+          failed2++;
         }
         if (isCancelled()) break;
         scanned++;
@@ -24992,7 +25389,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       }
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
-    return { hits, scanned, failed, cancelled: isCancelled() };
+    return { hits, scanned, failed: failed2, cancelled: isCancelled() };
   }
   function findToHash(q) {
     return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
@@ -25116,16 +25513,20 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     if (!saved.length) return emptyHtml("filtered", "No saved item matches", { inline: true, actions: [CLEAR] });
     const VIEW_ICON = `${GLYPH.filter}`;
     const row2 = (p) => {
-      const n = p.tags?.length ?? 0, hit = hits.get(p.path);
+      const n = p.tags?.length ?? 0, hit = hits.get(p.path), web = isWebPath(p.path);
+      const href = web ? esc(p.path) : isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path);
+      const icon2 = web ? UI_ICON.link : isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder;
+      const name2 = p.label || (web ? p.path.replace(/^[a-z]+:\/\//i, "") : p.path.split("/").filter(Boolean).pop() || "/");
       return `
-    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
+    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}${web ? " fe-web" : ""}${p.clash ? " fe-clash" : ""}" draggable="true" data-path="${esc(p.path)}"${p.clash ? ` data-clash="${esc(p.clash)}"` : ""}>
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
-        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
+      <a href="${href}"${web ? ' target="_blank" rel="noopener noreferrer"' : ""} class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
+        ${icon2}<span class="fe-sl fe-pl-label">${esc(name2)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>
+      ${web ? "" : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
@@ -25148,11 +25549,11 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     }
     const homeAt = home && (acc === home + "/" || acc.startsWith(home + "/")) ? home.split("/").length - 1 : -1;
     return crumbs.map((c, i3) => {
-      const last = i3 === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
+      const last = i3 === crumbs.length - 1, where2 = esc(decodeURIComponent(c.href.slice(7)));
       const end = last && !trailing;
       const label = i3 === homeAt ? "~" : c.label;
       const pre = i3 < homeAt ? " data-pre hidden" : "";
-      return `<span class="fe-cg" data-i="${i3}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="btn fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+      return `<span class="fe-cg" data-i="${i3}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where2}">${esc(label)}</a><button class="btn fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where2}" aria-label="What is in ${where2}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
     }).join("");
   }
 
@@ -25259,6 +25660,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div id="fe-sv-where" class="fe-where" hidden></div>
       <div class="fe-sec" data-sec="saved">
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath, "", getFoldedGroups())}</div>
@@ -25270,6 +25672,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
         <button id="fe-nt-trash" class="btn fe-lens-ib" data-icon data-size="lg" aria-pressed="false" title="Trash: notes you deleted" aria-label="Trash: notes you deleted">${UI_ICON.trash}</button>
       </div>
+      <div id="fe-nt-where" class="fe-where" hidden></div>
       <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-nt-list"></div>
@@ -25629,14 +26032,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const finish = (result, error) => {
         if (settled) return;
         settled = true;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         signal.removeEventListener("abort", abort);
         worker.terminate();
         if (error) reject(error);
         else resolve(new Set(result));
       };
       const abort = () => finish(void 0, new Error("Name matching stopped"));
-      const timer2 = setTimeout(() => finish(void 0, Object.assign(new Error("Name regex timed out"), { code: "match-timeout" })), 500);
+      const timer3 = setTimeout(() => finish(void 0, Object.assign(new Error("Name regex timed out"), { code: "match-timeout" })), 500);
       signal.addEventListener("abort", abort, { once: true });
       worker.onerror = () => finish(void 0, new Error("Name matching worker failed"));
       worker.onmessage = (event) => {
@@ -25983,9 +26386,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const box = el("fe-empty");
       const showHidden = fe.classList.contains("show-hidden");
       const seen = lastEntries.filter((e) => showHidden || !e.isHidden).length;
-      const busy = ls.deepScanning || !!nameFilterAbort || app.fileMode;
+      const busy2 = ls.deepScanning || !!nameFilterAbort || app.fileMode;
       const filtered = !!ls.filter.q || ls.filter.type !== "all" || !!ls.contentHits;
-      box.hidden = busy || seen > 0;
+      box.hidden = busy2 || seen > 0;
       const showThem = "Press <kbd>.</kbd> to show them";
       box.innerHTML = box.hidden ? "" : filtered && lastEntries.length ? emptyHtml("filtered", "Only hidden files match", { hintHtml: showThem, actions: [CLEAR] }) : filtered ? emptyHtml("filtered", "Nothing here matches", { actions: [CLEAR] }) : lastEntries.length ? emptyHtml("empty", "Only hidden files here", { hintHtml: showThem }) : ls.deepOn ? emptyHtml("empty", "Nothing in these folders", { hint: showHidden ? "" : "Hidden files are left out of a subfolder search" }) : emptyHtml("empty", "This folder is empty");
     }
@@ -27251,17 +27654,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   function setTooltipKeys(fn) {
     keysFor = fn;
   }
-  function initTooltips(root) {
+  function initTooltips(root2) {
     const tip = document.createElement("div");
     tip.id = "fe-hint";
     tip.setAttribute("role", "tooltip");
-    root.appendChild(tip);
+    root2.appendChild(tip);
     let target = null;
     let lifted = "";
     let labelled = false;
-    let timer2 = 0;
+    let timer3 = 0;
     function hide() {
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       tip.classList.remove("on");
       if (target && lifted && !target.hasAttribute("title")) target.setAttribute("title", lifted);
       if (target && labelled) target.removeAttribute("aria-label");
@@ -27279,9 +27682,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
       tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
     }
-    root.addEventListener("pointerover", (e) => {
+    root2.addEventListener("pointerover", (e) => {
       const el2 = e.target.closest("[title]");
-      if (!el2 || el2 === target || !root.contains(el2)) return;
+      if (!el2 || el2 === target || !root2.contains(el2)) return;
       hide();
       const text = el2.getAttribute("title")?.trim();
       if (!text) return;
@@ -27293,7 +27696,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         el2.setAttribute("aria-label", text);
         labelled = true;
       }
-      timer2 = window.setTimeout(() => {
+      timer3 = window.setTimeout(() => {
         if (target !== el2) return;
         if (el2.dataset.tip === "problem") {
           const err = el2.classList.contains("err");
@@ -27320,11 +27723,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         place();
       }, DELAY);
     });
-    root.addEventListener("pointerout", (e) => {
+    root2.addEventListener("pointerout", (e) => {
       if (target && !target.contains(e.relatedTarget)) hide();
     });
-    root.addEventListener("pointerdown", hide, true);
-    root.addEventListener("scroll", hide, true);
+    root2.addEventListener("pointerdown", hide, true);
+    root2.addEventListener("scroll", hide, true);
     document.addEventListener("keydown", hide, true);
   }
 
@@ -27433,8 +27836,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     } });
     declareArea({ name: "preview", root: "#fe-qlook", enter: () => isPreviewOpen() && focusFirst("#fe-qlook", "#fe-ql-close, button") });
     function focusFirst(scope, sel) {
-      const root = [...document.querySelectorAll(scope)].find(visible);
-      const t = root && [...root.querySelectorAll(sel)].find(visible);
+      const root2 = [...document.querySelectorAll(scope)].find(visible);
+      const t = root2 && [...root2.querySelectorAll(sel)].find(visible);
       if (!t) return false;
       t.focus({ preventScroll: false });
       return true;
@@ -27655,8 +28058,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       sub: (p.tags ?? []).map((t) => "#" + t).join(" ") || "saved",
       group: "Saved",
       icon: PI.bm,
-      run: () => app.strip.go(p.path),
-      runAlt: () => app.strip.open(p.path, true)
+      run: () => isWebPath(p.path) ? void window.open(p.path, "_blank", "noopener") : app.strip.go(p.path),
+      runAlt: () => isWebPath(p.path) ? void window.open(p.path, "_blank", "noopener") : app.strip.open(p.path, true)
     })));
     addPaletteSource(() => getRecents().slice(0, 30).map((r) => ({
       title: r.path.split("/").filter(Boolean).pop() || "/",
@@ -27771,6 +28174,367 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, true);
     window.addEventListener("blur", hideHints);
     document.addEventListener("pointerdown", hideHints, true);
+  }
+
+  // src/sync-state.ts
+  var STALE_SECONDS = 10 * 60;
+  var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+  function ago3(seconds) {
+    const m = Math.floor(seconds / 60);
+    if (m < 1) return "less than a minute ago";
+    if (m < 60) return `${plural2(m, "minute")} ago`;
+    const h = Math.floor(m / 60);
+    if (h < 48) return `${plural2(h, "hour")} ago`;
+    return `${plural2(Math.floor(h / 24), "day")} ago`;
+  }
+  function describeSync(r) {
+    const none2 = { clashes: 0, cameBack: [] };
+    if (!r.repo) return { level: "off", text: "Not synced: this notes folder is not in a synced repository, so it stays on this Mac.", ...none2 };
+    const s = r.state;
+    if (!s) return { level: "off", text: "Sync is not running: Switchboard has not reported on this folder yet.", ...none2 };
+    if (s.unreadable) return { level: "trouble", text: "Sync status could not be read: the state file is damaged.", ...none2 };
+    const at = s.at ? Date.parse(s.at) / 1e3 : NaN;
+    const clashes = s.clashes ?? 0, cameBack = s.cameBack ?? [];
+    if (!isFinite(at) || r.now - at > STALE_SECONDS) {
+      const when2 = isFinite(at) ? ` Its last report was ${ago3(r.now - at)}.` : "";
+      return { level: "off", text: `Sync is not running.${when2} Notes still save here, but they are not reaching other devices.`, clashes, cameBack };
+    }
+    if (s.ok === false) {
+      return { level: "trouble", text: `Sync has a problem: ${s.problem || "it did not say what"}.`, clashes, cameBack };
+    }
+    const parts2 = [];
+    if (clashes) parts2.push(`${plural2(clashes, "note")} hold${clashes === 1 ? "s" : ""} two versions, so settle ${clashes === 1 ? "it" : "them"}`);
+    if (s.behind) parts2.push(`${plural2(s.behind, "change")} from other devices ${s.behind === 1 ? "is" : "are"} waiting here`);
+    if (s.ahead) parts2.push(`${plural2(s.ahead, "change")} here ${s.ahead === 1 ? "has" : "have"} not been sent yet`);
+    if (cameBack.length) parts2.push(`${plural2(cameBack.length, "deleted note")} came back because it was edited elsewhere`);
+    if (!parts2.length) return { level: "ok", text: `Synced ${ago3(r.now - at)}.`, clashes, cameBack };
+    return { level: clashes ? "trouble" : "waiting", text: parts2.join("; ").replace(/^./, (c) => c.toUpperCase()) + ".", clashes, cameBack };
+  }
+
+  // src/saved-files.ts
+  function placeUrl(path) {
+    if (isWebPath(path)) return path;
+    const at = path.indexOf("#");
+    const base2 = at < 0 ? path : path.slice(0, at), hash = at < 0 ? "" : path.slice(at);
+    return "file://" + encodeURI(base2).replace(/\?/g, "%3F").replace(/#/g, "%23") + hash;
+  }
+  function urlPlace(url) {
+    const u = url.trim();
+    if (isWebPath(u)) return u;
+    const m = /^file:\/\/(\/[^#]*)(#.*)?$/i.exec(u);
+    if (!m) return null;
+    let base2;
+    try {
+      base2 = decodeURIComponent(m[1]);
+    } catch {
+      base2 = m[1];
+    }
+    return base2 + (m[2] ?? "");
+  }
+  var placeKey = (path) => saveKey(placeUrl(path));
+  function assignPositions(list3) {
+    const n = list3.length;
+    const ok = list3.map((p) => !!p.pos && validPos(p.pos));
+    const len = new Array(n).fill(0), prevAt = new Array(n).fill(-1);
+    let best = -1;
+    for (let i3 = 0; i3 < n; i3++) {
+      if (!ok[i3]) continue;
+      len[i3] = 1;
+      for (let j = 0; j < i3; j++) if (ok[j] && list3[j].pos < list3[i3].pos && len[j] + 1 > len[i3]) {
+        len[i3] = len[j] + 1;
+        prevAt[i3] = j;
+      }
+      if (best < 0 || len[i3] > len[best]) best = i3;
+    }
+    const keep = new Array(n).fill(false);
+    for (let i3 = best; i3 >= 0; i3 = prevAt[i3]) keep[i3] = true;
+    const out = [];
+    let lower2 = null;
+    for (let i3 = 0; i3 < list3.length; i3++) {
+      if (keep[i3]) {
+        out.push(list3[i3].pos);
+        lower2 = list3[i3].pos;
+        continue;
+      }
+      let upper = null;
+      for (let j = i3 + 1; j < list3.length; j++) if (keep[j]) {
+        upper = list3[j].pos;
+        break;
+      }
+      const pos = keyBetween(lower2, upper);
+      out.push(pos);
+      lower2 = pos;
+    }
+    return out;
+  }
+  function placeText(place, pos, existing, now = isoNow()) {
+    const base2 = existing ? parseNote(existing, "x") : null;
+    const note2 = base2 && !base2.conflicted ? { ...base2 } : {};
+    note2.title = place.label;
+    note2.tags = place.tags ?? [];
+    note2.url = placeUrl(place.path);
+    note2.device = isWebPath(place.path) ? note2.device ?? void 0 : "mac";
+    note2.pos = pos;
+    note2.created = note2.created ?? place.created ?? now;
+    note2.body = note2.body ?? "";
+    return renderNote(note2);
+  }
+  function textPlace(text, key) {
+    const clash = hasClash(text);
+    const src = clash ? [settle(text, "first"), settle(text, "second")].find((t) => parseNote(t, key).url) ?? "" : text;
+    const n = parseNote(src, key);
+    if (!n.url) return null;
+    const path = urlPlace(n.url);
+    if (path === null || !isWebPath(path) && n.device && n.device !== "mac") return null;
+    return {
+      path,
+      label: n.title || path.replace(/\/$/, "").split("/").pop() || path,
+      key,
+      ...n.tags.length ? { tags: n.tags } : {},
+      ...n.pos ? { pos: n.pos } : {},
+      ...n.created ? { created: n.created } : {},
+      ...clash ? { clash: key } : {}
+    };
+  }
+  function placesFromFiles(files) {
+    const rows = [];
+    for (const f of files) {
+      const place = textPlace(f.text, f.key);
+      if (place) rows.push({ id: f.key, pos: place.pos ?? null, created: place.created ?? null, place });
+    }
+    return sortNotes(rows).map((r) => r.place);
+  }
+  function sameSave(a, b, key) {
+    const x2 = parseNote(a, key), y = parseNote(b, key);
+    return !x2.conflicted && x2.title === y.title && x2.url === y.url && x2.device === y.device && x2.pos === y.pos && x2.tags.join("\n") === y.tags.join("\n") && x2.body === y.body;
+  }
+  async function planSaved(list3, files, known = null, now = isoNow()) {
+    const byKey = new Map(files.map((f) => [f.key, f.text]));
+    const keyOfUrl = /* @__PURE__ */ new Map();
+    for (const f of files) {
+      const u = parseNote(f.text, f.key).url;
+      if (u) keyOfUrl.set(normaliseUrl(u), f.key);
+    }
+    const poss = assignPositions(list3);
+    const writes = [];
+    const wanted2 = /* @__PURE__ */ new Set();
+    const placed = [];
+    for (let i3 = 0; i3 < list3.length; i3++) {
+      const key = list3[i3].clash ?? keyOfUrl.get(normaliseUrl(placeUrl(list3[i3].path))) ?? await placeKey(list3[i3].path);
+      if (wanted2.has(key)) continue;
+      wanted2.add(key);
+      if (list3[i3].clash) {
+        placed.push({ ...list3[i3], key });
+        continue;
+      }
+      const text = placeText(list3[i3], poss[i3], byKey.get(key) ?? null, now);
+      const was = byKey.get(key);
+      if (was === void 0 || !sameSave(was, text, key)) writes.push({ key, text });
+      placed.push({ ...list3[i3], key, pos: poss[i3], created: parseNote(text, key).created ?? void 0 });
+    }
+    const removes = known ? [...known].filter((k) => !wanted2.has(k) && byKey.has(k)) : [];
+    return { writes, removes, placed, keys: [...wanted2] };
+  }
+
+  // src/saved-sync.ts
+  var BACKUP_SAVED = "bfb-saved-premigration-v1";
+  var BACKUP_TAGS = "bfb-tags-premigration-v1";
+  var OFF_KEY = "bfb-saved-folder-off-v1";
+  var MOVED_KEY = "bfb-saved-moved-v1";
+  var KNOWN_KEY = "bfb-saved-known-v1";
+  var COLOURS_KEY = "bfb-saved-colours-v1";
+  var where = "unknown";
+  var whereWhy = "";
+  var watchers2 = [];
+  var savedWhere = () => ({ where, why: whereWhy, clashes: getSaved().filter((p) => p.clash).length, backup: kvGet(BACKUP_SAVED) !== null && kvGet(OFF_KEY) !== "1" });
+  var onSavedWhere = (fn) => {
+    watchers2.push(fn);
+  };
+  function setWhere(w, why = "") {
+    if (w !== where || why !== whereWhy) {
+      where = w;
+      whereWhy = why;
+    }
+    watchers2.forEach((f) => f());
+  }
+  var hooks = null;
+  var root = () => (getSettings().notesRoot || "").replace(/\/$/, "");
+  var json = (key, fallback) => {
+    try {
+      return JSON.parse(kvGet(key) ?? "null") ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  var isMoved = (r) => json(MOVED_KEY, {}).root === r;
+  var markMoved = (r) => kvSet(MOVED_KEY, JSON.stringify({ root: r, at: Date.now() }));
+  var knownKeys = (r) => {
+    const k = json(KNOWN_KEY, {});
+    return new Set(k.root === r ? k.keys ?? [] : []);
+  };
+  var setKnown = (r, keys2) => kvSet(KNOWN_KEY, JSON.stringify({ root: r, keys: keys2 }));
+  var knownColours = (r) => {
+    const k = json(COLOURS_KEY, {});
+    return k.root === r ? k.colours ?? {} : {};
+  };
+  var setColours = (r, colours) => kvSet(COLOURS_KEY, JSON.stringify({ root: r, colours }));
+  async function pushSaved(r = root(), createOnly = false) {
+    const cur = await notes.savedList(r);
+    const list3 = getSaved();
+    const snapshot2 = JSON.stringify(list3);
+    const plan = await planSaved(list3, cur.items, createOnly ? null : knownKeys(r));
+    const was = knownColours(r), folderTags = cur.tags ?? {};
+    const tags = Object.fromEntries(getTags().filter((t) => was[t.name] === void 0 ? folderTags[t.name] === void 0 : t.color !== was[t.name]).map((t) => [t.name, t.color]));
+    const batch = await notes.savedSync(r, { writes: plan.writes, removes: plan.removes, tags, createOnly });
+    setKnown(r, plan.keys);
+    setColours(r, { ...folderTags, ...tags });
+    if (JSON.stringify(getSaved()) === snapshot2) {
+      setSavedQuiet(plan.placed);
+      markSavedSent();
+    }
+    setWhere("folder");
+    return { written: batch.written.length, removed: batch.removed.length };
+  }
+  function adopt(r, got) {
+    const next = placesFromFiles(got.items);
+    const before = JSON.stringify(getSaved()), regBefore = kvGet(TAGS_KEY);
+    setSavedFromFolder(next, got.tags ?? void 0);
+    setKnown(r, next.map((p) => p.key));
+    setColours(r, got.tags ?? {});
+    setWhere("folder");
+    if (JSON.stringify(getSaved()) !== before || kvGet(TAGS_KEY) !== regBefore) hooks?.refresh();
+  }
+  async function pullSaved() {
+    const r = root();
+    if (!r) {
+      setWhere("browser", "There is no notes folder set in Settings.");
+      return "none";
+    }
+    if (kvGet(OFF_KEY) === "1") {
+      setWhere("browser", "Saved was moved back to this browser.");
+      return "none";
+    }
+    let got;
+    try {
+      got = await notes.savedList(r);
+    } catch (e) {
+      setWhere("unreachable", e instanceof NotesError ? e.message : String(e));
+      return "none";
+    }
+    if (!isMoved(r)) {
+      if (onPhone()) {
+        if (!got.exists && !savedUnsent()) {
+          setWhere("folder");
+          return "none";
+        }
+        if (savedUnsent()) await pushSaved(r, true);
+        markMoved(r);
+        adopt(r, await notes.savedList(r));
+        return "pulled";
+      }
+      return firstMove(r, got);
+    }
+    if (savedUnsent()) {
+      await pushSaved(r);
+      adopt(r, await notes.savedList(r));
+      return "pushed";
+    }
+    adopt(r, got);
+    return "pulled";
+  }
+  async function firstMove(r, got) {
+    const rows = getSaved();
+    if (!rows.length) {
+      markMoved(r);
+      adopt(r, got);
+      return "pulled";
+    }
+    if (kvGet(BACKUP_SAVED) === null) {
+      kvSet(BACKUP_SAVED, kvGet(SAVED_KEY) ?? "[]");
+      kvSet(BACKUP_TAGS, kvGet(TAGS_KEY) ?? "[]");
+    }
+    const done = await pushSaved(r, true);
+    markMoved(r);
+    const after = await notes.savedList(r);
+    adopt(r, after);
+    hooks?.refresh();
+    const joined = after.items.length - done.written > 0 ? `, beside ${after.items.length - done.written} already there` : "";
+    hooks?.toast(`Saved now lives in your notes folder: ${done.written} ${done.written === 1 ? "save" : "saves"} written to .saved/${joined}`, 12e3, { label: "undo", run: () => void undoMigration(r) });
+    return "migrated";
+  }
+  async function undoMigration(r = root()) {
+    const savedBackup = kvGet(BACKUP_SAVED), tagsBackup = kvGet(BACKUP_TAGS);
+    if (savedBackup === null || !r) return;
+    const cur = await notes.savedList(r);
+    const mine = (await planSaved(JSON.parse(savedBackup), cur.items)).keys;
+    await notes.savedSync(r, { removes: cur.items.map((i3) => i3.key).filter((k) => mine.includes(k)) });
+    kvSet(SAVED_KEY, savedBackup);
+    if (tagsBackup !== null) kvSet(TAGS_KEY, tagsBackup);
+    markSavedSent();
+    kvRemove(BACKUP_SAVED);
+    kvRemove(BACKUP_TAGS);
+    kvRemove(MOVED_KEY);
+    kvRemove(KNOWN_KEY);
+    kvRemove(COLOURS_KEY);
+    kvSet(OFF_KEY, "1");
+    setWhere("browser", "Saved was moved back to this browser.");
+    hooks?.refresh();
+    hooks?.toast("Saved is back where it was");
+  }
+  async function restoreBackup() {
+    const savedBackup = kvGet(BACKUP_SAVED);
+    if (savedBackup === null) return;
+    const old = JSON.parse(savedBackup), now = getSaved();
+    const back = old.filter((o) => !now.some((n) => samePlace(n.path, o.path)));
+    const tagsBackup = json(BACKUP_TAGS, []), reg = json(TAGS_KEY, []);
+    kvSet(TAGS_KEY, JSON.stringify([...reg, ...tagsBackup.filter((t) => !reg.some((x2) => x2.name === t.name))]));
+    kvSet(SAVED_KEY, JSON.stringify([...now, ...back]));
+    kvSet(SAVED_DIRTY_KEY, "1");
+    hooks?.refresh();
+    schedulePush();
+    hooks?.toast(back.length ? `Brought back ${back.length} ${back.length === 1 ? "row" : "rows"} from before the move` : "Every row from before the move is already here");
+  }
+  async function settleSave(key, keep) {
+    const r = root();
+    const cur = await notes.savedList(r);
+    const item2 = cur.items.find((i3) => i3.key === key);
+    if (!item2) return;
+    await notes.savedSync(r, { writes: [{ key, text: settle(item2.text, keep) }] });
+    await pullSavedNow();
+    hooks?.refresh();
+  }
+  var timer2 = null;
+  var busy = Promise.resolve();
+  var failed = (e) => setWhere("unreachable", e instanceof NotesError ? e.message : String(e));
+  function schedulePush() {
+    const r = root();
+    if (!r || kvGet(OFF_KEY) === "1") return;
+    if (timer2) clearTimeout(timer2);
+    timer2 = setTimeout(() => {
+      timer2 = null;
+      busy = busy.then(() => (isMoved(r) ? pushSaved() : pullSaved()).then(() => void 0).catch(failed));
+    }, 300);
+  }
+  var lastPull = 0;
+  function startSavedSync(h) {
+    hooks = h;
+    onSavedChanged(schedulePush);
+    const pull = () => {
+      lastPull = Date.now();
+      busy = busy.then(() => pullSaved().catch(() => void 0));
+    };
+    pull();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && Date.now() - lastPull > 3e3) pull();
+    });
+    window.addEventListener("focus", () => {
+      if (Date.now() - lastPull > 3e3) pull();
+    });
+  }
+  var pullSavedNow = () => busy = busy.then(() => pullSaved().catch(() => void 0));
+  function enableSavedFolder() {
+    kvRemove(OFF_KEY);
+    return pullSavedNow();
   }
 
   // src/sidebar.ts
@@ -27944,8 +28708,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!p) return;
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
-      const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card5.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      const where2 = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
+      card5.innerHTML = `<b>${esc(p.label || where2)}</b><span class="fe-svc-path">${esc(home && where2.startsWith(home) ? "~" + where2.slice(home.length) : where2)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item2.getBoundingClientRect();
       card5.hidden = false;
       raise(card5);
@@ -28111,6 +28875,27 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           inlineEdit(tagsEl, (val) => saveSaved(setTags(getSaved(), path, parseTags(val))));
         });
       });
+      els(".fe-clash-btn", svList).forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const key = btn.dataset.key;
+          const menu = document.createElement("div");
+          menu.className = "fe-pmenu fe-clash-menu";
+          menu.innerHTML = `<div class="fe-pm-lbl">Keep</div>
+          <button class="btn" data-size="sm" data-keep="first" role="menuitem">The first version</button>
+          <button class="btn" data-size="sm" data-keep="second" role="menuitem">The second version</button>
+          <button class="btn" data-size="sm" data-keep="both" role="menuitem">Both</button>`;
+          let layer = null;
+          menu.addEventListener("click", (ev) => {
+            const k = ev.target.closest("[data-keep]")?.dataset.keep;
+            if (!k) return;
+            layer?.close("pick");
+            void settleSave(key, k).then(() => toast("Settled"), (err) => toast(errorText(err, "Settling the save")));
+          });
+          layer = openLayer(menu, { kind: "popover", anchor: btn, role: "menu", group: "menu" });
+        });
+      });
       els(".fe-sv-dot", svList).forEach((dot) => {
         dot.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -28145,15 +28930,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     app.canMoveRow = (row2) => row2.classList.contains("fe-pl-item") ? !svFilter.value.trim() : row2.classList.contains("fe-nt-item") ? row2.draggable : false;
     app.moveRow = (row2, dir) => {
       if (row2.classList.contains("fe-nt-item")) {
-        const root = notesRoot(), rel = row2.dataset.rel, pinned = row2.classList.contains("pinned");
+        const root2 = notesRoot(), rel = row2.dataset.rel, pinned = row2.classList.contains("pinned");
         const group2 = allNotes.filter((n) => !!n.pinned === pinned), at2 = group2.findIndex((n) => n.rel === rel);
         const next2 = group2[at2 + dir];
-        if (!root || at2 < 0) return;
+        if (!root2 || at2 < 0) return;
         if (!next2) {
           toast(dir > 0 ? "Already last" : "Already first");
           return;
         }
-        dropNote(root, rel, pinned, next2.rel, dir > 0);
+        dropNote(root2, rel, pinned, next2.rel, dir > 0);
         els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel)?.querySelector(".fe-si-link")?.focus();
         return;
       }
@@ -28197,7 +28982,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let allNotes = [];
     let ntDrag = null;
     const clearDropMarks = () => els(".drop-before, .drop-after, .drop-in", ntList).forEach((x2) => x2.classList.remove("drop-before", "drop-after", "drop-in"));
-    function dropNote(root, rel, toPinned, beforeRel, after) {
+    function dropNote(root2, rel, toPinned, beforeRel, after) {
       const src = allNotes.find((n) => n.rel === rel);
       if (!src) return;
       const group2 = allNotes.filter((n) => !!n.pinned === toPinned && n.rel !== rel);
@@ -28211,18 +28996,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const pos = writes.get(n.rel);
         return pos || n.rel === rel && pinChange ? { ...n, ...pos ? { pos } : {}, ...n.rel === rel ? { pinned: toPinned } : {} } : n;
       }));
-      renderNotes(root);
+      renderNotes(root2);
       if (pinChange) toast(toPinned ? "Pinned" : "Unpinned");
       const rels = [.../* @__PURE__ */ new Set([...writes.keys(), ...pinChange ? [rel] : []])];
       arranging++;
       arrangeChain = arrangeChain.then(async () => {
         for (const r of rels) {
-          const cur = await notes.read(root, r);
+          const cur = await notes.read(root2, r);
           let next = cur.text;
           if (writes.has(r)) next = setPos(next, writes.get(r));
           if (r === rel && pinChange) next = setPinned(next, toPinned);
           if (frontmatterDrift(cur.text, next, ["pos", "pinned"]).length) throw new Error("that would change other properties");
-          await notes.write(root, r, next, cur.mtime);
+          await notes.write(root2, r, next, cur.mtime);
         }
       }).catch((err) => {
         toast(errorText(err, "Saving the new order"));
@@ -28278,6 +29063,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ntList.querySelector(".fe-nt-pinzone")?.remove();
       if (at && at.rel !== rel) dropNote(notesRoot(), rel, at.pinned, at.rel, at.after);
     });
+    const LANES_FOLDED = /* @__PURE__ */ new Set(["agents", "expired"]);
     const noteFoldsPref = setPref("bfb-notes-folded-v1");
     const noteFolds = () => noteFoldsPref.get();
     ntList.addEventListener("click", (e) => {
@@ -28287,7 +29073,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const folds = noteFolds(), key = g.dataset.grp;
       if (folds.has(key)) folds.delete(key);
       else folds.add(key);
-      const open = !folds.has(key);
+      const open = LANES_FOLDED.has(key) ? folds.has(key) : !folds.has(key);
       g.setAttribute("aria-expanded", String(open));
       g.title = `${open ? "Fold" : "Show"} ${g.dataset.label}`;
       noteFoldsPref.set(folds);
@@ -28303,8 +29089,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let trashOpen = false;
     let trashed = [];
     const trashBtn = el("fe-nt-trash");
-    function renderTrash(root) {
-      ntHint.textContent = `Trash: ${trashed.length} deleted note${trashed.length !== 1 ? "s" : ""} in ${root}/.trash`;
+    function renderTrash(root2) {
+      ntHint.textContent = `Trash: ${trashed.length} deleted note${trashed.length !== 1 ? "s" : ""} in ${root2}/.trash`;
       const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
       ntList.innerHTML = head + (trashed.length ? trashed.map((t) => `
       <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
@@ -28312,7 +29098,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
       </div>`).join("") : emptyHtml("empty", "The trash is empty", { inline: true, hint: "Deleted notes wait here until you restore them" }));
     }
-    function showTrash(root, on) {
+    function showTrash(root2, on) {
       trashOpen = on;
       trashBtn.classList.toggle("on", on);
       el("fe-lens-notes").classList.toggle("trashing", on);
@@ -28322,43 +29108,43 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         refreshNotes();
         return;
       }
-      notes.trashList(root).then((list3) => {
+      notes.trashList(root2).then((list3) => {
         trashed = list3;
-        if (trashOpen) renderTrash(root);
+        if (trashOpen) renderTrash(root2);
       }).catch((err) => toast(errorText(err, "Listing the trash")));
     }
     trashBtn.addEventListener("click", () => {
-      const root = notesRoot();
-      if (root) showTrash(root, !trashOpen);
+      const root2 = notesRoot();
+      if (root2) showTrash(root2, !trashOpen);
     });
     ntList.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-nt-restore");
       if (!b) return;
-      const root = notesRoot(), item2 = trashed.find((t) => t.trashed === b.dataset.trashed);
-      if (!root || !item2) return;
-      notes.restore(root, item2.trashed).then((r) => {
+      const root2 = notesRoot(), item2 = trashed.find((t) => t.trashed === b.dataset.trashed);
+      if (!root2 || !item2) return;
+      notes.restore(root2, item2.trashed).then((r) => {
         trashed = trashed.filter((t) => t !== item2);
-        if (trashOpen) renderTrash(root);
+        if (trashOpen) renderTrash(root2);
         refreshNotes();
         toast(`Restored ${item2.title || noteTitle(r.rel)}`);
       }).catch((err) => toast(errorText(err, "Restoring the note")));
     });
-    function renderNotes(root) {
+    function renderNotes(root2) {
       if (trashOpen) return;
       if (ntList.querySelector(".fe-nt-label.editing") || ntDrag) return;
-      keepNotes(root, allNotes);
+      keepNotes(root2, allNotes);
       const filtering = !!ntFilter.value.trim();
       lensNotes.count = allNotes.length;
       lensNotes.tags = [...new Set(allNotes.flatMap((n) => n.tags ?? []))];
       syncLens();
       const shown = shownNotes();
-      ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
+      ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root2}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root2}`;
       const row2 = (n) => {
         const c = colorName(n.color);
         return `
-          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}${filtering ? "" : ' draggable="true"'}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length || n.agent || n.url || n.remindAt ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}${filtering ? "" : ' draggable="true"'}>
             ${filtering ? "" : `<span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>`}
-            <a href="${esc(fileHref(root + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
+            <a href="${esc(fileHref(root2 + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             </a>
             <span class="fe-nt-acts">
@@ -28368,42 +29154,45 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             </span>
           </div>`;
       };
-      const pinned = shown.filter((n) => n.pinned), rest = shown.filter((n) => !n.pinned);
+      const pinned = shown.filter((n) => n.pinned);
+      const lane = (n) => !n.pinned && (n.agent ? "agents" : isExpired(n) ? "expired" : "");
+      const agents = shown.filter((n) => lane(n) === "agents"), expired = shown.filter((n) => lane(n) === "expired");
+      const rest = shown.filter((n) => !n.pinned && !lane(n));
       const folded = noteFolds();
       const group2 = (key, label, list3) => {
-        const open = !folded.has(key) || !!ntFilter.value.trim();
+        const open = (LANES_FOLDED.has(key) ? folded.has(key) : !folded.has(key)) || !!ntFilter.value.trim();
         return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${DISCLOSE}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
       const heldRel = document.activeElement?.matches(".fe-si-link") ? document.activeElement.closest(".fe-nt-item")?.dataset.rel : void 0;
-      ntList.innerHTML = shown.length ? pinned.length ? group2("pinned", "Pinned", pinned) + group2("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
-      attachNoteEvents(root);
+      ntList.innerHTML = shown.length ? pinned.length || agents.length || expired.length ? (pinned.length ? group2("pinned", "Pinned", pinned) : "") + (pinned.length || rest.length ? group2("all", "All notes", rest) : "") + (agents.length ? group2("agents", "Agents", agents) : "") + (expired.length ? group2("expired", "Expired", expired) : "") : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
+      attachNoteEvents(root2);
       if (heldRel) els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === heldRel)?.querySelector(".fe-si-link")?.focus();
     }
     addPaletteSource(() => {
-      const root = notesRoot();
-      return root ? allNotes.map((n) => ({
+      const root2 = notesRoot();
+      return root2 ? allNotes.map((n) => ({
         title: n.title || noteTitle(n.rel),
         sub: (n.tags ?? []).map((t) => "#" + t).join(" ") || "note",
         group: "Notes",
         icon: PI.docs,
-        run: () => app.strip.go(root + "/" + n.rel),
-        runAlt: () => app.strip.open(root + "/" + n.rel, true)
+        run: () => app.strip.go(root2 + "/" + n.rel),
+        runAlt: () => app.strip.open(root2 + "/" + n.rel, true)
       })) : [];
     });
     let searchTimer = null;
     ntFilter.addEventListener("input", () => {
-      const root = notesRoot();
-      if (!root) return;
+      const root2 = notesRoot();
+      if (!root2) return;
       const q = ntFilter.value.trim();
       bodyHits = /* @__PURE__ */ new Map();
-      renderNotes(root);
+      renderNotes(root2);
       if (searchTimer) clearTimeout(searchTimer);
       if (!q || q.startsWith("#") || !deep()) return;
       searchTimer = setTimeout(() => {
-        notes.search(root, q).then((hits) => {
+        notes.search(root2, q).then((hits) => {
           if (ntFilter.value.trim() !== q) return;
           bodyHits = new Map(hits.map((h) => [h.rel, h.line]));
-          renderNotes(root);
+          renderNotes(root2);
         }).catch(() => {
         });
       }, 250);
@@ -28464,7 +29253,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const words = q.split(/\s+/);
       insideTimer = setTimeout(async () => {
         const found = /* @__PURE__ */ new Map();
-        await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path)).map(async (p) => {
+        await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path) && !isWebPath(p.path)).map(async (p) => {
           const name2 = (await namesIn2(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
           if (name2) found.set(p.path, name2);
         }));
@@ -28508,11 +29297,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       toggleTagFilter(tag);
       if (hadFocus) [...el("fe-lens-tags").querySelectorAll(".fe-lens-tag")].find((c) => c.dataset.tag === tag)?.focus();
     });
-    const keptNotes = (root) => keptNotesList(root);
-    const keepNotes = (root, list3) => keepNotesList(root, list3);
+    const keptNotes = (root2) => keptNotesList(root2);
+    const keepNotes = (root2, list3) => keepNotesList(root2, list3);
     function refreshNotes() {
-      const root = notesRoot();
-      if (!root) {
+      const root2 = notesRoot();
+      if (!root2) {
         lensNotes.count = 0;
         lensNotes.tags = [];
         syncLens();
@@ -28529,21 +29318,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         });
         return;
       }
-      el("fe-notes-root").href = fileHref(root + "/");
+      el("fe-notes-root").href = fileHref(root2 + "/");
       if (!allNotes.length) {
-        const kept = keptNotes(root);
+        const kept = keptNotes(root2);
         if (kept) {
           allNotes = kept;
-          renderNotes(root);
+          renderNotes(root2);
         }
       }
-      notes.list(root).then((unsorted) => {
+      notes.list(root2).then((unsorted) => {
         if (arranging) return;
         const next = sharedOrder(unsorted);
         const same = JSON.stringify(next) === JSON.stringify(allNotes);
         allNotes = next;
-        keepNotes(root, next);
-        if (!same || !ntList.querySelector(".fe-nt-item, .fe-empty")) renderNotes(root);
+        keepNotes(root2, next);
+        paintSync();
+        if (!same || !ntList.querySelector(".fe-nt-item, .fe-empty")) renderNotes(root2);
       }).catch((err) => {
         ntHint.textContent = errorText(err, "Listing the notes");
         ntList.innerHTML = err.code === "unavailable" ? emptyHtml("failed", "Notes host not installed", { inline: true, hint: errorText(err) }) : emptyHtml("failed", "Notes could not be listed", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the notes again" }] });
@@ -28554,11 +29344,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span class="fe-nt-tag"><i style="--dot:${esc(colour.get(t) ?? "var(--dm)")}"></i>${esc(t)}</span>`).join("")}</span>` : "";
       const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : "";
-      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
+      const rs = reminderState(n);
+      const marks = [
+        n.agent ? `<span class="fe-nt-mark agent" title="Made or last edited by ${esc(n.agent)}">${UI_ICON.ai}<span>${esc(n.agent)}</span></span>` : "",
+        rs !== "none" ? `<span class="fe-nt-mark rem${rs === "missed" ? " missed" : ""}" title="${rs === "missed" ? "This reminder passed and was not dismissed" : "Reminder"}${n.remindOn === "phone" ? " (rings on the phone)" : ""}">${UI_ICON.clock}<span>${rs === "missed" ? "Missed " : ""}${esc(whenShort(n.remindAt))}</span></span>` : "",
+        n.url ? `<span class="fe-nt-mark url" title="${esc(n.url)}">${UI_ICON.link}</span>` : ""
+      ].join("");
+      const marked = marks ? `<span class="fe-nt-marks">${marks}</span>` : "";
+      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}${marked}</span>${pin}`;
     }
     const noteName = (n) => n.title || noteTitle(n.rel);
-    const notePath = (root, rel) => root.replace(/\/$/, "") + "/" + rel;
-    function stepNote(root, rel, dir) {
+    const notePath = (root2, rel) => root2.replace(/\/$/, "") + "/" + rel;
+    function stepNote(root2, rel, dir) {
       const shown = shownNotes();
       const pool = shown.some((n) => n.rel === rel) ? shown : allNotes;
       const at = pool.findIndex((n) => n.rel === rel);
@@ -28567,9 +29364,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         toast(dir > 0 ? "That is the last note" : "That is the first note");
         return;
       }
-      openNoteRel(root, next.rel);
+      openNoteRel(root2, next.rel);
     }
-    function renameNote(root, rel, reopen) {
+    function renameNote(root2, rel, reopen) {
       const row2 = els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel);
       const label = row2?.querySelector(".fe-nt-label");
       if (!label) {
@@ -28584,15 +29381,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const meta = allNotes.find((n) => n.rel === rel);
       label.textContent = meta ? noteName(meta) : noteTitle(rel);
       const back = () => {
-        renderNotes(root);
-        if (reopen) openNoteRel(root, rel);
+        renderNotes(root2);
+        if (reopen) openNoteRel(root2, rel);
       };
       inlineEdit(label, (val) => {
         if (!val.trim()) {
           back();
           return;
         }
-        notes.read(root, rel).then(async (doc) => {
+        notes.read(root2, rel).then(async (doc) => {
           const to = nameIsId(rel) ? rel : rel.replace(/[^/]+$/, slugForTitle(val));
           if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some((n) => n.rel.toLowerCase() === to.toLowerCase())) {
             toast(`A note named ${to.split("/").pop()} already exists. Pick another title.`);
@@ -28601,31 +29398,31 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           }
           let now = rel;
           if (to !== rel) {
-            await notes.rename(root, rel, to);
+            await notes.rename(root2, rel, to);
             now = to;
           }
           const titled = retitle(doc.text, val);
-          if (titled !== null) await notes.write(root, now, titled, doc.mtime);
+          if (titled !== null) await notes.write(root2, now, titled, doc.mtime);
           refreshNotes();
-          if (reopen) openNoteRel(root, now);
+          if (reopen) openNoteRel(root2, now);
         }).catch((err) => toast(errorText(err, "Renaming the note")));
       }, back);
     }
-    function deleteNote(root, rel) {
+    function deleteNote(root2, rel) {
       if (editingRel() === rel) discardEditor();
-      notes.delete(root, rel).then((r) => {
+      notes.delete(root2, rel).then((r) => {
         refreshNotes();
         toast("Moved to .trash", 6e3, { label: "Undo", run: () => {
-          notes.restore(root, r.trashed, rel).then(() => {
+          notes.restore(root2, r.trashed, rel).then(() => {
             refreshNotes();
             toast("Put back");
           }).catch((err) => toast(errorText(err, "Putting the note back")));
         } });
       }).catch((err) => toast(errorText(err, "Moving the note to .trash")));
     }
-    function openNoteRel(root, rel) {
+    function openNoteRel(root2, rel) {
       const actions = {
-        step: (r, dir) => stepNote(root, r, dir),
+        step: (r, dir) => stepNote(root2, r, dir),
         // The editor's scrim covers the sidebar, so close the editor, rename in
         // the list, then reopen the note. The bar acts on mousedown; wait for the
         // rest of that click, which would otherwise land on the page under the
@@ -28637,7 +29434,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             started = true;
             void saveEditor().then(() => {
               discardEditor();
-              renameNote(root, r, true);
+              renameNote(root2, r, true);
             });
           };
           if (now) {
@@ -28647,24 +29444,24 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           document.addEventListener("pointerup", () => setTimeout(start, 0), { once: true, capture: true });
           setTimeout(start, 800);
         },
-        del: (r) => deleteNote(root, r)
+        del: (r) => deleteNote(root2, r)
       };
-      notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes, actions)).catch((err) => toast(errorText(err, "Opening the note")));
+      notes.read(root2, rel).then((doc) => openNote(root2, doc, refreshNotes, actions)).catch((err) => toast(errorText(err, "Opening the note")));
     }
     app.editNoteProps = (rel, anchor) => {
-      const root = notesRoot();
-      if (root) openProps(root, rel, anchor);
+      const root2 = notesRoot();
+      if (root2) openProps(root2, rel, anchor);
     };
-    function openProps(root, rel, anchor) {
-      notes.read(root, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
-        const cur = await notes.read(root, rel);
+    function openProps(root2, rel, anchor) {
+      notes.read(root2, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
+        const cur = await notes.read(root2, rel);
         const next = applyChange(cur.text, c);
         if (frontmatterDrift(cur.text, next, changedKeys(c)).length) {
           toast("Not saved: that would change other properties");
           return;
         }
         try {
-          await notes.write(root, rel, next, cur.mtime);
+          await notes.write(root2, rel, next, cur.mtime);
         } catch (err) {
           toast(errorText(err, "Saving the change"));
           return;
@@ -28678,7 +29475,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     ntMenu.className = "fe-ctx";
     let ntLayer = null;
     const closeNtMenu = () => ntLayer?.close("pick");
-    function openNtMenu(root, item2, x2, y) {
+    function openNtMenu(root2, item2, x2, y) {
       const rel = item2.dataset.rel;
       ntMenu.innerHTML = [
         `<div class="row fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
@@ -28688,49 +29485,49 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
-        `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
       ].join("");
       ntMenu.dataset.rel = rel;
-      ntMenu.dataset.root = root;
+      ntMenu.dataset.root = root2;
       ntLayer = openLayer(ntMenu, { kind: "popover", place: "point", point: { x: x2, y }, origin: item2, role: "menu", group: "menu" });
     }
     ntMenu.addEventListener("click", (e) => {
       const item2 = e.target.closest(".fe-ctx-item");
       if (!item2) return;
-      const { rel, root } = ntMenu.dataset;
+      const { rel, root: root2 } = ntMenu.dataset;
       closeNtMenu();
       const row2 = els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel);
       const meta = allNotes.find((n) => n.rel === rel);
       switch (item2.dataset.act) {
         case "open":
-          openNoteRel(root, rel);
+          openNoteRel(root2, rel);
           break;
         case "tab":
-          app.strip.go(notePath(root, rel));
+          app.strip.go(notePath(root2, rel));
           break;
         case "rename":
-          renameNote(root, rel, false);
+          renameNote(root2, rel, false);
           break;
         case "props":
-          if (row2) openProps(root, rel, row2.querySelector(".fe-nt-props"));
+          if (row2) openProps(root2, rel, row2.querySelector(".fe-nt-props"));
           break;
         case "cp-path":
-          void copyToClipboard(notePath(root, rel)).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
+          void copyToClipboard(notePath(root2, rel)).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
           break;
         case "cp-title":
           void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then((ok) => toast(ok ? "Copied title" : "Copy failed"));
           break;
-        case "cp-phone":
-          void copyPhoneLink(notePath(root, rel), toast);
+        case "cp-link":
+          void copyLink(notePath(root2, rel), toast);
           break;
         case "delete":
-          deleteNote(root, rel);
+          deleteNote(root2, rel);
           break;
       }
     });
-    function attachNoteEvents(root) {
+    function attachNoteEvents(root2) {
       els(".fe-nt-item", ntList).forEach((item2) => {
         const rel = item2.dataset.rel;
         item2.querySelector(".fe-si-link").addEventListener("click", (e) => {
@@ -28740,38 +29537,38 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           if (clickTimer) clearTimeout(clickTimer);
           clickTimer = setTimeout(() => {
             clickTimer = null;
-            openNoteRel(root, rel);
+            openNoteRel(root2, rel);
           }, 250);
         });
         item2.addEventListener("contextmenu", (e) => {
           e.preventDefault();
-          openNtMenu(root, item2, e.clientX, e.clientY);
+          openNtMenu(root2, item2, e.clientX, e.clientY);
         });
         item2.querySelector(".fe-nt-label").addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          renameNote(root, rel, false);
+          renameNote(root2, rel, false);
         });
         item2.querySelector(".fe-rm-btn").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          deleteNote(root, rel);
+          deleteNote(root2, rel);
         });
         item2.querySelector(".fe-nt-props").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          openProps(root, rel, e.currentTarget);
+          openProps(root2, rel, e.currentTarget);
         });
         item2.querySelector(".fe-nt-tab").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          app.strip.go(notePath(root, rel));
+          app.strip.go(notePath(root2, rel));
         });
       });
     }
     app.newNote = () => {
-      const root = notesRoot();
-      if (!root) {
+      const root2 = notesRoot();
+      if (!root2) {
         app.openSettings("notes");
         el("fe-st-notes-root").focus();
         return;
@@ -28779,20 +29576,61 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
       const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
       const rel = `untitled-${stamp}.md`;
-      notes.create(root, rel, "").then(() => openNoteRel(root, rel)).catch((err) => toast(errorText(err, "Making the note")));
+      notes.create(root2, rel, "").then(() => openNoteRel(root2, rel)).catch((err) => toast(errorText(err, "Making the note")));
     };
     app.pickNotesFolder = () => {
-      notes.pick(notesRoot() || void 0).then((root) => {
-        if (!root) return;
-        settings.notesRoot = root;
+      notes.pick(notesRoot() || void 0).then((root2) => {
+        if (!root2) return;
+        settings.notesRoot = root2;
         saveSettings(settings);
         const field = document.getElementById("fe-st-notes-root");
-        if (field) field.value = root;
+        if (field) field.value = root2;
         refreshNotes();
       }).catch((err) => toast(errorText(err, "Picking the folder")));
     };
     el("fe-nt-add").addEventListener("click", () => app.newNote());
     refreshNotes();
+    const ntWhere = el("fe-nt-where");
+    let syncTimer = null;
+    const paintSync = () => {
+      const root2 = notesRoot();
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+      }
+      if (!root2) {
+        ntWhere.hidden = true;
+        return;
+      }
+      notes.syncState(root2).then((r) => {
+        const v = describeSync(r);
+        const here = allNotes.filter((n) => n.conflicted).length;
+        const extra = here && !v.clashes ? ` ${here} ${here === 1 ? "note holds" : "notes hold"} two versions here.` : "";
+        ntWhere.hidden = false;
+        ntWhere.dataset.state = v.level;
+        ntWhere.textContent = v.text + extra;
+      }, () => {
+        ntWhere.hidden = false;
+        ntWhere.dataset.state = "off";
+        ntWhere.textContent = "Sync status unavailable: the notes helper did not answer.";
+      });
+      syncTimer = setTimeout(paintSync, 6e4);
+    };
+    app.paintSync = paintSync;
+    startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
+    const svWhere = el("fe-sv-where");
+    const paintWhere = () => {
+      const { where: where2, why, clashes, backup } = savedWhere();
+      svWhere.hidden = where2 === "unknown";
+      svWhere.dataset.state = where2;
+      const two = clashes ? ` ${clashes} ${clashes === 1 ? "save holds" : "saves hold"} two versions after a merge: choose which to keep.` : "";
+      const back = backup ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Put back the rows this browser had before Saved moved to the folder, beside what is there now">Bring back my earlier rows</button>' : "";
+      svWhere.innerHTML = where2 === "folder" ? `Kept in your notes folder.${two}${back}` : where2 === "unreachable" ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ""}` : `Kept only in this browser. ${esc(why)}${why.includes("moved back") ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ""}`;
+      document.getElementById("fe-sv-where-on")?.addEventListener("click", () => void enableSavedFolder());
+      document.getElementById("fe-sv-where-back")?.addEventListener("click", () => void restoreBackup());
+    };
+    onSavedWhere(paintWhere);
+    paintWhere();
     const anchorPath = (a) => decodeURIComponent(a.href.slice(fileBase().length));
     for (const host of [el("fe-side"), el("fe-bc"), el("fe-crumb-menu")]) {
       host.addEventListener("click", (e) => {
@@ -28861,17 +29699,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         status.textContent = "Type a word and press Enter.";
         return;
       }
-      const root = fileHref(app.folderPath.replace(/\/?$/, "/"));
+      const root2 = fileHref(app.folderPath.replace(/\/?$/, "/"));
       const deep = el("fe-srch-deep").checked;
       status.textContent = deep ? "Listing folders\u2026" : "Searching\u2026";
       let files;
       let limit = "";
       try {
         if (deep) {
-          const r = await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES, maxDepth: SEARCH_DEPTH }, cancelled);
+          const r = await crawl(root2, listDir, { maxEntries: SEARCH_MAX_FILES, maxDepth: SEARCH_DEPTH }, cancelled);
           files = r.entries;
           limit = [r.entryCapped ? `stopped listing at ${SEARCH_MAX_FILES.toLocaleString("en-US")} items` : "", r.depthCapped ? `folders deeper than ${SEARCH_DEPTH} levels were not searched` : ""].filter(Boolean).join("; ");
-        } else files = await listDir(root);
+        } else files = await listDir(root2);
       } catch {
         if (!cancelled()) status.textContent = "Could not list this folder.";
         return;
@@ -28891,12 +29729,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (cancelled()) return;
       const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
-      status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (limit ? ` (${limit})` : "");
+      const saves = filterSaved(getSaved(), term).slice(0, 30);
+      const threads = await notes.commentsSearch(term).catch(() => []);
+      if (cancelled()) return;
+      const elsewhere = [saves.length ? `${saves.length} saved` : "", threads.length ? `${threads.length} comment${threads.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
+      status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (elsewhere ? `; also ${elsewhere}` : "") + (limit ? ` (${limit})` : "");
+      const extra = (saves.length ? `<div class="sect fe-srch-sect" data-level="group">Saved<span class="fe-grp-n">${saves.length}</span></div>` + saves.map((p) => `<a class="row fe-si fe-srch-hit fe-srch-save" href="${esc(isWebPath(p.path) ? p.path : pageHref(fileHref(p.path)))}" title="${esc(p.path)}">${isWebPath(p.path) ? UI_ICON.link : p.path.endsWith("/") ? PI.folder : PI.docs}<span class="fe-srch-tx"><span class="fe-sl">${esc(p.label || p.path)}</span><span class="fe-srch-snip">${esc((p.tags ?? []).map((t) => "#" + t).join(" ") || p.path)}</span></span></a>`).join("") : "") + (threads.length ? `<div class="sect fe-srch-sect" data-level="group">Comments<span class="fe-grp-n">${threads.length}</span></div>` + threads.map((t) => `<a class="row fe-si fe-srch-hit fe-srch-comment" href="${esc(pageHref(fileHref(t.doc)))}" title="${esc(t.doc)}">${UI_ICON.opinion}<span class="fe-srch-tx"><span class="fe-sl">${esc(t.doc.split("/").pop() ?? t.doc)}${t.status === "done" ? " (done)" : ""}</span><span class="fe-srch-snip">${esc(t.line)}</span></span></a>`).join("") : "");
       list3.innerHTML = hits.map(([href, h]) => {
-        const name2 = relativeName(href, root);
+        const name2 = relativeName(href, root2);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
         return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name2)}, line ${h.lineNumber}">${icoFile(extOf(name2))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name2)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
-      }).join("");
+      }).join("") + extra;
       remember(term, { status: status.textContent ?? "", html: list3.innerHTML });
     }
     q.addEventListener("keydown", (e) => {
@@ -29399,8 +30242,8 @@ ${rows.join("\n")}`, name: subject };
     const chatSubject = () => key;
     const turnOf = (turn) => turns[[...thread.querySelectorAll(".fe-ask-turn")].indexOf(turn)];
     const saveToNotes = (md2, title) => {
-      const root = app.settings.notesRoot;
-      if (!root) {
+      const root2 = app.settings.notesRoot;
+      if (!root2) {
         app.toast("Choose a Notes folder in Settings first");
         return;
       }
@@ -29409,9 +30252,9 @@ ${rows.join("\n")}`, name: subject };
       const base2 = `chat-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}-${slug}`;
       const tryAt = (n) => {
         const rel = `${base2}${n > 1 ? `-${n}` : ""}.md`;
-        return notes.create(root, rel, md2).then(() => rel, (e) => e?.code === "notes_exists" && n < 20 ? tryAt(n + 1) : Promise.reject(e));
+        return notes.create(root2, rel, md2).then(() => rel, (e) => e?.code === "notes_exists" && n < 20 ? tryAt(n + 1) : Promise.reject(e));
       };
-      tryAt(1).then((rel) => app.toast(`Saved to Notes as ${rel}`, 5e3, { label: "Open", run: () => app.strip.go(fileHref(`${root.replace(/\/$/, "")}/${rel}`)) })).catch((e) => app.toast(errorText(e, "Saving to Notes")));
+      tryAt(1).then((rel) => app.toast(`Saved to Notes as ${rel}`, 5e3, { label: "Open", run: () => app.strip.go(fileHref(`${root2.replace(/\/$/, "")}/${rel}`)) })).catch((e) => app.toast(errorText(e, "Saving to Notes")));
     };
     copyAllBtn.addEventListener("click", () => {
       if (turns.length) void copyWithCheck(copyAllBtn, chatMarkdown(chatSubject(), turns)).then((ok) => {
@@ -29658,15 +30501,15 @@ ${rows.join("\n")}`, name: subject };
   function watchConnection() {
     const fe = document.getElementById("fe");
     if (!fe) return;
-    let timer2 = 0;
+    let timer3 = 0;
     const check = () => {
       if (extensionAlive()) return;
-      clearInterval(timer2);
+      clearInterval(timer3);
       document.removeEventListener("visibilitychange", check);
       window.removeEventListener("focus", check);
       showBanner(fe);
     };
-    timer2 = window.setInterval(check, CHECK_MS2);
+    timer3 = window.setInterval(check, CHECK_MS2);
     document.addEventListener("visibilitychange", check);
     window.addEventListener("focus", check);
   }
@@ -30291,18 +31134,18 @@ ${rows.join("\n")}`, name: subject };
     return a;
   }
   function linkGccRefs() {
-    const root = claudeRoot();
-    if (!root) return;
+    const root2 = claudeRoot();
+    if (!root2) return;
     const codes = [...document.querySelectorAll(".fe-md code")].filter((c) => !looked.has(c) && !c.closest("pre, a"));
     const strs = [...document.querySelectorAll(".fe-jt-root .tok-str, .fe-jl-root .tok-str")].filter((s) => !looked.has(s));
     if (!codes.length && !strs.length) return;
     [...codes, ...strs].forEach((c) => looked.add(c));
-    skillNames ??= fetchFileText(`${fileBase()}${root}/skills/`).then((html) => new Set(parseListing(html, `${fileBase()}${root}/skills/`).filter((e) => e.isDir && !e.isParent).map((e) => e.name.replace(/\/$/, "")))).catch(() => /* @__PURE__ */ new Set());
+    skillNames ??= fetchFileText(`${fileBase()}${root2}/skills/`).then((html) => new Set(parseListing(html, `${fileBase()}${root2}/skills/`).filter((e) => e.isDir && !e.isParent).map((e) => e.name.replace(/\/$/, "")))).catch(() => /* @__PURE__ */ new Set());
     void skillNames.then((skills) => {
       for (const code of codes) {
         const ref = refOf(code.textContent ?? "", skills);
         if (!ref) continue;
-        const url = `${fileBase()}${root}/${ref.rel}`;
+        const url = `${fileBase()}${root2}/${ref.rel}`;
         void existsOnce(url).then((ok) => {
           if (!ok || !code.isConnected) return;
           const a = refLink(ref, url);
@@ -30310,14 +31153,14 @@ ${rows.join("\n")}`, name: subject };
           a.appendChild(code);
         });
       }
-      for (const s of strs) void linkInString(s, root, skills);
+      for (const s of strs) void linkInString(s, root2, skills);
     });
   }
-  async function linkInString(s, root, skills) {
+  async function linkInString(s, root2, skills) {
     const text = s.textContent ?? "";
     const hits = refsIn(text, skills);
     if (!hits.length) return;
-    const urls = hits.map((h) => `${fileBase()}${root}/${h.ref.rel}`);
+    const urls = hits.map((h) => `${fileBase()}${root2}/${h.ref.rel}`);
     const ok = await Promise.all(urls.map(existsOnce));
     if (!ok.some(Boolean) || !s.isConnected || s.textContent !== text) return;
     const frag = document.createDocumentFragment();
@@ -30597,11 +31440,40 @@ ${rows.join("\n")}`, name: subject };
     });
   }
 
+  // src/waiting.ts
+  var FADE_DAYS = 7;
+  var DAY = 864e5;
+  var isUnclaimedCapture = (n) => !!n.source && !(n.tags ?? []).length && !n.pinned && !n.agent;
+  var noteTitle2 = (n) => n.title || n.rel.replace(/\.md$/, "");
+  var forMe2 = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
+  function buildWaiting(i3, seen, now = Date.now()) {
+    const keep = {};
+    const items = [];
+    const add = (kind, key, title, why, path, never = false) => {
+      const since = seen[key] ?? now;
+      keep[key] = since;
+      items.push({ kind, key, title, why, path, since, faded: !never && now - since >= FADE_DAYS * DAY });
+    };
+    for (const n of i3.notes) {
+      const path = `${i3.root}/${n.rel}`;
+      if (reminderState(n, now) === "missed") add("reminder", `reminder:${n.rel}`, noteTitle2(n), `Missed reminder${n.remindOn === "phone" ? " (it rings on the phone)" : ""}`, path, true);
+      else if (n.agent && !n.pinned) add("agent", `agent:${n.rel}`, noteTitle2(n), `New note from ${n.agent}`, path);
+      else if (isUnclaimedCapture(n)) add("capture", `capture:${n.rel}`, noteTitle2(n), `Captured from ${n.source}, not sorted yet`, path);
+    }
+    for (const d of i3.docs) {
+      if (d.exists !== false && d.open > 0 && forMe2(d)) add("comment", `comment:${d.doc}`, d.name, `${d.open} open comment${d.open === 1 ? "" : "s"} for you`, d.doc);
+    }
+    for (const p of i3.pages) if (p.state === "waiting") add("decision", `decision:${p.slug}`, p.title ?? p.slug, "Decision page waiting", p.path);
+    const order = ["reminder", "comment", "decision", "capture", "agent"];
+    items.sort((a, b) => Number(a.faded) - Number(b.faded) || order.indexOf(a.kind) - order.indexOf(b.kind) || b.since - a.since);
+    return { items, seen: keep };
+  }
+
   // src/home-model.ts
   function summarizeRepo(doc, now = /* @__PURE__ */ new Date()) {
-    const root = document.createElement("div");
-    root.innerHTML = renderMarkdown(doc.text);
-    const h = nextHead(readDirections(root), now);
+    const root2 = document.createElement("div");
+    root2.innerHTML = renderMarkdown(doc.text);
+    const h = nextHead(readDirections(root2), now);
     return { path: doc.path, repo: doc.repo, mtime: doc.mtime, onYou: h.you.length, ready: h.ready.length, staleDays: h.staleDays };
   }
   var sortRepos = (repos) => [...repos].sort((a, b) => Number(b.onYou > 0) - Number(a.onYou > 0) || b.onYou - a.onYou || b.mtime - a.mtime);
@@ -30613,7 +31485,7 @@ ${rows.join("\n")}`, name: subject };
   }
   function homeStats(o, now = Date.now()) {
     const n = (v) => v.toLocaleString("en-US");
-    const plural3 = (v, one, many = one + "s") => `${n(v)} ${v === 1 ? one : many}`;
+    const plural4 = (v, one, many = one + "s") => `${n(v)} ${v === 1 ? one : many}`;
     const asked = lastSevenDays(o.chats.flatMap((c) => c.chat.turns.map((t) => t.at)), now);
     const opened2 = lastSevenDays(o.recents.map((r) => r.ts), now);
     const tags = new Set(o.saved.flatMap((s) => s.tags ?? []));
@@ -30622,10 +31494,10 @@ ${rows.join("\n")}`, name: subject };
     const sum = (a) => a.reduce((s, v) => s + v, 0);
     return [
       { id: "waiting", label: "waiting on you", value: n(o.waiting), sub: o.waiting ? "pages to answer" : "nothing to answer", hot: o.waiting > 0 },
-      { id: "asks", label: "asks on you", value: n(o.asks), sub: o.asks ? `in ${plural3(o.askRepos, "repo")}` : "no repo needs you", hot: o.asks > 0 },
+      { id: "asks", label: "asks on you", value: n(o.asks), sub: o.asks ? `in ${plural4(o.askRepos, "repo")}` : "no repo needs you", hot: o.asks > 0 },
       { id: "asked", label: "questions", value: n(sum(asked)), sub: "this week", series: asked },
       { id: "opened", label: "places opened", value: n(opened2[6]), sub: "today", series: opened2 },
-      { id: "saved", label: "saved", value: n(o.saved.length), sub: tags.size ? plural3(tags.size, "tag") : "no tags yet" },
+      { id: "saved", label: "saved", value: n(o.saved.length), sub: tags.size ? plural4(tags.size, "tag") : "no tags yet" },
       { id: "notes", label: "notes", value: n(o.notes.length), sub: `${n(changed)} changed this week` }
     ];
   }
@@ -30638,12 +31510,13 @@ ${rows.join("\n")}`, name: subject };
   // src/home-lens.ts
   var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
   var foldedPref = jsonPref("bfb-home-folded-v1", [], Array.isArray);
+  var waitSeenPref = jsonPref("bfb-waiting-seen-v1", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v));
   var SIDE_CHATS = 5;
   var PAGE_CHATS = 8;
   var LINKS = 8;
   var FRESH_DAYS = 14;
   var name = (p) => p.split("/").filter(Boolean).pop() || "/";
-  var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+  var plural3 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
   var today = (month = "short") => (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month, day: "numeric" });
   var greeting = () => {
     const h = (/* @__PURE__ */ new Date()).getHours();
@@ -30657,7 +31530,7 @@ ${rows.join("\n")}`, name: subject };
     const ans = lastAnswer(c.chat);
     return `<button type="button" class="row fe-home-row${ans ? " has-p" : ""}" data-chat="${esc(c.chat.id)}" data-subject="${esc(c.subject)}" title="${esc(c.chat.title)} \xB7 ${esc(c.subject)}">
     <span class="fe-row-ico">${UI_ICON.ai}</span>
-    <span class="fe-home-tx"><span class="fe-home-t">${esc(c.chat.title)}</span><span class="fe-home-s">${esc(name(c.subject))} \xB7 ${plural2(c.chat.turns.length, "turn")}</span>${ans ? `<span class="fe-home-p">${esc(ans)}</span>` : ""}</span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(c.chat.title)}</span><span class="fe-home-s">${esc(name(c.subject))} \xB7 ${plural3(c.chat.turns.length, "turn")}</span>${ans ? `<span class="fe-home-p">${esc(ans)}</span>` : ""}</span>
     <span class="fe-home-age" title="${esc(whenText(c.chat.at))}">${esc(ago(c.chat.at / 1e3))}</span>
   </button>`;
   };
@@ -30668,7 +31541,7 @@ ${rows.join("\n")}`, name: subject };
     return `<button type="button" class="row fe-home-row${unseen ? " unseen" : ""}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}">
     <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
     <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-home-s">${esc(sub)}</span>` : ""}</span>
-    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural2(r.items, "question")}">${r.items}</span>` : ""}
+    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural3(r.items, "question")}">${r.items}</span>` : ""}
     <span class="fe-home-age" title="${esc(whenText(r.mtime * 1e3))}">${esc(ago(r.mtime))}</span>
   </button>`;
   };
@@ -30677,7 +31550,7 @@ ${rows.join("\n")}`, name: subject };
     return `<button type="button" class="row fe-home-row" data-doc="${esc(r.path)}" title="Open ${esc(r.repo)}'s directions">
     <span class="fe-row-ico">${UI_ICON.contents}</span>
     <span class="fe-home-tx"><span class="fe-home-t">${esc(r.repo)}</span><span class="fe-home-s">${esc(sub)}</span></span>
-    ${r.onYou ? `<span class="fe-home-you" title="${plural2(r.onYou, "item")} in this doc wait on you">${r.onYou} on you</span>` : ""}
+    ${r.onYou ? `<span class="fe-home-you" title="${plural3(r.onYou, "item")} in this doc wait on you">${r.onYou} on you</span>` : ""}
   </button>`;
   };
   var none = (text) => `<p class="fe-home-none">${esc(text)}</p>`;
@@ -30689,10 +31562,10 @@ ${rows.join("\n")}`, name: subject };
     const quiet = [...d.repos.filter((r) => !r.onYou).map(repoRow), ...d.pages.filter((p) => p.state !== "waiting").map((r) => pageRow(r))];
     const n = waiting.length + asks.length;
     const card5 = n ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map((r) => pageRow(r)).join("")}${asks.map(repoRow).join("")}</section>` : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
-    const failed = d.pagesFailed ? none("Decision pages could not be listed") : "";
+    const failed2 = d.pagesFailed ? none("Decision pages could not be listed") : "";
     const chats = allShown ? d.chats : d.chats.slice(0, SIDE_CHATS);
     const chatBody = (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length);
-    return `<header class="fe-home-head">${esc(today())}</header>${card5}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
+    return `<header class="fe-home-head">${esc(today())}</header>${card5}${failed2}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
   }
   var STAT_LOOK = {
     waiting: { icon: UI_ICON.opinion, tone: "var(--nc-blue)", to: "Show the decisions waiting" },
@@ -30703,10 +31576,10 @@ ${rows.join("\n")}`, name: subject };
     notes: { icon: UI_ICON.notes, tone: "var(--nc-green)", to: "Open Notes in the sidebar" }
   };
   var tile2 = (icon2, tone) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon2}</span>`;
-  var DAY = (i3) => i3 === 6 ? "today" : i3 === 5 ? "yesterday" : `${6 - i3} days ago`;
+  var DAY2 = (i3) => i3 === 6 ? "today" : i3 === 5 ? "yesterday" : `${6 - i3} days ago`;
   var bars = (series) => {
     const top = Math.max(1, ...series);
-    return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i3) => `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? "" : ' class="nil"'} title="${DAY(i3)}: ${v}"></i>`).join("")}</span>`;
+    return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i3) => `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? "" : ' class="nil"'} title="${DAY2(i3)}: ${v}"></i>`).join("")}</span>`;
   };
   var statCell = (s) => `<button type="button" class="fe-hp-stat${s.hot ? " hot" : ""}" data-stat="${s.id}" title="${esc(STAT_LOOK[s.id].to)}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<span class="fe-hp-stat-tx"><span class="fe-hp-stat-top"><b>${esc(s.value)}</b>${s.series ? bars(s.series) : ""}</span><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></span></button>`;
   var ACTIONS = [
@@ -30721,10 +31594,10 @@ ${rows.join("\n")}`, name: subject };
   var linkCard = (l) => {
     const dir = l.path.endsWith("/");
     const ext2 = l.label.includes(".") ? l.label.split(".").pop().toLowerCase() : "";
-    const ico = l.kind === "note" ? UI_ICON.notes : dir ? PI.folder : icoFile(ext2);
+    const ico = l.kind === "note" ? UI_ICON.notes : isWebPath(l.path) ? UI_ICON.link : dir ? PI.folder : icoFile(ext2);
     const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map((t) => `<i>${esc(t)}</i>`).join("")}</span>` : "";
     const end = l.kind === "recent" ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>` : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
-    return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
+    return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(isWebPath(l.path) ? l.path : pageHref(fileHref(l.path)))}"${isWebPath(l.path) ? ' target="_blank" rel="noopener noreferrer"' : ""} data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
   };
   var toolRow = (s) => {
     const end = s.up ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>` : "";
@@ -30737,9 +31610,16 @@ ${rows.join("\n")}`, name: subject };
   function paintPage(d, allShown, folded) {
     const { recent: fresh, older } = splitByAge(d.pages.filter((p) => p.state === "waiting"), FRESH_DAYS);
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
-    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural2(older.length, "older page")} in Decisions</button>` : "";
+    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural3(older.length, "older page")} in Decisions</button>` : "";
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
     const links = (id, o, list3, empty) => card4(id, { ...o, n: list3.length }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>` : none(empty), folded);
+    const waitRow = (w) => w.kind === "decision" ? `<div class="fe-hp-wait${w.faded ? " faded" : ""}" data-kind="decision">${pageRow(d.pages.find((p) => p.slug === w.key.slice(9)) ?? { slug: w.title, path: w.path, mtime: w.since / 1e3, state: "waiting" }, true)}</div>` : `<div class="fe-hp-link fe-hp-wait${w.faded ? " faded" : ""}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? " (waiting more than a week)" : ""}">${w.kind === "reminder" ? UI_ICON.clock : w.kind === "comment" ? UI_ICON.opinion : w.kind === "agent" ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
+    const waitingCard = card4(
+      "waiting",
+      { icon: UI_ICON.opinion, tone: "var(--nc-red)", title: "Waiting on you", sub: "Missed reminders, comments, decisions, captures and agent notes", n: d.waiting.length },
+      d.waiting.length ? d.waiting.map(waitRow).join("") : `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`,
+      folded
+    );
     return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today("long"))}</span></div>
@@ -30757,6 +31637,7 @@ ${rows.join("\n")}`, name: subject };
     <div class="fe-hp-stats">${d.stats.map(statCell).join("")}</div>
     <div class="fe-hp-body">
       <div class="fe-hp-main">
+        ${waitingCard}
         <div class="fe-hp-pair">
           ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
           ${card4("repos", { icon: UI_ICON.contents, tone: "var(--nc-teal)", title: "Directions", sub: "Each repo\u2019s plan, asks on you first", n: d.repos.length }, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"), folded)}
@@ -30765,7 +31646,7 @@ ${rows.join("\n")}`, name: subject };
       </div>
       <aside class="fe-hp-rail">
         ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
-        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: "Latest first" }, d.notes, "Notes you write show up here")}
+        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: d.sync ? d.sync.text : "Latest first" }, d.notes, "Notes you write show up here")}
         ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "Newest first" }, d.recent, "Places you open show up here")}
         ${d.tools.length ? card4("tools", { icon: UI_ICON.terminal, tone: "var(--nc-teal)", title: "Local tools", sub: "Start on click, stop when idle", n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join("")}</div>`, folded) : ""}
       </aside>
@@ -30773,7 +31654,7 @@ ${rows.join("\n")}`, name: subject };
   </div>`;
   }
   function mountHome(box, go2, layout2, app) {
-    let data = null, timer2 = null, seq2 = 0, allShown = false;
+    let data = null, timer3 = null, seq2 = 0, allShown = false;
     const folded = new Set(layout2 === "page" ? foldedPref.get() : []);
     const notesRoot = () => app?.settings.notesRoot?.replace(/\/+$/, "") ?? "";
     const noteLinks = (list3) => [...list3].sort((a, b) => b.mtime - a.mtime).slice(0, LINKS).map((n) => ({ path: `${notesRoot()}/${n.rel}`, rel: n.rel, label: n.title || name(n.rel).replace(/\.md$/, ""), kind: "note", tags: n.tags }));
@@ -30793,16 +31674,20 @@ ${rows.join("\n")}`, name: subject };
     };
     const load = async () => {
       const mine = ++seq2;
-      const root = notesRoot();
-      const [pages, docs, noteList, tools] = await Promise.all([
+      const root2 = notesRoot();
+      const [pages, docs, noteList, tools, sync, docRows2] = await Promise.all([
         notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
         notes.directionsDocs().catch(() => []),
-        layout2 === "page" && root ? notes.list(root).catch(() => keptNotesList(root) ?? []) : Promise.resolve([]),
-        layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([])
+        layout2 === "page" && root2 ? notes.list(root2).catch(() => keptNotesList(root2) ?? []) : Promise.resolve([]),
+        layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([]),
+        layout2 === "page" && root2 ? notes.syncState(root2).then(describeSync, () => null) : Promise.resolve(null),
+        layout2 === "page" ? notes.docsIndex().catch(() => []) : Promise.resolve([])
       ]);
       if (mine !== seq2) return;
       const chats = allChats();
       const open = openPages(pages.rows, new Set(archivedPref2.get()));
+      const wait = buildWaiting({ root: root2, notes: noteList, docs: docRows2, pages: open }, waitSeenPref.get());
+      if (layout2 === "page") waitSeenPref.set(wait.seen);
       const repos = sortRepos(docs.map((doc) => summarizeRepo(doc)));
       data = {
         chats,
@@ -30820,15 +31705,17 @@ ${rows.join("\n")}`, name: subject };
         }),
         notes: noteLinks(noteList),
         tools,
+        sync,
+        waiting: wait.items,
         ...quick()
       };
       render2();
     };
     const start = () => {
-      if (timer2) clearInterval(timer2);
+      if (timer3) clearInterval(timer3);
       if (!data) box.innerHTML = emptyHtml("loading", "Loading\u2026");
       void load();
-      timer2 = setInterval(() => {
+      timer3 = setInterval(() => {
         if (!document.hidden && !box.contains(document.activeElement)) void load();
       }, 15e3);
     };
@@ -31071,9 +31958,9 @@ ${rows.join("\n")}`, name: subject };
         start();
         return;
       }
-      if (timer2) {
-        clearInterval(timer2);
-        timer2 = null;
+      if (timer3) {
+        clearInterval(timer3);
+        timer3 = null;
       }
     });
   }
@@ -31085,26 +31972,26 @@ ${rows.join("\n")}`, name: subject };
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
     const section = box.closest(".fe-sec");
-    const ago3 = (at) => {
+    const ago4 = (at) => {
       const m = Math.round((Date.now() - at) / 6e4);
       return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
     };
-    let timer2 = 0;
+    let timer3 = 0;
     const later = (ms) => {
-      clearTimeout(timer2);
-      timer2 = window.setTimeout(() => void paint(), ms);
+      clearTimeout(timer3);
+      timer3 = window.setTimeout(() => void paint(), ms);
     };
     async function paint() {
       const all = await strip.closedSets();
-      const settle = 2500;
-      const young = all.filter((s) => Date.now() - s.at < settle);
-      if (young.length) later(settle - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
+      const settle2 = 2500;
+      const young = all.filter((s) => Date.now() - s.at < settle2);
+      if (young.length) later(settle2 - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
       const own2 = strip.closedTabs().slice(0, 8);
       const ownRows = own2.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
       box.innerHTML = ownRows + sets.map((s) => {
         const n = s.labels.length;
-        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago3(s.at)}</span></button>`;
+        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago4(s.at)}</span></button>`;
       }).join("");
       section.hidden = !(visible2 && (sets.length || own2.length));
     }
@@ -31175,7 +32062,7 @@ ${rows.join("\n")}`, name: subject };
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
     if (!homeMode) pushRecent(rawPath);
-    const ago3 = (ts) => {
+    const ago4 = (ts) => {
       if (!ts) return "";
       const m = Math.round((Date.now() - ts) / 6e4);
       return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
@@ -31184,7 +32071,7 @@ ${rows.join("\n")}`, name: subject };
       const name2 = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
       const ext2 = name2.includes(".") ? name2.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago3(r.ts)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago4(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
@@ -31308,6 +32195,8 @@ ${rows.join("\n")}`, name: subject };
       },
       newNote: () => {
       },
+      paintSync: () => {
+      },
       pickNotesFolder: () => {
       },
       openInTerminal: () => {
@@ -31399,6 +32288,7 @@ ${rows.join("\n")}`, name: subject };
     initSettingsUi(app);
     initPhoneSeed();
     initPhoneButtons(rawPath, app.toast);
+    initAddressRouting();
     initToolLenses(app);
     watchConnection();
     initSidebar(app);

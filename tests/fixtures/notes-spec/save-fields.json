@@ -1,0 +1,21 @@
+{
+  "title": "Link",
+  "body": "",
+  "tags": [],
+  "color": null,
+  "pinned": false,
+  "pos": null,
+  "url": "https://example.com/a?b=1#frag",
+  "device": "mac",
+  "agent": null,
+  "source": "Pocket",
+  "expires": null,
+  "created": null,
+  "remindAt": null,
+  "remindRepeat": null,
+  "remindOn": null,
+  "remindPersist": false,
+  "reminderId": null,
+  "conflicted": false,
+  "extraLines": []
+}

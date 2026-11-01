@@ -6,6 +6,7 @@ import { notes, type PhoneState } from './notes';
 import { kvGet, kvSet, kvKeys, onKvChange } from './kv';
 import { copyToClipboard, esc } from './utils';
 import { errorText } from './errors';
+import { routeLink, copyTarget } from './address';
 
 const URL_KEY = 'bfb-phone-url';
 const ON_KEY = 'bfb-phone-on';
@@ -16,6 +17,26 @@ export const onPhone = (): boolean => /^https?:$/.test(location.protocol);
 export function phoneLink(path: string): string {
   const base = onPhone() ? location.origin : (kvGet(ON_KEY) === '1' ? kvGet(URL_KEY) || '' : '');
   return base ? base + path.split('/').map(encodeURIComponent).join('/') : '';
+}
+
+/** Copy the one address for a path: the phone link when phone access is on (it opens on the Mac and the phone), else a file link, saying so. */
+export async function copyLink(path: string, toast: (m: string) => void): Promise<void> {
+  const { text, say } = copyTarget(path, { onPhone: onPhone(), phoneLink: phoneLink(path) });
+  toast(await copyToClipboard(text) ? say : 'Copy failed');
+}
+
+/** Follow a link on the device you are holding: a file link on the phone opens through the phone server, a phone-server link on the Mac opens the file. */
+export function initAddressRouting(): void {
+  document.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0) return;
+    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
+    const href = a?.getAttribute('href') ?? '';
+    if (!a || !/^(file|https?):\/\//i.test(href)) return;
+    const r = routeLink(href, { onPhone: onPhone(), origin: location.origin, phoneBase: onPhone() ? '' : (kvGet(ON_KEY) === '1' ? kvGet(URL_KEY) || '' : '') });
+    if (!r.to || r.to === href) return;
+    e.preventDefault();
+    if (a.target === '\x5fblank' || e.metaKey || e.ctrlKey) window.open(r.to, '\x5fblank', 'noopener'); else location.assign(r.to);
+  }, true);
 }
 
 /** Copy a path's phone link, or say how to get one. */

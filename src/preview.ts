@@ -20,7 +20,8 @@ import {
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
 import { closeOpenFence, splitThinking } from './ask-quote';
-import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
+import { hasClash, isoNow } from './notefmt';
+import { notes, NotesError, attachmentRel, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
 import {
@@ -613,7 +614,7 @@ function editHeader(status: string): void {
   document.getElementById('fe-ql-meta')!.textContent = `${edit.dirty ? '● ' : ''}${edit.rel} · ${status}`;
 }
 
-const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
+const stripFrontMatter = (t: string) => splitNote(t).body;
 
 /// What the editor's prev, next, rename and delete buttons do; the sidebar owns the list they act on.
 /// `rename`'s `now` is for a key press, which has no pointer click left to wait out.
@@ -787,8 +788,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   // attachments/ and referenced by relative path, per the contract.
   const addImage = async (file: File) => {
     const st = edit; if (!st || st.root !== root) return;
+    // Spec: up to 20 MB a file, and a warning over 5 MB because a file stays in history for good.
+    if (file.size > 20 * 1024 * 1024) { editHeader('Adding the image: over 20 MB, so it is not added'); return; }
+    if (file.size > 5 * 1024 * 1024) deps.toast?.('That picture is over 5 MB and stays in the notes history for good');
     const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-    const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, '')}-${Date.now().toString(36)}.${ext}`;
+    const rel = attachmentRel(st.rel, ext);
     const b64 = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(file); });
     try {
       await notes.writeBinary(root, rel, b64);
@@ -871,7 +875,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   // The chip row above the text: title, pin, colour, tags. Each change edits only its own line of the properties block.
   const st = edit;
   const change = (fn: (head: string) => string, keys: string[]): boolean => {
-    if (/^<{7} /m.test(st.text)) { editHeader('settle the two versions before changing properties'); return false; }
+    if (hasClash(st.text)) { editHeader('settle the two versions before changing properties'); return false; }
     st.head = fn(st.head);
     keys.forEach(k => st.touched.add(k));
     st.text = st.head + ta.value; st.dirty = true; st.version++; currentText = st.text;
@@ -905,10 +909,17 @@ async function saveNote(st = edit): Promise<void> {
   if (st.timer) { clearTimeout(st.timer); st.timer = null; }
   st.saving = true;
   const version = st.version;
+  // A note made here and saved for the first time gets the moment it was made, as every note in the folder carries one.
+  if (st.base === '' && !st.head && /^untitled-/.test(st.rel.split('/').pop()!) && st.ta?.value.trim()) {
+    st.head = setField(st.head, 'created', isoNow());
+    st.touched.add('created');
+    st.text = st.head + st.ta.value;
+  }
   let text = stampUpdated(st.text);
   // Guard: the saved properties block must equal what was read, apart from fields set through the chips.
   // A pasted --- block at the top of a note without properties would otherwise be read as properties.
-  if (frontmatterDrift(st.base, text, st.touched).length) {
+  // Settling a clash legitimately turns a header-less file into one with a header, so the guard waits until it is settled.
+  if (!hasClash(st.base) && frontmatterDrift(st.base, text, st.touched).length) {
     if (st.ta && !st.head) {
       st.ta.value = '\n' + st.ta.value;
       st.text = st.head + st.ta.value;

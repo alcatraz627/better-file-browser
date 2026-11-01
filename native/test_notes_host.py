@@ -318,6 +318,9 @@ check(r['t'] == 'error' and r['code'] == 'notes_bad_op', f'a span outside the do
 check(call({'op': 'commentsRead', 'root': cd, 'rel': '../plan.md'})['code'] == 'notes_bad_path', 'a path out of the allowed folder is refused')
 r = call({'op': 'docsIndex'})
 check(r['t'] == 'docsIndex' and any(d['doc'] == os.path.realpath(doc) and d['done'] == 1 for d in r['docs']), 'docsIndex lists the document with its counts')
+r = call({'op': 'commentsSearch', 'query': 'thursday'})
+check(r['t'] == 'commentsSearch' and any(h['doc'] == os.path.realpath(doc) and 'Thursday' in h['line'] for h in r['hits']), f'commentsSearch finds a thread by its words: {r["hits"][:1]}')
+check(call({'op': 'commentsSearch', 'query': 'thursday zzzznomatch'})['hits'] == [] and call({'op': 'commentsSearch', 'query': ''})['hits'] == [], 'commentsSearch needs every word, and an empty query finds nothing')
 nh.handle({'op': 'rename', 'root': cd, 'rel': 'plan.md', 'to': 'later.md'})
 check(os.path.exists(os.path.join(cd, 'later.md.bfb.json')) and not os.path.exists(doc + '.bfb.json'), 'renaming a note moves its comments with it')
 r = nh.handle({'op': 'delete', 'root': cd, 'rel': 'later.md'})
@@ -515,6 +518,69 @@ check(call({'op': 'svc_seen', 'port': '5124'})['t'] == 'svc_seen' and sorted(os.
 for bad in ['../../evil', '70000', '0', 'x']:
     r = call({'op': 'svc_seen', 'port': bad})
     check(r['t'] == 'error' and sorted(os.listdir(touch_dir)) == ['.browser', '5124'], f'a bad port writes nothing: {bad}')
+
+# The one-writer lock: a note folder inside a repo takes <repo>/.git/mnt-sync.lock for every write.
+lockrepo = tempfile.mkdtemp(prefix='bfb-lock-')
+subprocess.run(['git', 'init', '-q', lockrepo], check=True)
+os.makedirs(os.path.join(lockrepo, 'notes'))
+lroot = os.path.join(lockrepo, 'notes')
+LOCKPY = os.path.join(os.path.dirname(HOST), 'notes_lock.py')
+holder = subprocess.Popen([sys.executable, LOCKPY, lockrepo, '--', 'sleep', '2.5'])
+time.sleep(0.6)
+os.environ['BFB_LOCK_WAIT'] = '0.3'
+r = call({'op': 'write', 'root': lroot, 'rel': 'a.md', 'text': 'x'})
+check(r['t'] == 'error' and r['code'] == 'notes_busy', f'a write while another writer holds the lock is notes_busy: {r}')
+check(not os.path.exists(os.path.join(lroot, 'a.md')), 'a refused write leaves nothing behind')
+r = call({'op': 'read', 'root': lroot, 'rel': 'a.md'})
+check(r['code'] == 'notes_missing', 'reads never wait for the lock')
+os.environ['BFB_LOCK_WAIT'] = '5'
+t0 = time.time()
+r = call({'op': 'write', 'root': lroot, 'rel': 'a.md', 'text': 'x'})
+check(r['t'] == 'written' and time.time() - t0 > 0.8, f'a write waits for the lock to clear, then lands: {r["t"]} after {time.time() - t0:.1f}s')
+holder.wait()
+del os.environ['BFB_LOCK_WAIT']
+check(not [f for f in os.listdir(lroot) if '.tmp-' in f], 'no temp file is left beside the note')
+r = call({'op': 'write', 'root': root, 'rel': 'nolock.md', 'text': 'y'})
+check(r['t'] == 'written', 'a folder outside a repo writes with no lock')
+
+# Saved in the folder: .saved/<key>.md files and .meta/tags.json, written in locked batches.
+sroot = tempfile.mkdtemp(prefix='bfb-saved-')
+r = call({'op': 'savedList', 'root': sroot})
+check(r['t'] == 'saved' and r['exists'] is False and r['items'] == [] and r['tags'] is None, f'a folder that never held Saved says so: {r}')
+r = call({'op': 'savedSync', 'root': sroot, 'writes': [{'key': '62e5caffb1fb', 'text': '---\ntitle: "Code"\nurl: "file:///x/"\n---\n'}], 'tags': {'work': '#58a6ff'}})
+check(r['t'] == 'savedSynced' and r['written'] == ['62e5caffb1fb'], f'savedSync writes a save file: {r}')
+check(os.path.isfile(os.path.join(sroot, '.saved', '62e5caffb1fb.md')), 'the file is in .saved')
+r = call({'op': 'savedList', 'root': sroot})
+check(r['exists'] and [i['key'] for i in r['items']] == ['62e5caffb1fb'] and r['tags'] == {'work': '#58a6ff'}, f'savedList returns files and tag colours: {r["tags"]}')
+r = call({'op': 'savedSync', 'root': sroot, 'writes': [{'key': '62e5caffb1fb', 'text': 'changed'}], 'createOnly': True})
+check(r['written'] == [] and r['skipped'] == ['62e5caffb1fb'], f'createOnly leaves an existing file alone (the migration is safe to run twice): {r}')
+check(open(os.path.join(sroot, '.saved', '62e5caffb1fb.md')).read().startswith('---'), 'the existing file is unchanged')
+r = call({'op': 'savedSync', 'root': sroot, 'tags': {'code': '#3fb950'}})
+check(json.load(open(os.path.join(sroot, '.meta', 'tags.json'))) == {'code': '#3fb950', 'work': '#58a6ff'}, 'tag colours merge, never replace')
+r = call({'op': 'savedSync', 'root': sroot, 'writes': [{'key': '../evil', 'text': 'x'}]})
+check(r['t'] == 'error' and r['code'] == 'notes_bad_path', f'a save name that is not an id is refused: {r}')
+r = call({'op': 'savedSync', 'root': sroot, 'removes': ['62e5caffb1fb']})
+check(r['removed'] == ['62e5caffb1fb'] and not os.path.exists(os.path.join(sroot, '.saved', '62e5caffb1fb.md')), f'a removed save leaves .saved: {r}')
+check(any(f.endswith('.saved%2F62e5caffb1fb.md') for f in os.listdir(os.path.join(sroot, '.trash'))), 'and goes to .trash for undo')
+r = call({'op': 'list', 'root': sroot})
+check(r['notes'] == [], 'saves never show in the note list')
+
+# Sync state: read from <repo>/.git/mnt-sync-state.json, never written here.
+r = call({'op': 'syncState', 'root': root})
+check(r['t'] == 'syncState' and r['repo'] is False and r['state'] is None, f'a folder in no repository says so: {r}')
+r = call({'op': 'syncState', 'root': lroot})
+check(r['repo'] is True and r['state'] is None, f'a repo with no state file has no state: {r}')
+st = {'at': '2026-11-01T14:00:00Z', 'ok': True, 'problem': None, 'ahead': 0, 'behind': 2, 'clashes': 1, 'cameBack': ['x'], 'lastOk': '2026-11-01T14:00:00Z'}
+with open(os.path.join(lockrepo, '.git', 'mnt-sync-state.json'), 'w') as fh: json.dump(st, fh)
+r = call({'op': 'syncState', 'root': lroot})
+check(r['state'] == st and abs(r['now'] - time.time()) < 5, 'the state file comes back as written, with the host clock beside it')
+with open(os.path.join(lockrepo, '.git', 'mnt-sync-state.json'), 'w') as fh: fh.write('{broken')
+check(call({'op': 'syncState', 'root': lroot})['state'] == {'unreadable': True}, 'a damaged state file is reported as damaged, not as no file')
+
+# An empty title key lists the note by its first line, not a stamp.
+with open(os.path.join(root, 'emptykey.md'), 'w') as fh: fh.write('---\ntitle: ""\n---\nFirst line here\nmore\n')
+r = call({'op': 'list', 'root': root})
+check(next(n['title'] for n in r['notes'] if n['rel'] == 'emptykey.md') == 'First line here', 'an empty title key lists by the first line of the note')
 
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

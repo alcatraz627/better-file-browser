@@ -4,13 +4,15 @@
 // thing itself. The page adds a path bar, usage numbers and quick links that
 // can be edited, forgotten, or opened elsewhere. Lists refresh when shown and
 // every 15 seconds while in view.
+import { describeSync, type SyncView } from './sync-state';
+import { buildWaiting, type WaitItem } from './waiting';
 import { notes, type NoteMeta, type ServiceState } from './notes';
 import { esc, whenText, fileHref, pageHref } from './utils';
 import { UI_ICON, LINE_ICON, line } from './control-icons';
 import { allChats, type AskChat } from './ask-history';
 import { ago, REACH, type DpRow } from './dp-lens';
 import { jsonPref, getSaved, saveSaved, getRecents, forgetRecent, keptNotesList, homeDir } from './storage';
-import { renamePlace, setTags, parseTags, removePlace } from './places';
+import { renamePlace, setTags, parseTags, removePlace, isWebPath } from './places';
 import { summarizeRepo, sortRepos, openPages, homeStats, splitByAge, type RepoSummary, type HomeStat } from './home-model';
 import { runCommand } from './commands';
 import { emptyHtml } from './empty-state';
@@ -22,13 +24,15 @@ import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
 interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[] }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[]; sync: SyncView | null; waiting: WaitItem[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
 const archivedPref = jsonPref<string[]>('bfb-dp-archived-v1', [], Array.isArray);
 // The page's cards the owner folded shut, by card id.
 const foldedPref = jsonPref<string[]>('bfb-home-folded-v1', [], Array.isArray);
+// When each waiting item first showed up here, so an old one can fade.
+const waitSeenPref = jsonPref<Record<string, number>>('bfb-waiting-seen-v1', {}, v => !!v && typeof v === 'object' && !Array.isArray(v));
 const SIDE_CHATS = 5, PAGE_CHATS = 8, LINKS = 8;
 /** Waiting pages older than this many days are counted, not listed. */
 const FRESH_DAYS = 14;
@@ -129,12 +133,12 @@ const actionBtn = ([act, icon, title]: [string, string, string]) =>
 const linkCard = (l: QuickLink) => {
   const dir = l.path.endsWith('/');
   const ext = l.label.includes('.') ? l.label.split('.').pop()!.toLowerCase() : '';
-  const ico = l.kind === 'note' ? UI_ICON.notes : dir ? PI.folder : icoFile(ext);
+  const ico = l.kind === 'note' ? UI_ICON.notes : isWebPath(l.path) ? UI_ICON.link : dir ? PI.folder : icoFile(ext);
   const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : '';
   const end = l.kind === 'recent'
     ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>`
     : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
-  return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
+  return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(isWebPath(l.path) ? l.path : pageHref(fileHref(l.path)))}"${isWebPath(l.path) ? ' target="\x5fblank" rel="noopener noreferrer"' : ''} data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
 };
 
 // A local tool: click opens it, starting it first when it is stopped; the end
@@ -166,6 +170,12 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
     : (fresh.map(r => pageRow(r, true)).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
   const links = (id: string, o: { icon: string; tone: string; title: string; sub: string }, list: QuickLink[], empty: string) =>
     card(id, { ...o, n: list.length }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>` : none(empty), folded);
+  // Everything waiting on the owner, from decisions to a note an agent left: missed reminders and comments first.
+  const waitRow = (w: WaitItem) => w.kind === 'decision'
+    ? `<div class="fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="decision">${pageRow(d.pages.find(p => p.slug === w.key.slice(9)) ?? { slug: w.title, path: w.path, mtime: w.since / 1000, state: 'waiting' }, true)}</div>`
+    : `<div class="fe-hp-link fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? ' (waiting more than a week)' : ''}">${w.kind === 'reminder' ? UI_ICON.clock : w.kind === 'comment' ? UI_ICON.opinion : w.kind === 'agent' ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
+  const waitingCard = card('waiting', { icon: UI_ICON.opinion, tone: 'var(--nc-red)', title: 'Waiting on you', sub: 'Missed reminders, comments, decisions, captures and agent notes', n: d.waiting.length },
+    d.waiting.length ? d.waiting.map(waitRow).join('') : `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`, folded);
   return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today('long'))}</span></div>
@@ -183,6 +193,7 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
     <div class="fe-hp-stats">${d.stats.map(statCell).join('')}</div>
     <div class="fe-hp-body">
       <div class="fe-hp-main">
+        ${waitingCard}
         <div class="fe-hp-pair">
           ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
           ${card('repos', { icon: UI_ICON.contents, tone: 'var(--nc-teal)', title: 'Directions', sub: 'Each repo’s plan, asks on you first', n: d.repos.length }, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'), folded)}
@@ -191,7 +202,7 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
       </div>
       <aside class="fe-hp-rail">
         ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here')}
-        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: 'Latest first' }, d.notes, 'Notes you write show up here')}
+        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: d.sync ? d.sync.text : 'Latest first' }, d.notes, 'Notes you write show up here')}
         ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: 'Newest first' }, d.recent, 'Places you open show up here')}
         ${d.tools.length ? card('tools', { icon: UI_ICON.terminal, tone: 'var(--nc-teal)', title: 'Local tools', sub: 'Start on click, stop when idle', n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join('')}</div>`, folded) : ''}
       </aside>
@@ -226,15 +237,19 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
   const load = async () => {
     const mine = ++seq;
     const root = notesRoot();
-    const [pages, docs, noteList, tools] = await Promise.all([
+    const [pages, docs, noteList, tools, sync, docRows] = await Promise.all([
       notes.dpPages().then(rows => ({ rows, failed: false }), () => ({ rows: [] as DpRow[], failed: true })),
       notes.directionsDocs().catch(() => []),
       layout === 'page' && root ? notes.list(root).catch(() => keptNotesList<NoteMeta>(root) ?? []) : Promise.resolve([] as NoteMeta[]),
       layout === 'page' ? notes.services().catch(() => [] as ServiceState[]) : Promise.resolve([] as ServiceState[]),
+      layout === 'page' && root ? notes.syncState(root).then(describeSync, () => null) : Promise.resolve(null),
+      layout === 'page' ? notes.docsIndex().catch(() => []) : Promise.resolve([]),
     ]);
     if (mine !== seq) return;
     const chats = allChats();
     const open = openPages(pages.rows, new Set(archivedPref.get()));
+    const wait = buildWaiting({ root, notes: noteList, docs: docRows, pages: open }, waitSeenPref.get());
+    if (layout === 'page') waitSeenPref.set(wait.seen);
     const repos = sortRepos(docs.map(doc => summarizeRepo(doc)));
     data = {
       chats, pages: open, pagesFailed: pages.failed, repos,
@@ -244,7 +259,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
         chats, recents: getRecents(), saved: getSaved(), notes: noteList,
       }),
       notes: noteLinks(noteList),
-      tools,
+      tools, sync, waiting: wait.items,
       ...quick(),
     };
     render();

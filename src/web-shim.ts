@@ -5,6 +5,9 @@
 // browser's localStorage, file reads are plain requests to the server, and the
 // native hosts are reached through the server's /_bfb/native route.
 import { setFileBase } from './utils';
+import { mergeAskHistory } from './ask-merge';
+
+const ASK_HISTORY = 'bfb-ask-history-v1';
 
 type Cb = (r?: unknown) => void;
 type Changes = Record<string, { oldValue?: unknown; newValue?: unknown }>;
@@ -91,22 +94,84 @@ async function answer(msg: { type?: string; url?: string; host?: string; payload
   }
 }
 
-// A long-lived connection. Search reads files through it; Ask is not on the phone yet.
+type Frame = { t?: string; message?: string };
+type AskMsg = { op?: string; id?: string; job?: { id?: string } };
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+const whenVisible = () => document.visibilityState === 'visible' ? Promise.resolve() : new Promise<void>(res => {
+  const f = () => { if (document.visibilityState === 'visible') { removeEventListener('visibilitychange', f); res(); } };
+  addEventListener('visibilitychange', f);
+});
+const ASK_HEADERS = { 'content-type': 'application/json', 'X-Bfb-Web': '1' };
+
+/**
+ * One Ask request through the Mac, which runs the same AI host the extension uses and
+ * streams its frames back as JSON lines. An answer started with a job keeps running on
+ * the Mac when this page is suspended or closed, so a broken stream is picked up again
+ * (the text so far arrives as a replay) instead of ending the chat.
+ */
+function askStream(m: AskMsg, emit: (f: Frame) => void, isClosed: () => boolean, setCtl: (c: AbortController) => void) {
+  const jobId = m.job?.id ?? (m.op === 'attach' ? m.id : undefined);
+  const startedAsQuery = m.op === 'query' && !!m.job?.id;
+  let ended = false;
+  const once = async (msg: AskMsg): Promise<string | null> => {
+    const ctl = new AbortController();
+    setCtl(ctl);
+    try {
+      const r = await fetch('/_bfb/llm', { method: 'POST', headers: ASK_HEADERS, body: JSON.stringify(msg), signal: ctl.signal });
+      if (!r.ok || !r.body) return `the phone server answered ${r.status}`;
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        for (let i = buf.indexOf('\n'); i >= 0; i = buf.indexOf('\n')) {
+          const line = buf.slice(0, i); buf = buf.slice(i + 1);
+          if (!line) continue;
+          let f: Frame;
+          try { f = JSON.parse(line); } catch { continue; }
+          if (f.t === 'ping') continue;
+          if (f.t === 'done' || f.t === 'error' || f.t === 'gone' || f.t === 'native-gone') ended = true;
+          // An answer that ended while the phone was away says so, rather than leaving the chat waiting.
+          if (f.t === 'gone' && startedAsQuery) emit({ t: 'native-gone', message: 'The answer ended while this phone was away.' });
+          else emit(f);
+        }
+      }
+      return null;
+    } catch (e) { return String(e); }
+  };
+  void (async () => {
+    let tries = 0;
+    let err = await once(m);
+    // A broken stream is not the end of an answer the Mac is still writing.
+    while (!ended && !isClosed() && jobId && tries < 8) {
+      tries++;
+      await whenVisible();
+      await sleep(Math.min(400 * 2 ** tries, 5000));
+      if (isClosed()) return;
+      err = await once({ op: 'attach', id: jobId });
+    }
+    if (!ended && !isClosed() && (err || jobId)) emit({ t: 'native-gone', message: err ?? '' });
+  })();
+}
+
+// A long-lived connection. Search reads files through it; Ask goes through the Mac.
 function port(name: string) {
   const msgL = new Set<(m: unknown) => void>(), discL = new Set<() => void>();
   const emit = (m: unknown) => setTimeout(() => msgL.forEach(f => f(m)));
+  let closed = false, ctl: AbortController | null = null;
   const p = {
     name,
     onMessage: { addListener: (f: (m: unknown) => void) => msgL.add(f), removeListener: (f: (m: unknown) => void) => msgL.delete(f) },
     onDisconnect: { addListener: (f: () => void) => discL.add(f), removeListener: (f: () => void) => discL.delete(f) },
-    disconnect() { discL.clear(); msgL.clear(); },
-    postMessage(m: { type?: string; id?: unknown; url?: string; op?: string }) {
+    disconnect() { closed = true; ctl?.abort(); discL.clear(); msgL.clear(); },
+    postMessage(m: { type?: string; id?: unknown; url?: string } & AskMsg) {
       if (name === 'bfb-search-fetch' && m?.type === 'read' && m.url) {
         raw(m.url).then(r => r.text()).then(text => emit({ id: m.id, ok: true, text }), e => emit({ id: m.id, ok: false, error: String(e) }));
       } else if (name === 'bfb-llm') {
-        if (m?.op === 'running') emit({ t: 'running', jobs: [] });
-        else if (m?.op === 'orphans') emit({ t: 'orphans', list: [] });
-        else emit({ t: 'native-gone', message: 'Ask is not available on the phone yet' });
+        // Stopping an answer is its own request: the page disconnects right after, which only ends the stream.
+        if (m?.op === 'cancel') void fetch('/_bfb/llm', { method: 'POST', headers: ASK_HEADERS, body: JSON.stringify(m), keepalive: true }).catch(() => undefined);
+        else askStream(m, emit, () => closed, c => { ctl = c; });
       }
     },
   };
@@ -123,8 +188,15 @@ export async function seedFromMac(): Promise<void> {
     const r = await fetch('/_bfb/seed.json', { cache: 'no-store' });
     if (!r.ok) return;
     const { kv } = await r.json() as { kv?: Record<string, unknown> };
+    // Saved and its tag colours live in the notes folder, which the phone reads and writes through the Mac;
+    // the seed is only their first copy, and never replaces a change the phone has not sent yet.
+    const unsent = read('local', 'bfb-saved-dirty-v1') === '1';
+    const MAC_ONLY = (k: string) => k === 'bfb-saved-dirty-v1' || k === 'bfb-saved-folder-off-v1' || k.endsWith('-premigration-v1') || (unsent && (k === 'bfb-saved-v1' || k === 'bfb-tags-v1'));
     for (const [k, v] of Object.entries(kv ?? {})) {
-      try { localStorage.setItem(keyOf('local', k), JSON.stringify(v)); } catch { /* this browser's storage is full: skip the rest of the big ones */ }
+      if (MAC_ONLY(k)) continue;
+      // Chats asked on the phone are not in the Mac's copy: join the two rather than replace.
+      const value = k === ASK_HISTORY ? mergeAskHistory(v, read('local', k)) : v;
+      try { localStorage.setItem(keyOf('local', k), JSON.stringify(value)); } catch { /* this browser's storage is full: skip the rest of the big ones */ }
     }
   } catch { /* no seed yet: the phone starts with defaults */ }
 }

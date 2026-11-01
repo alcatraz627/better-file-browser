@@ -1,6 +1,6 @@
 // The note properties UI both the editor and the sidebar use: colour dots, the chip row
 // above the editor, and the small menu that sets colour, pin and tags.
-import { NOTE_COLORS, type NoteColor, type NoteProps, type PropChange } from './notes';
+import { NOTE_COLORS, nextRing, reminderState, type NoteColor, type NoteProps, type PropChange } from './notes';
 import { UI_ICON, dotIcon } from './control-icons';
 import { esc, midHtml } from './utils';
 import { openLayer, type Layer } from './layer';
@@ -71,6 +71,61 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
   openMenu = openLayer(menu, { kind: 'popover', anchor, role: 'menu', group: 'menu', focus: menu.querySelector<HTMLElement>('.fe-pm-add input')! });
 }
 
+const pad = (n: number) => String(n).padStart(2, '0');
+/** An ISO time as the value a datetime-local box wants, in the person's own clock. */
+const localValue = (iso: string): string => { const d = new Date(iso); return isFinite(+d) ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` : ''; };
+/** A time as a short phrase: "Nov 2, 9:00 AM". */
+export const whenShort = (iso: string): string => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const plain = (u: string): string => u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+/** The words on a reminder chip: when it rings, that it was missed, or that another device rings it. */
+export function reminderLabel(p: NoteProps, now = Date.now()): string {
+  const st = reminderState(p, now);
+  if (st === 'none') return 'Remind';
+  return `${st === 'missed' ? 'Missed ' : ''}${whenShort(p.remindAt!)}${p.remindRepeat ? ` · ${p.remindRepeat}` : ''}${p.remindOn === 'phone' ? ' · on phone' : ''}`;
+}
+
+/// The reminder box: when, how often, which device rings it, and whether it keeps ringing. Clear removes it; Dismiss
+/// clears a one-off and moves a repeating one to its next time.
+export function openReminderMenu(anchor: HTMLElement, props: NoteProps, apply: ApplyChange): void {
+  closePropsMenu();
+  const menu = document.createElement('div');
+  menu.className = 'fe-pmenu fe-rem';
+  const st = reminderState(props);
+  const seed = props.remindAt ? localValue(props.remindAt) : localValue(new Date(Date.now() + 3600_000).toISOString());
+  menu.innerHTML = `
+    <form class="fe-rem-form">
+      <label class="fe-pm-lbl" for="fe-rem-at">Remind me${st === 'missed' ? ' (missed)' : ''}</label>
+      <input id="fe-rem-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
+      <label class="fe-pm-lbl" for="fe-rem-repeat">Repeats</label>
+      <select id="fe-rem-repeat" class="tb" data-size="sm">${[['', 'Does not repeat'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']].map(([v, t]) => `<option value="${v}"${(props.remindRepeat ?? '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select>
+      <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
+      <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== 'phone' ? ' selected' : ''}>This Mac</option><option value="phone"${props.remindOn === 'phone' ? ' selected' : ''}>The phone</option></select>
+      <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? ' checked' : ''}><span>Keep ringing until dismissed</span></label>
+      <div class="fe-rem-acts">
+        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? 'Update' : 'Set reminder'}</span></button>
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? 'Move to the next time' : 'Done: clear it'}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ''}
+      </div>
+    </form>`;
+  const done = async (c: PropChange) => { await apply(c); closePropsMenu(); };
+  menu.addEventListener('click', e => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-rem]');
+    if (!b) return;
+    e.preventDefault();
+    if (b.dataset.rem === 'clear') void done({ remind: null });
+    else if (props.remindAt && props.remindRepeat) void done({ remind: { at: nextRing(props.remindAt, props.remindRepeat), repeat: props.remindRepeat, on: props.remindOn, persist: props.remindPersist } });
+    else void done({ remind: null });
+  });
+  menu.addEventListener('submit', e => {
+    e.preventDefault();
+    const at = new Date((menu.querySelector('#fe-rem-at') as HTMLInputElement).value);
+    if (!isFinite(+at)) return;
+    const repeat = (menu.querySelector('#fe-rem-repeat') as HTMLSelectElement).value as 'daily' | 'weekly' | 'monthly' | '';
+    void done({ remind: { at: at.toISOString().replace(/\.\d{3}Z$/, 'Z'), ...(repeat ? { repeat } : {}), on: (menu.querySelector('#fe-rem-on') as HTMLSelectElement).value as 'mac' | 'phone', persist: (menu.querySelector('#fe-rem-persist') as HTMLInputElement).checked } });
+  });
+  openMenu = openLayer(menu, { kind: 'popover', anchor, role: 'dialog', group: 'menu', focus: menu.querySelector<HTMLElement>('#fe-rem-at')! });
+}
+
 /// The chip row above the editor text: title, pin, colour and tags. Returns a redraw.
 export function mountMetaBar(host: HTMLElement, o: {
   props: () => NoteProps;
@@ -87,7 +142,11 @@ export function mountMetaBar(host: HTMLElement, o: {
       <button data-size="sm" class="btn fe-chip-btn${p.pinned ? ' active' : ''}" data-m="pin" title="${p.pinned ? 'Unpin this note' : 'Pin this note to the top of the list'}">${UI_ICON.pin}<span>${p.pinned ? 'Pinned' : 'Pin'}</span></button>
       <button data-size="sm" class="btn fe-chip-btn${p.color ? ' active' : ''}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : 'Colour'}</span></button>
       ${p.tags.map(t => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join('')}
-      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>`;
+      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>
+      <button class="btn fe-chip-btn fe-chip-rem${p.remindAt ? ' active' : ''}${reminderState(p) === 'missed' ? ' missed' : ''}" data-size="sm" data-m="remind" title="${p.remindAt ? 'Change or clear this reminder' : 'Set a reminder'}">${UI_ICON.clock}<span>${esc(reminderLabel(p))}</span></button>
+      ${p.agent ? `<span class="chip fe-chip-agent" title="This note was made or last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ''}
+      ${p.expires ? `<span class="chip fe-chip-exp${Date.parse(p.expires) <= Date.now() ? ' expired' : ''}" title="After this time the note is listed under Expired. It is never deleted.">${UI_ICON.clock}<span>${Date.parse(p.expires) <= Date.now() ? 'Expired' : 'Expires'} ${esc(whenShort(p.expires))}</span></span>` : ''}
+      ${p.url ? `<span class="chip fe-chip-url" title="${esc(p.url)}">${UI_ICON.link}<span class="fe-chip-url-t">${esc(plain(p.url))}</span><button class="btn" data-icon data-size="xs" data-m="url-open" title="Open ${esc(p.url)}" aria-label="Open the link">${UI_ICON.tab}</button><button class="btn" data-icon data-size="xs" data-m="url-copy" title="Copy the link" aria-label="Copy the link">${UI_ICON.copy ?? UI_ICON.link}</button></span>` : ''}`;
     // The title shows on one line, middle-truncated; a click opens a box holding the whole title.
     const btn = host.querySelector<HTMLButtonElement>('#fe-meta-title');
     btn?.addEventListener('click', () => {
@@ -121,6 +180,9 @@ export function mountMetaBar(host: HTMLElement, o: {
     if (!b) return;
     const p = o.props();
     if (b.dataset.m === 'pin') { await o.apply({ pinned: !p.pinned }); draw(); }
+    else if (b.dataset.m === 'remind') openReminderMenu(b, p, async c => { const r = await o.apply(c); draw(); return r; });
+    else if (b.dataset.m === 'url-open') window.open(p.url!, '_blank', 'noopener');
+    else if (b.dataset.m === 'url-copy') { void navigator.clipboard?.writeText(p.url!).catch(() => undefined); b.title = 'Copied'; }
     else if (b.dataset.m === 'untag') { await o.apply({ tags: p.tags.filter(t => t !== b.dataset.tag) }); draw(); }
     else {
       openPropsMenu(b, p, async c => { const r = await o.apply(c); draw(); return r; });

@@ -1,0 +1,67 @@
+[
+  {
+    "url": "https://example.com/a?b=1",
+    "normalised": "https://example.com/a?b=1",
+    "key": "8849d9f8cb0c"
+  },
+  {
+    "url": "https://example.com/a?b=1#frag",
+    "normalised": "https://example.com/a?b=1#frag",
+    "key": "b339fad4f2fb"
+  },
+  {
+    "url": "file:///Users/alcatraz627/Code/",
+    "normalised": "file:///Users/alcatraz627/Code/",
+    "key": "62e5caffb1fb"
+  },
+  {
+    "url": "file:///Users/alcatraz627/Notes/feedback.md",
+    "normalised": "file:///Users/alcatraz627/Notes/feedback.md",
+    "key": "68dd0ed13906"
+  },
+  {
+    "url": "https://example.com/café",
+    "normalised": "https://example.com/café",
+    "key": "1dd0bff10fca"
+  },
+  {
+    "url": "  https://example.com/a?b=1\n",
+    "normalised": "https://example.com/a?b=1",
+    "key": "8849d9f8cb0c"
+  },
+  {
+    "url": "HTTPS://Example.COM/A",
+    "normalised": "https://example.com/A",
+    "key": "256a6edc1ab5"
+  },
+  {
+    "url": "HTTPS://Example.COM:8080/A?Q=1#F",
+    "normalised": "https://example.com:8080/A?Q=1#F",
+    "key": "91bcbfdf57ee"
+  },
+  {
+    "url": "https://User@Host.Test/Path/",
+    "normalised": "https://User@host.test/Path/",
+    "key": "abe20098a9d0"
+  },
+  {
+    "url": "https://example.com",
+    "normalised": "https://example.com",
+    "key": "327c3fda87ce"
+  },
+  {
+    "url": "https://example.com/",
+    "normalised": "https://example.com/",
+    "key": "b559c7edd3fb"
+  },
+  {
+    "url": "  FILE:///Users/Me/Docs  ",
+    "normalised": "file:///Users/Me/Docs",
+    "key": "eeabbefacad0"
+  },
+  {
+    "url": "Mailto:A@B.com",
+    "normalised": "mailto:A@B.com",
+    "key": "4f685b71a1b0"
+  }
+]

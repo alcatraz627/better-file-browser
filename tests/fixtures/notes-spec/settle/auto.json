@@ -1,0 +1,37 @@
+[
+  {
+    "file": "pos-only.md",
+    "path": "n.md",
+    "auto": true
+  },
+  {
+    "file": "simple-body.md",
+    "path": "n.md",
+    "auto": false
+  },
+  {
+    "file": "simple-body.md",
+    "path": ".reminders/runs/r.json",
+    "auto": true
+  },
+  {
+    "file": "in-header.md",
+    "path": "n.md",
+    "auto": false
+  },
+  {
+    "file": "across-fence.md",
+    "path": "n.md",
+    "auto": false
+  },
+  {
+    "file": "pos-only-unclosed.md",
+    "path": "n.md",
+    "auto": false
+  },
+  {
+    "file": "no-clash.md",
+    "path": ".reminders/x.json",
+    "auto": false
+  }
+]

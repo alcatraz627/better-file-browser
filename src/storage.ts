@@ -153,17 +153,38 @@ export function toggleSaved(path: string, label: string): boolean {
   saveSaved(was ? removePlace(list, path) : upsertPlace(list, { path, label }));
   return !was;
 }
+// Saved lives in the notes folder (one file per save) with this store as its cache. A change here
+// marks the cache unsent and tells saved-sync.ts, which writes the folder; a pull from the folder
+// replaces the cache through setSavedFromFolder, which marks nothing.
+export const SAVED_DIRTY_KEY = 'bfb-saved-dirty-v1';
+let savedChanged: (() => void) | null = null;
+export function onSavedChanged(fn: () => void): void { savedChanged = fn; }
 export function saveSaved(list: Place[]): void {
   list = dedupePlaces(list);
   kvSet(SAVED_KEY, JSON.stringify(list));
   kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list, readList<Tag>(TAGS_KEY))));
+  kvSet(SAVED_DIRTY_KEY, '1');
+  savedChanged?.();
 }
 export function getTags(): Tag[] {
   return reconcileTags(getSaved(), readList<Tag>(TAGS_KEY));
 }
 export function saveTags(tags: Tag[]): void {
   kvSet(TAGS_KEY, JSON.stringify(tags));
+  kvSet(SAVED_DIRTY_KEY, '1');
+  savedChanged?.();
 }
+/** Replace the cache with what the notes folder holds. Marks nothing unsent. */
+export function setSavedFromFolder(list: Place[], colours?: Record<string, string>): void {
+  list = dedupePlaces(list);
+  kvSet(SAVED_KEY, JSON.stringify(list));
+  const reg = reconcileTags(list, readList<Tag>(TAGS_KEY)).map(t => colours?.[t.name] ? { ...t, color: colours[t.name] } : t);
+  kvSet(TAGS_KEY, JSON.stringify(reg));
+}
+/** Remember positions and dates the folder assigned, without marking the cache unsent. */
+export function setSavedQuiet(list: Place[]): void { kvSet(SAVED_KEY, JSON.stringify(list)); }
+export const savedUnsent = (): boolean => kvGet(SAVED_DIRTY_KEY) === '1';
+export const markSavedSent = (): void => kvRemove(SAVED_DIRTY_KEY);
 
 export function getRecents(): RecentDir[] {
   // A damaged entry is dropped rather than taking the whole page down with it.
@@ -341,7 +362,7 @@ export const setPref = (id: string): Pref<Set<string>> =>
 // Keys that hold where the person happens to be, not what they chose: scroll places, the last
 // lens, a dialog's open tab, decision-page drafts. They stay out of an export, an import and a reset.
 const PASSING_STATE = ['bfb-dialog-tab:', 'bfb-dp-', 'bfb-lead:', 'bfb-scroll:', 'bfb-page-scroll-v1', 'bfb-goto-last-v1', 'bfb-lens-v1',
-  'bfb-comments-filter-v1', 'bfb-ask-quote-v1', 'bfb-reset-undo-v1'];
+  'bfb-comments-filter-v1', 'bfb-ask-quote-v1', 'bfb-reset-undo-v1', 'bfb-saved-dirty-v1', 'bfb-saved-premigration-v1', 'bfb-tags-premigration-v1'];
 export const isPassingState = (k: string): boolean => PASSING_STATE.some(p => k === p || ((p.endsWith(':') || p.endsWith('-')) && k.startsWith(p)));
 
 // What a person built up (Saved places, tags, history) rather than chose in Settings: exported and
@@ -388,6 +409,8 @@ function applyWrites(label: string, writes: Record<string, string | null>): numb
   const count = Object.keys(writes).length;
   kvSet(UNDO_KEY, JSON.stringify({ at: Date.now(), label, count, before } satisfies UndoRecord));
   for (const [k, text] of Object.entries(writes)) { if (text === null) kvRemove(k); else kvSet(k, text); }
+  // An import or its undo changes Saved behind saveSaved's back: this browser's list is then the one to send to the folder.
+  if (SAVED_KEY in writes || TAGS_KEY in writes) { kvSet(SAVED_DIRTY_KEY, '1'); savedChanged?.(); }
   return count;
 }
 

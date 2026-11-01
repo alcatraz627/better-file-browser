@@ -37,7 +37,7 @@ try {
     for (const o of JSON.parse(dd.dataset.opts)) if (o.group) { if (groups.at(-1)?.label !== o.group) groups.push({ label: o.group, opts: [] }); groups.at(-1).opts.push(o.value); }
     return groups;
   });
-  check(opts.length === 2 && opts[0].opts.join() === 'small,big,code' && opts[1].opts.join() === 'gemini:gemini-3.8-flash,gemini:gemini-3.5-flash',
+  check(opts.length === 3 && opts[0].opts.join() === 'small,big,code' && opts[1].opts.join() === 'gemini:gemini-3.8-flash,gemini:gemini-3.5-flash' && opts[2].opts.join() === 'gpt:gpt-6.1-sol,gpt:gpt-6-astra',
     `the picker lists the lm aliases and the Gemini models: ${JSON.stringify(opts)}`);
   check(await page.$eval('#fe-ask-cloud', c => c.hidden), 'no cloud note while a local model is picked');
 
@@ -53,7 +53,7 @@ try {
   await pickModel(page, 'gemini:gemini-3.5-flash');
   await page.$eval('#fe-ask-model .fe-dd-btn', b => b.click()); await sleep(200);
   const heads = await page.$$eval('.fe-dd-list .fe-dd-g', gs => gs.map(g => g.textContent));
-  check(heads.length === 2 && /machine/.test(heads[0]) && /Gemini/.test(heads[1]), `the open list names its two groups: ${JSON.stringify(heads)}`);
+  check(heads.length === 3 && /machine/.test(heads[0]) && /Gemini/.test(heads[1]) && /GPT/.test(heads[2]), `the open list names its three groups: ${JSON.stringify(heads)}`);
   await page.screenshot({ path: join(SHOTS, `ask-model-list${sfx}.png`), clip: { x: 0, y: 40, width: 360, height: 420 } });
   await page.keyboard.press('Escape'); await sleep(150);
   const cloud = await page.$eval('#fe-ask-cloud', c => ({ shown: !c.hidden, text: c.textContent.trim() }));

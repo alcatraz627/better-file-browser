@@ -19,6 +19,8 @@ Routes:
   GET  /_bfb/<asset>          the web build, mermaid, the search worker, app icons
   POST /_bfb/native           {host, payload} -> {ok, response | error}: one
                               request to a bfb native host, as the extension sends it
+  POST /_bfb/llm              {op, ...} -> JSON lines: Ask through the Mac's AI host
+                              (see ask_jobs.py; answers outlive the page)
 """
 import argparse
 import html
@@ -34,6 +36,8 @@ import time
 import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from ask_jobs import ASK
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -197,18 +201,40 @@ class Handler(BaseHTTPRequestHandler):
         ctype = 'text/javascript; charset=utf-8' if full.endswith('.js') else (mimetypes.guess_type(full)[0] or 'application/octet-stream')
         self.send(200, body, ctype)
 
+    def ask(self, msg):
+        """Ask: one request to the AI host, answered as a stream of JSON lines, one frame each."""
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/x-ndjson; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Accel-Buffering', 'no')
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        frames = ASK.stream(msg)
+        try:
+            for frame in frames:
+                self.wfile.write(json.dumps(frame).encode('utf-8') + b'\n')
+                self.wfile.flush()
+        except OSError:
+            pass  # the phone left; closing the stream below detaches it (and stops a question nobody holds)
+        finally:
+            frames.close()
+            self.close_connection = True
+
     def do_POST(self):
         if not self.host_ok():
             return
         origin = urllib.parse.urlsplit(self.headers.get('Origin', '')).netloc
         if origin != self.headers.get('Host', '') or self.headers.get('X-Bfb-Web') != '1':
             return self.send(403, b'Only a page this server served may send.\n')
-        if self.path != '/_bfb/native':
+        if self.path not in ('/_bfb/native', '/_bfb/llm'):
             return self.send(404, b'Not found\n')
         try:
             body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
         except ValueError:
             return self.send(400, b'Bad JSON\n')
+        if self.path == '/_bfb/llm':
+            return self.ask(body if isinstance(body, dict) else {})
         script = HOSTS.get(body.get('host'))
         payload = body.get('payload') or {}
         if not script:

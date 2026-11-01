@@ -1,7 +1,7 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref, fileBase } from './utils';
 import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN, CHEVRON_RIGHT, DISCLOSE } from './icons';
-import { groupByTag, filterSaved, samePlace } from './places';
+import { groupByTag, filterSaved, samePlace, isWebPath } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
 import type { ContentHit } from './find';
@@ -140,16 +140,20 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
   if (!saved.length) return emptyHtml('filtered', 'No saved item matches', { inline: true, actions: [CLEAR] });
   const VIEW_ICON = `${GLYPH.filter}`;
   const row = (p: Place) => {
-    const n = p.tags?.length ?? 0, hit = hits.get(p.path);
+    const n = p.tags?.length ?? 0, hit = hits.get(p.path), web = isWebPath(p.path);
+    const href = web ? esc(p.path) : isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path);
+    const icon = web ? UI_ICON.link : isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder;
+    const name = p.label || (web ? p.path.replace(/^[a-z]+:\/\//i, '') : p.path.split('/').filter(Boolean).pop() || '/');
     return `
-    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
+    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}${web ? ' fe-web' : ''}${p.clash ? ' fe-clash' : ''}" draggable="true" data-path="${esc(p.path)}"${p.clash ? ` data-clash="${esc(p.clash)}"` : ''}>
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ''}">
-        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split('/').filter(Boolean).pop() || '/')}</span>
+      <a href="${href}"${web ? ' target="\x5fblank" rel="noopener noreferrer"' : ''} class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ''}">
+        ${icon}<span class="fe-sl fe-pl-label">${esc(name)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>
+      ${web ? '' : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;

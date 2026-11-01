@@ -60,14 +60,14 @@ try {
     && expect.slice(firstUnpinned < 0 ? expect.length : firstUnpinned).every(r => !r.pinned), 'pinned notes come first in the sidebar');
   // specs/order.md: within pinned and unpinned, notes never arranged come first,
   // newest created first; arranged notes follow by pos. Editing never moves a note.
-  const fmOf = rel => { const t = read(rel); return { pos: t.match(/^pos: (.+)$/m)?.[1], made: Date.parse(t.match(/^created: (.+)$/m)?.[1] ?? '') || statSync(join(store, rel)).mtimeMs }; };
+  const fmOf = rel => { const t = read(rel); if (/^<<<<<<< /m.test(t)) return { pos: undefined, made: 0 }; return { pos: t.match(/^pos: (.+)$/m)?.[1], made: Date.parse(t.match(/^created: (.+)$/m)?.[1] ?? "") || 0 }; };   // no created counts as oldest (spec)
   const ordered = xs => xs.every((r, i) => {
     if (i === 0) return true;
     const a = fmOf(xs[i - 1].rel), b = fmOf(r.rel);
     if (!a.pos !== !b.pos) return !a.pos;
     return a.pos ? a.pos <= b.pos : a.made >= b.made;
   });
-  check(ordered(expect.filter(r => r.pinned)) && ordered(expect.filter(r => !r.pinned)), 'within pinned and unpinned, the shared order holds (new first, then arranged by pos)');
+  check(ordered(expect.filter(r => r.pinned)) && ordered(expect.filter(r => !r.pinned)), `within pinned and unpinned, the shared order holds (new first, then arranged by pos): ${expect.map(r => r.rel + (fmOf(r.rel).pos ? '@' + fmOf(r.rel).pos : '')).join(' ')}`);
   const row = rows.find(r => r.rel === withProps);
   check(row && row.pinned && row.dot && row.tags.length > 0, `the tagged, pinned, coloured note shows all three on its row: ${JSON.stringify(row)}`);
   await shot(page, 'props-sidebar');
@@ -168,7 +168,9 @@ try {
   await sleep(700);
   const top = await page.$eval('#fe-nt-list .fe-nt-item', e => e.getAttribute('data-rel'));
   check(/^---\npinned: true\ncolor: red\n---\n/.test(read('plain-guard.md')), `pin goes before colour, as Switchboard orders them: ${JSON.stringify(read('plain-guard.md').slice(0, 45))}`);
-  check(top === 'plain-guard.md', `a note pinned from the sidebar moves to the top: ${top}`);
+  // It has no `created`, which counts as oldest, so it joins the pinned group at its end (spec order).
+  const pinnedRels = await page.$$eval('#fe-nt-list .fe-nt-item.pinned', els => els.map(e => e.getAttribute('data-rel')));
+  check(pinnedRels.includes('plain-guard.md') && pinnedRels.at(-1) === 'plain-guard.md', `a note pinned from the sidebar joins the pinned group: ${pinnedRels.join(' ')}`);
   await shot(page, 'props-sidebar-menu');
   await page.keyboard.press('Escape');
 } finally {

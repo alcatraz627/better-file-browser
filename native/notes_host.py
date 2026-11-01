@@ -36,8 +36,13 @@ notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out.
 """
 import bisect
+import contextlib
 import sys, os, re, json, struct, time, shutil, subprocess
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import notefmt
+import notes_lock
 
 def read_msg():
     raw = sys.stdin.buffer.read(4)
@@ -99,78 +104,47 @@ def list_notes(root):
     out.sort(key=lambda n: -n['mtime'])
     return out
 
-def note_props(full):
-    """The colour, pin and tags a note's frontmatter holds, read the way Switchboard reads them."""
-    props = {'color': '', 'pinned': False, 'tags': [], 'pos': '', 'created': None}
+def parsed_note(full):
+    """One note read by the shared spec rules (notefmt.py), or None when it cannot be opened.
+    A clash file is not parsed for a header, so its title is its file name."""
     try:
-        with open(full, 'r', encoding='utf-8', errors='replace') as fh:
-            lines = fh.read(4096).split('\n')
+        with open(full, 'r', encoding='utf-8', errors='replace', newline='') as fh:
+            text = fh.read(2 * 1024 * 1024)
     except OSError:
+        return None
+    name = os.path.basename(full)
+    if name.lower().endswith('.md'):
+        name = name[:-3]
+    return notefmt.parse(text, name)
+
+def note_props(full):
+    """The colour, pin, tags and place a note's header holds, read by the spec rules."""
+    props = {'color': '', 'pinned': False, 'tags': [], 'pos': '', 'created': None}
+    n = parsed_note(full)
+    if n is None:
         return props
-    if not lines or lines[0].strip() != '---':
-        return props
-    for line in lines[1:]:
-        if line.strip() == '---':
-            break
-        key, sep, value = line.partition(':')
-        if not sep:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
-            try:
-                value = json.loads(value) if value[0] == '"' else value[1:-1].replace("''", "'")
-            except ValueError:
-                value = value[1:-1]
-        key = key.strip()
-        if key == 'color':
-            props['color'] = value
-        elif key == 'pinned':
-            props['pinned'] = value == 'true'
-        elif key == 'tags':
-            # `a, b` and the YAML flow list `[a, b]` read the same
-            if value.startswith('[') and value.endswith(']'):
-                value = value[1:-1]
-            tags = [t.strip() for t in value.split(',')]
-            props['tags'] = [t[1:-1] if len(t) >= 2 and t[0] == t[-1] and t[0] in '"\'' else t for t in tags if t]
-        elif key == 'pos':
-            props['pos'] = value   # raw text: `no`, `1e5` and `null` stay strings
-        elif key == 'created':
-            try:
-                props['created'] = int(datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp() * 1000)
-            except ValueError:
-                pass
+    props.update(color=n['color'] or '', pinned=n['pinned'], tags=n['tags'], pos=n['pos'] or '')
+    props.update(conflicted=n['conflicted'])
+    for key in ('agent', 'source', 'url', 'device', 'expires', 'remindAt', 'remindRepeat', 'remindOn', 'remindPersist'):
+        if n[key]:
+            props[key] = n[key]
+    if n['created']:
+        try:
+            props['created'] = int(datetime.fromisoformat(n['created'].replace('Z', '+00:00')).timestamp() * 1000)
+        except ValueError:
+            pass
     return props
 
 def note_title(full):
-    """What the sidebar calls a note: its frontmatter title, else its first heading, else its first line; empty when none."""
-    try:
-        with open(full, 'r', encoding='utf-8', errors='replace') as fh:
-            head = fh.read(4096)
-    except OSError:
+    """What the sidebar calls a note, by the spec: its title key, else its first body line, else its file name."""
+    n = parsed_note(full)
+    if not n:
         return ''
-    lines = head.split('\n')
-    body_start = 0
-    if lines and lines[0].strip() == '---':
-        for i in range(1, len(lines)):
-            if lines[i].strip() == '---':
-                body_start = i + 1
-                break
-            if lines[i].startswith('title:'):
-                value = lines[i][6:].strip()
-                if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
-                    try:
-                        value = json.loads(value) if value[0] == '"' else value[1:-1].replace("''", "'")
-                    except ValueError:
-                        value = value[1:-1]
-                # a quoted title keeps its padding in YAML; no app shows it padded
-                value = value.strip()
-                if value:
-                    return value
-    for line in lines[body_start:]:
-        s = line.strip()
-        if s and not s.startswith('>'):
-            return s.lstrip('#').strip()
-    return ''
+    if n['title'] or n['conflicted']:
+        return n['title']
+    # An empty `title:` stays empty in the spec's parse; the list shows the first line instead of a stamp.
+    name = os.path.basename(full)[:-3] if full.lower().endswith('.md') else os.path.basename(full)
+    return notefmt._derive_title(n['body'], name)
 
 def op_read(root, rel):
     full = resolve_rel(root, rel)
@@ -182,14 +156,25 @@ def op_read(root, rel):
 
 def atomic_write(full, text):
     """Replace a file's text in one step, keeping its permission bits (an
-    executable script stays executable)."""
+    executable script stays executable). The new text is written to a hidden
+    temp file beside it and synced, so a crash leaves the old file or the new
+    one, never half of either."""
+    write_bytes_atomic(full, text.encode('utf-8'), newline_ok=True)
+
+def write_bytes_atomic(full, data, newline_ok=False):
     os.makedirs(os.path.dirname(full), exist_ok=True)
-    tmp = full + '.tmp-' + str(os.getpid())
-    with open(tmp, 'w', encoding='utf-8', newline='') as fh:
-        fh.write(text)
-    if os.path.exists(full):
-        os.chmod(tmp, os.stat(full).st_mode & 0o7777)
-    os.replace(tmp, full)
+    tmp = os.path.join(os.path.dirname(full), '.' + os.path.basename(full) + '.tmp-' + str(os.getpid()))
+    try:
+        with open(tmp, 'wb') as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        if os.path.exists(full):
+            os.chmod(tmp, os.stat(full).st_mode & 0o7777)
+        os.replace(tmp, full)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 def check_editable(full, raw):
     """Refuse files an edit would damage: read-only ones, and ones that are not
@@ -331,13 +316,9 @@ def op_write_binary(root, rel, b64):
         data = base64.b64decode(b64 or '', validate=True)
     except Exception:
         raise NotesError('notes_bad_path', 'attachment payload is not base64')
-    if len(data) > 25 * 1024 * 1024:
-        raise NotesError('notes_io', 'attachment over 25 MB')
-    os.makedirs(os.path.dirname(full), exist_ok=True)
-    tmp = full + '.tmp-' + str(os.getpid())
-    with open(tmp, 'wb') as fh:
-        fh.write(data)
-    os.replace(tmp, full)
+    if len(data) > 20 * 1024 * 1024:
+        raise NotesError('notes_io', 'attachment over 20 MB')
+    write_bytes_atomic(full, data)
     return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
 
 def op_rename(root, rel, to):
@@ -629,6 +610,35 @@ def op_docs_index():
     for comp, row in _docs().read_index().get('docs', {}).items():
         rows.append({**row, 'companion': comp, 'exists': os.path.exists(row.get('doc', ''))})
     return {'t': 'docsIndex', 'docs': rows}
+
+def op_comments_search(query):
+    """Comment threads, in every document the comment index knows, whose text holds every word of the query.
+    Each hit names the document, the words commented on, and the matching line; newest document first, at most 100."""
+    words = [w for w in (query or '').lower().split() if w]
+    hits = []
+    if not words:
+        return {'t': 'commentsSearch', 'hits': hits}
+    store = _docs()
+    rows = sorted(store.read_index().get('docs', {}).values(), key=lambda r: r.get('updated') or '', reverse=True)
+    for row in rows:
+        doc = row.get('doc', '')
+        if not doc or not os.path.exists(doc):
+            continue
+        try:
+            data = store.load(doc)[0]
+        except Exception:
+            continue
+        block = (data or {}).get('comments')
+        for th in (block.get('threads', []) if isinstance(block, dict) else []):
+            texts = [c.get('text', '') for c in th.get('comments', []) if not c.get('deleted')]
+            hay = ' '.join(texts + [(th.get('anchor') or {}).get('exact', '')]).lower()
+            if all(w in hay for w in words):
+                line = next((t for t in texts if any(w in t.lower() for w in words)), texts[0] if texts else '')
+                hits.append({'doc': doc, 'thread': th.get('id'), 'anchor': (th.get('anchor') or {}).get('exact', '')[:120],
+                             'line': line.replace('\n', ' ')[:160], 'status': th.get('status', 'open')})
+                if len(hits) >= 100:
+                    return {'t': 'commentsSearch', 'hits': hits}
+    return {'t': 'commentsSearch', 'hits': hits}
 
 DP_VERBS = ('compose', 'submit', 'seen', 'parse')
 # BFB_DP_BIN overrides gcc's command (the tests point it at a stub).
@@ -996,7 +1006,142 @@ def op_send_thread(root, rel, thread_id, to):
     return {'t': 'sent', 'to': to, 'thread': thread_id}
 
 
+
+STATE_FILE = 'mnt-sync-state.json'
+
+def op_sync_state(root):
+    """What Switchboard last reported about syncing this notes folder, read from <repo>/.git/mnt-sync-state.json
+    so any app can show it without running sync. `repo` is false when the folder sits in no repository."""
+    repo = repo_root_of(root)
+    now = int(time.time())
+    if repo is None:
+        return {'t': 'syncState', 'repo': False, 'state': None, 'now': now}
+    path = os.path.join(repo, '.git', STATE_FILE)
+    state = None
+    if os.path.isfile(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as fh:
+                got = json.load(fh)
+            if isinstance(got, dict):
+                state = got
+        except (OSError, ValueError):
+            state = {'unreadable': True}
+    return {'t': 'syncState', 'repo': True, 'state': state, 'now': now}
+
+
+SAVED_DIR = '.saved'
+META_TAGS = os.path.join('.meta', 'tags.json')
+
+def saved_key_ok(key):
+    return isinstance(key, str) and notefmt.valid_id(key)
+
+def op_saved_list(root):
+    """Every save in <root>/.saved with its file text, plus the tag colours in .meta/tags.json.
+    `exists` is false when the folder has never been made, which is how an app knows to migrate."""
+    d = os.path.join(root, SAVED_DIR)
+    items = []
+    exists = os.path.isdir(d)
+    if exists:
+        for f in sorted(os.listdir(d)):
+            if not f.endswith('.md') or f.startswith('.'):
+                continue
+            full = os.path.join(d, f)
+            if not os.path.isfile(full):
+                continue
+            try:
+                with open(full, 'r', encoding='utf-8', errors='replace', newline='') as fh:
+                    text = fh.read(1024 * 1024)
+            except OSError:
+                continue
+            items.append({'key': f[:-3], 'text': text, 'mtime': mtime_ms(full)})
+    tags = None
+    tp = os.path.join(root, META_TAGS)
+    if os.path.isfile(tp):
+        try:
+            with open(tp, 'r', encoding='utf-8') as fh:
+                got = json.load(fh)
+            if isinstance(got, dict):
+                tags = {str(k): str(v) for k, v in got.items() if isinstance(v, str)}
+        except (OSError, ValueError):
+            tags = None
+    return {'t': 'saved', 'exists': exists, 'items': items, 'tags': tags}
+
+def op_saved_sync(root, writes, removes, tags, create_only):
+    """Apply a batch to <root>/.saved: write or replace files, move removed ones into .trash, and merge
+    tag colours into .meta/tags.json. With create_only a file that already exists is left alone, which is
+    what makes the one-time migration safe to run twice."""
+    d = os.path.join(root, SAVED_DIR)
+    os.makedirs(d, exist_ok=True)
+    written, skipped, removed = [], [], []
+    for w in (writes or []):
+        key, text = w.get('key'), w.get('text')
+        if not saved_key_ok(key) or not isinstance(text, str):
+            raise NotesError('notes_bad_path', f'not a save name: {key!r}')
+        full = os.path.join(d, key + '.md')
+        if create_only and os.path.exists(full):
+            skipped.append(key)
+            continue
+        atomic_write(full, text)
+        written.append(key)
+    for key in (removes or []):
+        if not saved_key_ok(key):
+            raise NotesError('notes_bad_path', f'not a save name: {key!r}')
+        full = os.path.join(d, key + '.md')
+        if os.path.isfile(full):
+            op_delete(root, os.path.join(SAVED_DIR, key + '.md'))
+            removed.append(key)
+    if isinstance(tags, dict) and tags:
+        tp = os.path.join(root, META_TAGS)
+        cur = {}
+        if os.path.isfile(tp):
+            try:
+                with open(tp, 'r', encoding='utf-8') as fh:
+                    got = json.load(fh)
+                if isinstance(got, dict):
+                    cur = got
+            except (OSError, ValueError):
+                cur = {}
+        merged = {**cur, **{str(k): str(v) for k, v in tags.items()}}
+        if merged != cur:
+            atomic_write(tp, json.dumps(merged, indent=2, ensure_ascii=False, sort_keys=True) + '\n')
+    return {'t': 'savedSynced', 'written': written, 'skipped': skipped, 'removed': removed}
+WRITE_OPS = {'savedSync', 'write', 'create', 'rename', 'delete', 'restore', 'writeBinary', 'fileWrite', 'commentsWrite'}
+
+def repo_root_of(root):
+    """The git repository (with a .git folder) a notes folder sits in, or None."""
+    here = os.path.abspath(root)
+    while True:
+        if os.path.isdir(os.path.join(here, '.git')):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return None
+        here = parent
+
+@contextlib.contextmanager
+def writer_lock(root):
+    """The one-writer-at-a-time lock the notes spec asks every writer on the Mac to hold
+    (<repo>/.git/mnt-sync.lock, waiting up to 5 seconds). A folder outside a repo has none.
+    BFB_LOCK_WAIT shortens the wait for tests."""
+    repo = repo_root_of(root)
+    if repo is None:
+        yield
+        return
+    try:
+        wait = float(os.environ.get('BFB_LOCK_WAIT') or notes_lock.WAIT_SECONDS)
+        with notes_lock.repo_lock(repo, wait):
+            yield
+    except notes_lock.LockTimeout:
+        raise NotesError('notes_busy', 'another app is writing the notes folder; try again in a moment')
+
 def handle(msg):
+    op = msg.get('op')
+    if op in WRITE_OPS and isinstance(msg.get('root'), str):
+        with writer_lock(resolve_root(msg.get('root'))):
+            return handle_unlocked(msg)
+    return handle_unlocked(msg)
+
+def handle_unlocked(msg):
     op = msg.get('op')
     if op == 'phone': return op_phone(msg.get('action') or 'status')
     if op == 'svc_seen': return op_svc_seen(msg.get('port'))
@@ -1009,6 +1154,7 @@ def handle(msg):
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'), msg.get('kind'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
     if op == 'docsIndex': return op_docs_index()
+    if op == 'commentsSearch': return op_comments_search(msg.get('query'))
     if op == 'dpPages': return op_dp_pages()
     root = resolve_root(msg.get('root'))
     if op == 'stat':   return op_stat(root)
@@ -1023,6 +1169,9 @@ def handle(msg):
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
+    if op == 'syncState': return op_sync_state(root)
+    if op == 'savedList': return op_saved_list(root)
+    if op == 'savedSync': return op_saved_sync(root, msg.get('writes'), msg.get('removes'), msg.get('tags'), bool(msg.get('createOnly')))
     if op == 'search':    return op_search(root, msg.get('query'))
     if op == 'fileRead':  return op_file_read(root, msg.get('rel'), msg.get('offset'))
     if op == 'fileStat':  return op_file_stat(root, msg.get('rel'))

@@ -56,7 +56,8 @@ try {
   // An empty note has no title of its own, so its row may read as its file name.
   const wrongNames = rows.filter(r => existsSync(join(store, r.rel)) && titleOf(r.rel) && r.label !== titleOf(r.rel)).map(r => ({ ...r, want: titleOf(r.rel) }));
   check(wrongNames.length === 0, `each row shows the note's title, not its file name: ${JSON.stringify(wrongNames.slice(0, 4))}`);
-  const filenameLabels = rows.filter(r => /^\d{8}-\d{6}/.test(r.label || ''));
+  // A file holding a clash is not parsed for a header (spec), so its row reads as its file name until it is settled.
+  const filenameLabels = rows.filter(r => /^\d{8}-\d{6}/.test(r.label || '') && !/^<<<<<<< /m.test(read(r.rel)));
   check(filenameLabels.length === 0, `no row is labelled with a raw id: ${JSON.stringify(filenameLabels.slice(0, 4))}`);
   await shot(page, 'store-walk-list');
 

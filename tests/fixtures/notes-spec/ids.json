@@ -1,0 +1,19 @@
+{
+  "valid": [
+    "20261101-120000-ab12",
+    "a",
+    "A_b-c",
+    "1",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ],
+  "invalid": [
+    "",
+    "-a",
+    "_a",
+    "a b",
+    "a.b",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "é",
+    ".hidden"
+  ]
+}
