@@ -123,7 +123,12 @@ export async function seedFromMac(): Promise<void> {
     const r = await fetch('/_bfb/seed.json', { cache: 'no-store' });
     if (!r.ok) return;
     const { kv } = await r.json() as { kv?: Record<string, unknown> };
+    // Saved and its tag colours live in the notes folder, which the phone reads and writes through the Mac;
+    // the seed is only their first copy, and never replaces a change the phone has not sent yet.
+    const unsent = read('local', 'bfb-saved-dirty-v1') === '1';
+    const MAC_ONLY = (k: string) => k === 'bfb-saved-dirty-v1' || k === 'bfb-saved-folder-off-v1' || k.endsWith('-premigration-v1') || (unsent && (k === 'bfb-saved-v1' || k === 'bfb-tags-v1'));
     for (const [k, v] of Object.entries(kv ?? {})) {
+      if (MAC_ONLY(k)) continue;
       try { localStorage.setItem(keyOf('local', k), JSON.stringify(v)); } catch { /* this browser's storage is full: skip the rest of the big ones */ }
     }
   } catch { /* no seed yet: the phone starts with defaults */ }

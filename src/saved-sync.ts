@@ -7,6 +7,7 @@ import { notes, NotesError } from './notes';
 import { getSaved, getTags, setSavedFromFolder, setSavedQuiet, onSavedChanged, savedUnsent, markSavedSent, getSettings, SAVED_KEY, TAGS_KEY, SAVED_DIRTY_KEY } from './storage';
 import { kvGet, kvSet, kvRemove } from './kv';
 import { planSaved, placesFromFiles } from './saved-files';
+import { onPhone } from './phone';
 
 const BACKUP_SAVED = 'bfb-saved-premigration-v1';
 const BACKUP_TAGS = 'bfb-tags-premigration-v1';
@@ -54,7 +55,8 @@ export async function pullSaved(): Promise<'migrated' | 'pulled' | 'pushed' | 'n
   let got;
   try { got = await notes.savedList(r); }
   catch (e) { setWhere('unreachable', e instanceof NotesError ? e.message : String(e)); return 'none'; }
-  if (!got.exists) return migrateSaved(r);
+  // The phone never makes the first move of Saved: the Mac does, and the phone reads the result.
+  if (!got.exists) { if (onPhone()) { setWhere('folder'); return 'none'; } return migrateSaved(r); }
   if (savedUnsent()) { await pushSaved(r); hooks?.refresh(); return 'pushed'; }
   const next = placesFromFiles(got.items);
   const before = JSON.stringify(getSaved()), regBefore = kvGet(TAGS_KEY);

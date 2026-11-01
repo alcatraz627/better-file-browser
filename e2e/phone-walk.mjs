@@ -3,7 +3,8 @@
 // diagrams draw; the sidebar is a drawer; a comment made by touch is written
 // beside the doc; Send hands the thread to an agent (a stub claude-ipc here).
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
@@ -45,24 +46,37 @@ try {
   check(folder.rows >= 7 && folder.wide <= 391 && folder.phone, `a folder lists its files at phone width: ${JSON.stringify(folder)}`);
   await page.screenshot({ path: join(SHOTS, 'phone-folder.png') });
 
-  // The sidebar is a drawer from the bottom: closed at first, opened by its button, closed by the scrim.
+  // The sidebar is a drawer from the bottom: closed at first, raised by a lens button on the bottom bar, lowered by the scrim.
   const sideTop = () => page.$eval('#fe-side', s => Math.round(s.getBoundingClientRect().top));
   check(await sideTop() >= 844, 'the sidebar starts as a closed drawer below the screen');
-  await page.tap('#fe-side-toggle');
+  await page.tap('#fe-rail-saved');
   await sleep(400);
   const open = await sideTop();
   const drawerBox = await page.$eval('#fe-side', s => { const r = s.getBoundingClientRect(), l = document.getElementById('fe-lenses').getBoundingClientRect(); return { w: Math.round(r.width), lensW: Math.round(l.width), lensH: Math.round(l.height) }; });
-  check(open > 100 && open < 844 && drawerBox.w > 360 && drawerBox.lensW > 300 && drawerBox.lensH > 200, `the sidebar button raises a full-width drawer with its panel: top ${open}, ${JSON.stringify(drawerBox)}`);
+  check(open > 100 && open < 844 && drawerBox.w > 360 && drawerBox.lensW > 300 && drawerBox.lensH > 200, `a lens button raises a full-width drawer with its panel: top ${open}, ${JSON.stringify(drawerBox)}`);
   await page.screenshot({ path: join(SHOTS, 'phone-drawer.png') });
-  const savedShown = await page.evaluate(async () => {
-    const b = [...document.querySelectorAll('#fe-rail button')].find(x => /saved/i.test(x.title + ' ' + (x.getAttribute('aria-label') ?? '')));
-    b?.click(); await new Promise(r => setTimeout(r, 300));
-    return document.getElementById('fe-side').textContent.includes('Saved on the Mac');
-  });
-  check(savedShown, 'the Mac\'s Saved list is in the phone drawer');
-  await page.tap('.fe-drawer-scrim');
+  check(await page.evaluate(() => document.getElementById('fe-side').textContent.includes('Saved on the Mac')), 'the Mac\'s Saved list is in the phone drawer');
+  await page.touchscreen.tap(195, 40);   // the scrim is the part of the page the drawer leaves uncovered
   await sleep(400);
   check(await sideTop() >= 844, 'a tap on the scrim lowers it');
+
+  // Saved is real through the Mac: a save made on the phone is a file in the notes folder, and a save the Mac adds shows on the phone.
+  const savedDir = join(notesDir, '.saved');
+  await page.tap('#fe-bm-btn');
+  for (let i = 0; i < 40 && !(existsSync(savedDir) && readdirSync(savedDir).length >= 2); i++) await sleep(150);
+  const files = existsSync(savedDir) ? readdirSync(savedDir).filter(f => f.endsWith('.md')) : [];
+  const texts = files.map(f => readFileSync(join(savedDir, f), 'utf8'));
+  check(files.length === 2 && texts.some(t => t.includes('title: "Saved on the Mac"')) && texts.some(t => t.includes(`url: "file://${fixture}/"`)), `saving a folder on the phone writes it to .saved/ in the notes folder, beside the Mac's row: ${files.length} files`);
+  writeFileSync(join(savedDir, 'cccccccccccc.md'), `---\ntitle: "Added on the Mac"\nurl: "file://${fixture}/nested/deeper/"\ndevice: "mac"\n---\n`);
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.tap('#fe-rail-saved'); await sleep(900);
+  const shown = await page.evaluate(() => document.getElementById('fe-sv-list').textContent);
+  check(shown.includes('Added on the Mac') && shown.includes('Saved on the Mac'), 'a save the Mac added to the folder shows on the phone after a reload');
+  await page.touchscreen.tap(195, 40); await sleep(300);
+  // Reachable only as localhost or on the tailnet, over plain HTTP: any other Host name is refused.
+  const status = (path, host) => new Promise(res => { const q = httpRequest({ host: '127.0.0.1', port, path, headers: { Host: host } }, r => { r.resume(); res(r.statusCode); }); q.on('error', () => res(0)); q.end(); });
+  const refused = await status('/', 'example.com'), tail = await status('/_bfb/seed.json', 'bfb-mac.tail1234.ts.net');
+  check(refused === 421 && tail === 200, `the server answers a tailnet name and refuses any other host: other ${refused}, tailnet ${tail}`);
 
   // A markdown file: rendered, its diagram drawn by the viewer.
   await page.goto(`${BASE}${fixture}/readme.md`, { waitUntil: 'load' });
@@ -101,7 +115,7 @@ try {
   await page.tap('.fe-cm-send [data-to="bfb"]');
   for (let i = 0; i < 40 && !existsSync(sent); i++) await sleep(150);
   const msg = existsSync(sent) ? readFileSync(sent, 'utf8') : '';
-  check(/^send\n--to\nbfb\n/.test(msg) && msg.includes('readme.md') && msg.includes('Read on the phone') && msg.includes('bfb-docs comments reply'),
+  check(/^send\n--from\nuser\n--to\nbfb\n/.test(msg) && msg.includes('readme.md') && msg.includes('Read on the phone') && msg.includes('bfb-docs comments reply'),
     `Send hands the thread to the agent with how to reply: ${JSON.stringify(msg.slice(0, 160))}`);
   check(!errors.length, `no page errors: ${errors.join(' | ') || 'none'}`);
 } finally {
