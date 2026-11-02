@@ -597,6 +597,26 @@ r = call({'op': 'restore', 'root': arc, 'trashed': r['trashed']})
 check(os.path.exists(os.path.join(arc, 'attachments', 'only.png')) and os.path.exists(os.path.join(arc, 'attachments', 'my pic.png')) and not os.path.exists(os.path.join(arc, '.trash', 'attachments', 'only.png')),
       'restoring the note brings its pictures back')
 
+# A different spelling of the same picture's name still counts as a link to it.
+enc = tempfile.mkdtemp(prefix='bfb-notes-attach-enc-')
+os.makedirs(os.path.join(enc, 'attachments'))
+open(os.path.join(enc, 'attachments', 'my,pic.png'), 'wb').write(b'png')
+with open(os.path.join(enc, 'a.md'), 'w') as fh: fh.write('![x](attachments/my%2Cpic.png)\n')
+with open(os.path.join(enc, 'b.md'), 'w') as fh: fh.write('![y](attachments/my%2cpic.png)\n')
+call({'op': 'delete', 'root': enc, 'rel': 'a.md'})
+check(os.path.exists(os.path.join(enc, 'attachments', 'my,pic.png')), 'a picture stays when another note links to it with a different percent spelling')
+
+# A link that climbs out of attachments/ never moves a file on restore or delete.
+esc = tempfile.mkdtemp(prefix='bfb-notes-attach-esc-')
+os.makedirs(os.path.join(esc, 'notes', 'attachments'))
+os.makedirs(os.path.join(esc, 'notes', '.trash', 'attachments'))
+with open(os.path.join(esc, 'notes', 'victim.md'), 'w') as fh: fh.write('keep me\n')
+with open(os.path.join(esc, 'notes', 'bad.md'), 'w') as fh: fh.write('![x](attachments/../../victim.md)\n')
+r = call({'op': 'delete', 'root': os.path.join(esc, 'notes'), 'rel': 'bad.md'})
+call({'op': 'restore', 'root': os.path.join(esc, 'notes'), 'trashed': r['trashed']})
+check(os.path.exists(os.path.join(esc, 'notes', 'victim.md')) and not os.path.exists(os.path.join(esc, 'victim.md')),
+      'restoring a note with a climbing link leaves other files where they are')
+
 # Remove for good: the note leaves .trash for the macOS Trash (here a scratch home).
 fake_bin = tempfile.mkdtemp(prefix='bfb-bin-')
 os.environ['BFB_TRASH_DIR'] = fake_bin

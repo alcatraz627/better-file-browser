@@ -45,5 +45,6 @@ export function routeLink(href: string, ctx: { onPhone: boolean; origin: string;
 /** The text Copy link puts on the clipboard, and what to tell the person about where it opens. */
 export function copyTarget(path: string, ctx: { onPhone: boolean; phoneLink: string }): { text: string; say: string } {
   if (ctx.phoneLink) return { text: ctx.phoneLink, say: ctx.onPhone ? 'Link copied' : 'Link copied. It opens on this Mac and on your phone.' };
-  return { text: fileHrefOf(path), say: 'Link copied. Phone access is off, so it opens only on this Mac. Turn it on in Settings, Data.' };
+  // A path here names a file, so a `#` belongs to its name, unlike the `#` of a followed link.
+  return { text: 'file://' + encodeURI(path).replace(/[?#]/g, encodeURIComponent), say: 'Link copied. Phone access is off, so it opens only on this Mac. Turn it on in Settings, Data.' };
 }

@@ -24443,7 +24443,7 @@ ${d.message}` : d.message;
   }
   function copyTarget(path, ctx) {
     if (ctx.phoneLink) return { text: ctx.phoneLink, say: ctx.onPhone ? "Link copied" : "Link copied. It opens on this Mac and on your phone." };
-    return { text: fileHrefOf(path), say: "Link copied. Phone access is off, so it opens only on this Mac. Turn it on in Settings, Data." };
+    return { text: "file://" + encodeURI(path).replace(/[?#]/g, encodeURIComponent), say: "Link copied. Phone access is off, so it opens only on this Mac. Turn it on in Settings, Data." };
   }
 
   // src/phone.ts

@@ -28,4 +28,10 @@ describe('one address', () => {
     expect(off.text).toBe('file:///Users/example/a%20b.md');
     expect(off.say).toMatch(/Phone access is off, so it opens only on this Mac/);
   });
+  it('Copy link keeps a # or ? in a file name as part of the name', () => {
+    const u = new URL(copyTarget('/Users/example/report#1?.md', { onPhone: false, phoneLink: '' }).text);
+    expect(decodeURIComponent(u.pathname)).toBe('/Users/example/report#1?.md');
+    expect(u.hash).toBe('');
+    expect(u.search).toBe('');
+  });
 });

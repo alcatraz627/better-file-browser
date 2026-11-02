@@ -367,9 +367,11 @@ def op_delete(root, rel):
 ATTACH_REF = re.compile(r'attachments/([^)\s"\'<>\]]+)')
 
 def attachment_names(text):
-    """The `attachments/` file names a text links to, in any link form, percent-decoded."""
+    """The `attachments/` file names a text links to, in any link form, percent-decoded. The folder is flat,
+    so a name that climbs out of it (`attachments/../../x`) is not an attachment."""
     from urllib.parse import unquote
-    return {unquote(m.group(1)) for m in ATTACH_REF.finditer(text or '')}
+    names = {unquote(m.group(1)) for m in ATTACH_REF.finditer(text or '')}
+    return {n for n in names if n not in ('.', '..') and '/' not in n and '\\' not in n}
 
 def other_notes_link(root, name):
     """Whether any note or save still in the folder links to `attachments/<name>`. Deliberately generous:
@@ -386,7 +388,7 @@ def other_notes_link(root, name):
                     body = fh.read()
             except OSError:
                 continue
-            if any(n in body for n in needles):
+            if any(n in body for n in needles) or name in attachment_names(body):
                 return True
     return False
 
