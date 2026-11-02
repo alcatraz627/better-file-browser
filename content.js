@@ -5590,7 +5590,7 @@ ${body}
     history.replaceState(null, "", hash);
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/identity.js
+  // node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -5626,7 +5626,7 @@ ${body}
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/visit.js
+  // node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -5776,7 +5776,7 @@ ${body}
     }
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/doc/directives.js
+  // node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5939,7 +5939,7 @@ ${body}
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/doc/anchors.js
+  // node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5999,7 +5999,7 @@ ${body}
     };
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/doc/applyReviver.js
+  // node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -6043,7 +6043,7 @@ ${body}
     return reviver.call(obj, key, val);
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/toJS.js
+  // node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -6066,7 +6066,7 @@ ${body}
     return value;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Node.js
+  // node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -6098,7 +6098,7 @@ ${body}
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Alias.js
+  // node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -6189,7 +6189,7 @@ ${body}
     return 1;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Scalar.js
+  // node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -6209,7 +6209,7 @@ ${body}
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/doc/createNode.js
+  // node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -6276,7 +6276,7 @@ ${body}
     return node;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Collection.js
+  // node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -6408,7 +6408,7 @@ ${body}
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -6417,7 +6417,7 @@ ${body}
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -6544,7 +6544,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6819,7 +6819,7 @@ ${indent}`);
     return res;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringify.js
+  // node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6932,7 +6932,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -7055,7 +7055,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/log.js
+  // node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -7065,7 +7065,7 @@ ${ctx.indent}`;
     }
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -7112,7 +7112,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -7165,7 +7165,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/Pair.js
+  // node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -7194,7 +7194,7 @@ ${ctx.indent}`;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -7329,7 +7329,7 @@ ${indent}${end}`;
     }
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -7460,7 +7460,7 @@ ${indent}${end}`;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/map.js
+  // node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -7474,7 +7474,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -7578,7 +7578,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/seq.js
+  // node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -7592,7 +7592,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/string.js
+  // node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -7604,7 +7604,7 @@ ${indent}${end}`;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/common/null.js
+  // node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -7615,7 +7615,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/bool.js
+  // node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -7632,7 +7632,7 @@ ${indent}${end}`;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -7653,7 +7653,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/float.js
+  // node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7689,7 +7689,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/int.js
+  // node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -7725,7 +7725,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/core/schema.js
+  // node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -7740,7 +7740,7 @@ ${indent}${end}`;
     float
   ];
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/json/schema.js
+  // node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -7798,7 +7798,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7854,7 +7854,7 @@ ${indent}${end}`;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7920,7 +7920,7 @@ ${cn.comment}` : item2.comment;
     createNode: createPairs
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7986,7 +7986,7 @@ ${cn.comment}` : item2.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -8010,7 +8010,7 @@ ${cn.comment}` : item2.comment;
     stringify: boolStringify
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -8049,7 +8049,7 @@ ${cn.comment}` : item2.comment;
     stringify: stringifyNumber
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -8118,7 +8118,7 @@ ${cn.comment}` : item2.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -8197,7 +8197,7 @@ ${cn.comment}` : item2.comment;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -8276,7 +8276,7 @@ ${cn.comment}` : item2.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -8301,7 +8301,7 @@ ${cn.comment}` : item2.comment;
     timestamp
   ];
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/tags.js
+  // node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -8372,7 +8372,7 @@ ${cn.comment}` : item2.comment;
     }, []);
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/schema/Schema.js
+  // node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -8393,7 +8393,7 @@ ${cn.comment}` : item2.comment;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -8464,7 +8464,7 @@ ${cn.comment}` : item2.comment;
     return lines.join("\n") + "\n";
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/doc/Document.js
+  // node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -8756,7 +8756,7 @@ ${cn.comment}` : item2.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/errors.js
+  // node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name2, pos, code, message) {
       super();
@@ -8812,7 +8812,7 @@ ${pointer}
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-props.js
+  // node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8942,7 +8942,7 @@ ${pointer}
     };
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8978,7 +8978,7 @@ ${pointer}
     }
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8989,7 +8989,7 @@ ${pointer}
     }
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8998,7 +8998,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -9094,7 +9094,7 @@ ${pointer}
     return map2;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -9136,7 +9136,7 @@ ${pointer}
     return seq2;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-end.js
+  // node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -9173,7 +9173,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -9353,7 +9353,7 @@ ${pointer}
     return coll;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-collection.js
+  // node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -9405,7 +9405,7 @@ ${pointer}
     return node;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -9581,7 +9581,7 @@ ${pointer}
     return lines;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -9792,7 +9792,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9863,7 +9863,7 @@ ${pointer}
     return tag;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9888,7 +9888,7 @@ ${pointer}
     return offset;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-node.js
+  // node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9976,7 +9976,7 @@ ${pointer}
     return alias;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/compose-doc.js
+  // node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -10009,7 +10009,7 @@ ${pointer}
     return doc;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/compose/composer.js
+  // node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -10200,7 +10200,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/parse/cst-visit.js
+  // node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -10256,7 +10256,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item2, path) : ctrl;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/parse/cst.js
+  // node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -10321,7 +10321,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/parse/lexer.js
+  // node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10893,7 +10893,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/parse/line-counter.js
+  // node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10918,7 +10918,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/parse/parser.js
+  // node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -11764,7 +11764,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // ../better-file-browser/node_modules/yaml/browser/dist/public-api.js
+  // node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
