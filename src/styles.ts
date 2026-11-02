@@ -1619,9 +1619,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:var(--sp-2)}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
 .fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
-#fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-#fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
-/* A saved row is one quiet line: the name, then a tag count that gives way to
+#fe-lens-tags,#fe-lens-colours{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags .fe-lens-tag,#fe-lens-colours .fe-lens-tag{flex:none;white-space:nowrap}
+#fe-lens-colours[hidden]{display:none}/* A saved row is one quiet line: the name, then a tag count that gives way to
    the row's icon buttons on hover. Path and tags live in the hover card. */
 .fe-pl-meta{display:inline-flex;align-items:center;gap:var(--sp-1);margin-left:auto;padding-right:var(--sp-1);flex:none;font-size:var(--fs-xs);color:var(--dm)}
 .fe-pl-meta svg{width:11px;height:11px;opacity:1}
@@ -1644,7 +1644,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
 .fe-nt-item.two .fe-si-link{align-items:flex-start}
 .fe-nt-item.two .fe-si-link > svg{margin-top:var(--sp-1)}
-#fe-lens-notes.trashing .fe-lens-box,#fe-lens-notes.trashing #fe-lens-tags{display:none}
+#fe-lens-notes.trashing .fe-lens-box,#fe-lens-notes.trashing #fe-lens-tags,#fe-lens-notes.trashing #fe-lens-colours{display:none}
 .fe-nt-trashed .fe-si-link{padding:var(--sp-3) 0;align-items:flex-start;cursor:default}
 .fe-nt-trashed .fe-si-link>svg{margin-top:var(--sp-1)}
 .fe-nt-when{font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

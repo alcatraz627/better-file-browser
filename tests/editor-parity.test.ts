@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyChange, changedKeys, duplicateText, readProps, clipboardNote } from '../src/notes';
+import { applyChange, changedKeys, duplicateText, readProps, clipboardNote, filterNotes } from '../src/notes';
 import { tagRows, swapTag, nextColour } from '../src/tag-colours';
 import { TAG_COLORS } from '../src/places';
 
@@ -32,6 +32,22 @@ describe('duplicate', () => {
   });
   it('leaves a note with no header alone', () => {
     expect(duplicateText('just text\n')).toBe('just text\n');
+  });
+});
+
+describe('colour filter', () => {
+  const list = [
+    { rel: 'a.md', title: 'Blue sky', color: 'blue' },
+    { rel: 'b.md', title: 'Plain', color: 'red', tags: ['blue'] },
+    { rel: 'c.md', title: 'No colour' },
+  ];
+  it('colour:<name> keeps only notes of exactly that colour, not a title or tag that says it', () => {
+    expect(filterNotes(list, 'colour:blue').map(n => n.rel)).toEqual(['a.md']);
+    expect(filterNotes(list, 'colour:red').map(n => n.rel)).toEqual(['b.md']);
+    expect(filterNotes(list, 'colour:green')).toEqual([]);
+  });
+  it('a plain colour name in the box still matches by name', () => {
+    expect(filterNotes(list, 'red').map(n => n.rel)).toEqual(['b.md']);
   });
 });
 

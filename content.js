@@ -1303,6 +1303,8 @@
     restore: (root2, trashed, to) => call({ op: "restore", root: root2, trashed, to }),
     /// Remove a deleted note for good: it leaves .trash for the macOS Trash, so even that can be undone.
     purge: (root2, trashed) => call({ op: "purge", root: root2, trashed }),
+    /// A note's words on the Pi screen. The Pi being off is `ok: false` with a sentence to show, never an error.
+    piShow: (root2, rel) => call({ op: "piShow", root: root2, rel }),
     /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
     pick: (start, kind) => call({ op: "pick", start, kind }).then((f) => f.root),
     /// The account's home folder, so Places can offer Home before any visit under it.
@@ -1493,7 +1495,7 @@ ${body}`;
     return list3.filter((n) => {
       const tags = (n.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
-      return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
+      return words.every((w) => w.startsWith("colour:") ? w.slice(7) === (colorName(n.color) ?? "") : w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
     });
   }
   function keyBetween(a, b) {
@@ -2207,6 +2209,7 @@ ${text}
     { id: "copy-name", group: "Listing", title: "Copy name", keys: ["\u21E7Y"], scope: "listing", own: true },
     { id: "filter", group: "Listing", title: "Filter", keys: ["/", "\u2318F"], own: true },
     { id: "new-note", group: "Listing", title: "New note", keys: ["n"], own: true },
+    { id: "new-note-path", group: "Listing", title: "New note and copy its path", keys: [], own: true },
     { id: "new-note-clip", group: "Listing", title: "New note from the clipboard", keys: [], own: true },
     // View
     { id: "view-details", group: "View", title: "Details", keys: ["v d"], own: true },
@@ -2779,6 +2782,8 @@ ${text}
     "copy-name": UI_ICON.copy,
     filter: PI.search,
     "new-note": UI_ICON.add,
+    "new-note-clip": UI_ICON.add,
+    "new-note-path": UI_ICON.add,
     "tree-open": UI_ICON.folderOpen,
     "tree-close": PI.folder,
     deep: UI_ICON.stack,
@@ -19193,9 +19198,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:var(--sp-2)}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
 .fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
-#fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-#fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
-/* A saved row is one quiet line: the name, then a tag count that gives way to
+#fe-lens-tags,#fe-lens-colours{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags .fe-lens-tag,#fe-lens-colours .fe-lens-tag{flex:none;white-space:nowrap}
+#fe-lens-colours[hidden]{display:none}/* A saved row is one quiet line: the name, then a tag count that gives way to
    the row's icon buttons on hover. Path and tags live in the hover card. */
 .fe-pl-meta{display:inline-flex;align-items:center;gap:var(--sp-1);margin-left:auto;padding-right:var(--sp-1);flex:none;font-size:var(--fs-xs);color:var(--dm)}
 .fe-pl-meta svg{width:11px;height:11px;opacity:1}
@@ -19218,7 +19223,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
 .fe-nt-item.two .fe-si-link{align-items:flex-start}
 .fe-nt-item.two .fe-si-link > svg{margin-top:var(--sp-1)}
-#fe-lens-notes.trashing .fe-lens-box,#fe-lens-notes.trashing #fe-lens-tags{display:none}
+#fe-lens-notes.trashing .fe-lens-box,#fe-lens-notes.trashing #fe-lens-tags,#fe-lens-notes.trashing #fe-lens-colours{display:none}
 .fe-nt-trashed .fe-si-link{padding:var(--sp-3) 0;align-items:flex-start;cursor:default}
 .fe-nt-trashed .fe-si-link>svg{margin-top:var(--sp-1)}
 .fe-nt-when{font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -25781,6 +25786,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div id="fe-lens-colours" class="fe-lens-tags" role="group" aria-label="Colour" hidden></div>
       <div id="fe-sv-where" class="fe-where" hidden></div>
       <div class="fe-sec" data-sec="saved">
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
@@ -28080,6 +28086,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-jump", (key) => stripKey(key?.slice(-1) ?? "1")());
     bind("tab-reopen", stripKey("T"));
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
+    bind("new-note-path", () => app.newNoteCopyPath(), () => !!app.settings.notesRoot);
     bind("new-note-clip", () => app.newNoteFromClipboard(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
     bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
@@ -28761,6 +28768,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!box || !tagRow || !tools || lens !== "saved" && lens !== "notes") return;
       tools.append(box);
       tools.after(tagRow);
+      const colourRow = document.getElementById("fe-lens-colours");
+      if (colourRow) tagRow.after(colourRow);
     });
     lensPref.onChange(() => show(lensPref.get(), void 0, true));
     show(lensPref.get(), void 0, true);
@@ -28901,6 +28910,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap((p) => p.tags ?? []))].sort();
       const on = box.value.trim().toLowerCase();
       row2.hidden = !names.length;
+      const cr = document.getElementById("fe-lens-colours");
+      if (cr) {
+        cr.hidden = !inNotes;
+        const cur = /^colour:(\w+)$/.exec(on)?.[1] ?? "";
+        cr.innerHTML = inNotes ? [["", "All", "var(--dm)"], ...NOTE_COLORS.map((c) => [c, c[0].toUpperCase() + c.slice(1), `var(--nc-${c})`])].map(([c, label, dot]) => `<button type="button" class="chip fe-lens-tag fe-lens-colour${cur === c ? " on" : ""}" aria-pressed="${cur === c}" data-colour="${c}" style="--chip:${dot}" title="${c ? `Show only ${c} notes` : "Show every colour"}"><i style="--dot:${dot}"></i>${label}</button>`).join("") : "";
+      }
       row2.innerHTML = names.map((n) => `<button type="button" class="chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" aria-pressed="${on === "#" + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="--dot:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
     }
     const foldedGroups = getFoldedGroups;
@@ -29435,6 +29450,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else syncLens();
     });
     syncDepth();
+    el("fe-lens-colours").addEventListener("click", (e) => {
+      const chip = e.target.closest(".fe-lens-colour");
+      if (!chip) return;
+      const c = chip.dataset.colour ?? "", q = c ? `colour:${c}` : "";
+      lensFilter.value = !c || lensFilter.value.trim().toLowerCase() === q ? "" : q;
+      applyLensFilter();
+    });
     el("fe-lens-tags").addEventListener("click", (e) => {
       const chip = e.target.closest(".fe-lens-tag");
       if (!chip) return;
@@ -29651,11 +29673,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="row fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
         `<div class="row fe-ctx-item" data-act="duplicate">${UI_ICON.copy}<span>Duplicate</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
+        `<div class="row fe-ctx-item" data-act="send">${UI_ICON.external}<span>Send\u2026</span></div>`,
+        `<div class="row fe-ctx-item" data-act="pi">${UI_ICON.tab}<span>Show on the Pi screen</span></div>`,
+        `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy text</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-all">${UI_ICON.copy}<span>Copy title and text</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
+        ...onPhone() ? [] : [`<div class="row fe-ctx-item" data-act="ow:finder">${UI_ICON.external}<span>Show in Finder</span></div>`],
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
       ].join("");
@@ -29705,6 +29731,27 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         case "duplicate":
           void duplicateNote(root2, rel);
           break;
+        case "ow:finder":
+          runOpenWith("ow:finder", notePath(root2, rel), [], toast);
+          break;
+        case "pi":
+          toast("Sending to the Pi\u2026");
+          notes.piShow(root2, rel).then((r) => toast(r.message)).catch((err) => toast(errorText(err, "Showing on the Pi")));
+          break;
+        case "send":
+          void notes.read(root2, rel).then(async (doc) => {
+            const body = splitNote(doc.text).body.replace(/^\n+/, "").replace(/\s+$/, "");
+            const title = meta ? noteName(meta) : noteTitle(rel, doc.text);
+            const text = [title, body].filter(Boolean).join("\n\n");
+            if (typeof navigator.share === "function") {
+              try {
+                await navigator.share({ title, text });
+              } catch (e2) {
+                if (e2.name !== "AbortError") toast("Sharing failed");
+              }
+            } else toast(await copyToClipboard(text) ? "This browser has no share menu, so the note\u2019s text was copied" : "This browser has no share menu");
+          }).catch((err) => toast(errorText(err, "Reading the note")));
+          break;
         case "delete":
           deleteNote(root2, rel);
           break;
@@ -29749,7 +29796,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         });
       });
     }
-    app.newNote = () => {
+    function makeNote(copyPath) {
       const root2 = notesRoot();
       if (!root2) {
         app.openSettings("notes");
@@ -29759,8 +29806,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
       const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
       const rel = `untitled-${stamp}.md`;
-      notes.create(root2, rel, "").then(() => openNoteRel(root2, rel)).catch((err) => toast(errorText(err, "Making the note")));
-    };
+      notes.create(root2, rel, "").then(async () => {
+        if (copyPath) toast(await copyToClipboard(notePath(root2, rel)) ? "Made a new note and copied its path" : "Made a new note; copying its path failed");
+        openNoteRel(root2, rel);
+      }).catch((err) => toast(errorText(err, "Making the note")));
+    }
+    app.newNote = () => makeNote(false);
+    app.newNoteCopyPath = () => makeNote(true);
     app.newNoteFromClipboard = () => {
       const root2 = notesRoot();
       if (!root2) {
@@ -32505,6 +32557,8 @@ ${rows.join("\n")}`, name: subject };
       newNote: () => {
       },
       newNoteFromClipboard: () => {
+      },
+      newNoteCopyPath: () => {
       },
       paintSync: () => {
       },

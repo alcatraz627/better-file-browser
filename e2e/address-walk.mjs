@@ -18,6 +18,7 @@ const h = await launch();
 try {
   const page = await h.open();
   await h.store.set('bfb-lens-v1', 'notes');
+  await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/nested/', label: 'Nested folder' }]);
   await h.store.edit('bfb-settings-v1', s => ({ ...s, showSidebar: true, tooltips: true, notesRoot: store }));
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-nt-item');
@@ -36,6 +37,31 @@ try {
   check(await page.$eval('#fe-phone-btn', e => e.getAttribute('aria-label')) === 'Copy link', 'the top bar button is named Copy link');
   const barOff = await bar();
   check(/Phone access is off, so it opens only on this Mac/.test(barOff), `with phone access off, the top bar button copies a file link and says so: ${barOff}`);
+  // A Saved row's hover button and the listing menu's item are the same Copy link. The toast is blanked first so an old one cannot pass.
+  const savedRowButton = async () => {
+    await page.evaluate(() => { document.getElementById('fe-toast').textContent = ''; });
+    await page.click('#fe-rail-saved'); await page.waitForSelector('#fe-sv-list .fe-pl-item');
+    await page.hover('#fe-sv-list .fe-pl-item'); await sleep(200);
+    check(await page.$eval('#fe-sv-list .fe-pl-item .fe-phone-row-btn', e => e.getAttribute('aria-label')) === 'Copy link', 'the Saved row button is named Copy link');
+    await shot(page, 'address-saved-hover');
+    await page.click('#fe-sv-list .fe-pl-item .fe-phone-row-btn'); await sleep(500);
+    const t = await page.$eval('#fe-toast', e => e.textContent);
+    await page.click('#fe-rail-notes'); await sleep(200);
+    return t;
+  };
+  const listingMenuItem = async () => {
+    await page.evaluate(() => { document.getElementById('fe-toast').textContent = ''; });
+    await page.click('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td.c-nm', { button: 'right' });
+    await page.waitForSelector('.fe-ctx-item[data-act="cp-phone"]');
+    check(await page.$eval('.fe-ctx-item[data-act="cp-phone"] span', e => e.textContent) === 'Copy link', 'the listing menu item is named Copy link');
+    await shot(page, 'address-listing-menu');
+    await page.click('.fe-ctx-item[data-act="cp-phone"]'); await sleep(500);
+    return page.$eval('#fe-toast', e => e.textContent);
+  };
+  const savedOff = await savedRowButton();
+  check(/Phone access is off, so it opens only on this Mac/.test(savedOff), `with phone access off, the Saved row's hover button copies a file link and says so: ${savedOff}`);
+  const menuOff = await listingMenuItem();
+  check(/Phone access is off, so it opens only on this Mac/.test(menuOff), `with phone access off, the listing menu's Copy link copies a file link and says so: ${menuOff}`);
 
   await h.store.set('bfb-phone-on', '1');
   await h.store.set('bfb-phone-url', 'http://100.64.0.9:8446');
@@ -48,6 +74,10 @@ try {
 
   const barOn = await bar();
   check(/opens on this Mac and on your phone/.test(barOn), `with phone access on, the top bar button copies the phone address: ${barOn}`);
+  const savedOn = await savedRowButton();
+  check(/opens on this Mac and on your phone/.test(savedOn), `with phone access on, the Saved row's hover button copies the phone address: ${savedOn}`);
+  const menuOn = await listingMenuItem();
+  check(/opens on this Mac and on your phone/.test(menuOn), `with phone access on, the listing menu's Copy link copies the phone address: ${menuOn}`);
 
   // A phone-server link followed on the Mac opens the file here.
   await page.evaluate(root => { const a = document.createElement('a'); a.id = 'probe-link'; a.href = `http://100.64.0.9:8446${root}/ideas.md`; a.textContent = 'x'; a.style.cssText = 'position:fixed;top:60px;left:320px;z-index:99999;background:#fff;color:#000'; document.body.append(a); }, store);

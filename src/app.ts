@@ -26,6 +26,7 @@ export interface App {
   refreshNotes(): void;
   newNote(): void;
   newNoteFromClipboard(): void;
+  newNoteCopyPath(): void;
   paintSync(): void;
   pickNotesFolder(): void;
   openInTerminal(path: string): void;

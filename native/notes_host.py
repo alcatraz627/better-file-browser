@@ -16,6 +16,7 @@ Ops (request -> reply):
   {op:"trashList", root}                     -> {t:"trash", notes:[{trashed, name, title, size, mtime, deleted}]}   (what .trash holds, newest first)
   {op:"restore", root, trashed, to?}         -> {t:"restored", rel, trashed}   (back to `to`, or the note's own name; never overwrites)
   {op:"purge", root, trashed}                -> {t:"purged", trashed}   (a deleted note leaves .trash for the macOS Trash)
+  {op:"piShow", root, rel}                   -> {t:"pi", ok, message}   (the note's words on the Pi screen; the Pi being off is ok false with a sentence)
   {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
   {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}], repo}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
@@ -560,6 +561,60 @@ def restore_from_history(root, trashed, to):
             os.makedirs(os.path.dirname(out), exist_ok=True)
             write_bytes_atomic(out, r.stdout)
     return {'t': 'restored', 'rel': os.path.relpath(dst, root), 'trashed': trashed}
+
+PI_HOST = '100.65.188.9'
+PI_PORT = 8792
+
+def pi_token():
+    """The Pi's mesh token from the owner's csync config, or None. It is read here and never leaves this process."""
+    path = os.environ.get('BFB_PI_TOKEN_FILE') or os.path.expanduser('~/.config/csync/mesh.token')
+    try:
+        with open(path, encoding='utf-8') as fh:
+            t = fh.read().strip()
+    except OSError:
+        return None
+    return t or None
+
+def pi_screen_text(s):
+    """At most 4000 characters, cut after a whole word, as the Pi expects."""
+    if len(s) <= 4000:
+        return s
+    head = s[:4000]
+    cut = max(head.rfind(c) for c in (' ', '\n', '\t'))
+    return head[:cut].strip() if cut > 0 else head
+
+def op_pi_show(root, rel):
+    """Put a note's words on the Raspberry Pi's screen. The Pi may be off or out of reach: that comes back as a
+    plain sentence with ok false, never an error and never a hang (a five second limit)."""
+    import urllib.request, urllib.error, socket
+    full = resolve_rel(root, rel)
+    n = parsed_note(full)
+    if n is None:
+        raise NotesError('notes_missing', f'no such note: {rel}')
+    token = pi_token()
+    if not token:
+        return {'t': 'pi', 'ok': False, 'message': 'The Pi was not reached: there is no mesh token at ~/.config/csync/mesh.token.'}
+    title, body = (n['title'] or '').strip(), (n['body'] or '').strip()
+    text = pi_screen_text(body) if body else title
+    if not text:
+        return {'t': 'pi', 'ok': False, 'message': 'This note has no words to show.'}
+    base = os.environ.get('BFB_PI_BASE') or f'http://{PI_HOST}:{PI_PORT}'
+    req = urllib.request.Request(base + '/v1/display/show', data=json.dumps({'title': title, 'text': text}).encode('utf-8'),
+                                 headers={'Content-Type': 'application/json', 'X-Csync-Token': token}, method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            raw = r.read()
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return {'t': 'pi', 'ok': False, 'message': 'The Pi did not accept the mesh token.'}
+        return {'t': 'pi', 'ok': False, 'message': f'The Pi said no ({e.code}).'}
+    except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError):
+        return {'t': 'pi', 'ok': False, 'message': 'The Pi did not answer. Is it on and on Tailscale? Nothing was changed.'}
+    try:
+        lit = json.loads(raw.decode('utf-8')).get('sentToDisplay', True)
+    except (ValueError, AttributeError):
+        lit = True
+    return {'t': 'pi', 'ok': True, 'message': 'Showing on the Pi screen.' if lit else 'Sent. The Pi screen is off.'}
 
 def in_repo(root):
     """Whether the notes folder is a git repository or sits inside one, as mnt-sync's notes/ does."""
@@ -1324,6 +1379,7 @@ def handle_unlocked(msg):
     if op == 'trashList': return op_trash_list(root)
     if op == 'restore': return op_restore(root, msg.get('trashed'), msg.get('to'))
     if op == 'purge':   return op_purge(root, msg.get('trashed'))
+    if op == 'piShow':  return op_pi_show(root, msg.get('rel'))
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))

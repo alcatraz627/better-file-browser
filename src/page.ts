@@ -132,6 +132,7 @@ export function renderPage(p: PageParams): string {
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div id="fe-lens-colours" class="fe-lens-tags" role="group" aria-label="Colour" hidden></div>
       <div id="fe-sv-where" class="fe-where" hidden></div>
       <div class="fe-sec" data-sec="saved">
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">

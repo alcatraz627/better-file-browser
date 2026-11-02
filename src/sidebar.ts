@@ -5,7 +5,8 @@ import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml, fileHref, whenText, fileBase, isFileUrl } from './utils';
-import { copyLink } from './phone';
+import { copyLink, onPhone } from './phone';
+import { runOpenWith } from './open-with';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref } from './storage';
@@ -15,7 +16,7 @@ import { describeSync } from './sync-state';
 import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder, restoreBackup, settleSave } from './saved-sync';
 import type { Keep } from './notefmt';
 import { whenShort } from './note-meta-ui';
-import { notes, duplicateText, clipboardNote, splitNote, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
+import { notes, NOTE_COLORS, duplicateText, clipboardNote, splitNote, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -128,6 +129,8 @@ function initLenses(app: App): void {
     if (!box || !tagRow || !tools || (lens !== 'saved' && lens !== 'notes')) return;
     tools.append(box);
     tools.after(tagRow);
+    const colourRow = document.getElementById('fe-lens-colours');
+    if (colourRow) tagRow.after(colourRow);   // the colour row follows the tag row
   });
   lensPref.onChange(() => show(lensPref.get(), undefined, true));
   show(lensPref.get(), undefined, true);
@@ -265,6 +268,14 @@ export function initSidebar(app: App): void {
     const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap(p => p.tags ?? []))].sort();
     const on = box.value.trim().toLowerCase();
     row.hidden = !names.length;
+    // Notes also get a colour row: All, then the eight colours. A chip filters on `colour:<name>`.
+    const cr = document.getElementById('fe-lens-colours');
+    if (cr) {
+      cr.hidden = !inNotes;
+      const cur = /^colour:(\w+)$/.exec(on)?.[1] ?? '';
+      cr.innerHTML = inNotes ? [['', 'All', 'var(--dm)'], ...NOTE_COLORS.map(c => [c, c[0].toUpperCase() + c.slice(1), `var(--nc-${c})`])].map(([c, label, dot]) =>
+        `<button type="button" class="chip fe-lens-tag fe-lens-colour${cur === c ? ' on' : ''}" aria-pressed="${cur === c}" data-colour="${c}" style="--chip:${dot}" title="${c ? `Show only ${c} notes` : 'Show every colour'}"><i style="--dot:${dot}"></i>${label}</button>`).join('') : '';
+    }
     row.innerHTML = names.map(n => `<button type="button" class="chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" aria-pressed="${on === '#' + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="--dot:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
   }
   const foldedGroups = getFoldedGroups;
@@ -757,6 +768,13 @@ export function initSidebar(app: App): void {
     if (lensFilter.value) { lensFilter.value = ''; applyLensFilter(); } else syncLens();
   });
   syncDepth();
+  el('fe-lens-colours').addEventListener('click', e => {
+    const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-colour');
+    if (!chip) return;
+    const c = chip.dataset.colour ?? '', q = c ? `colour:${c}` : '';
+    lensFilter.value = !c || lensFilter.value.trim().toLowerCase() === q ? '' : q;
+    applyLensFilter();
+  });
   el('fe-lens-tags').addEventListener('click', e => {
     const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');
     if (!chip) return;
@@ -934,11 +952,15 @@ export function initSidebar(app: App): void {
       `<div class="row fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
       `<div class="row fe-ctx-item" data-act="duplicate">${UI_ICON.copy}<span>Duplicate</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
+      `<div class="row fe-ctx-item" data-act="send">${UI_ICON.external}<span>Send…</span></div>`,
+      `<div class="row fe-ctx-item" data-act="pi">${UI_ICON.tab}<span>Show on the Pi screen</span></div>`,
+      `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy text</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-all">${UI_ICON.copy}<span>Copy title and text</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-link">${UI_ICON.phone}<span>Copy link</span></div>`,
+      ...(onPhone() ? [] : [`<div class="row fe-ctx-item" data-act="ow:finder">${UI_ICON.external}<span>Show in Finder</span></div>`]),
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
     ].join('');
@@ -972,6 +994,22 @@ export function initSidebar(app: App): void {
         break;
       }
       case 'duplicate': void duplicateNote(root, rel); break;
+      case 'ow:finder': runOpenWith('ow:finder', notePath(root, rel), [], toast); break;
+      case 'pi':
+        toast('Sending to the Pi…');
+        notes.piShow(root, rel).then(r => toast(r.message)).catch((err: NotesError) => toast(errorText(err, 'Showing on the Pi')));
+        break;
+      case 'send':
+        // One explicit click puts the note's words in the system share menu; nothing here wakes an agent.
+        void notes.read(root, rel).then(async doc => {
+          const body = splitNote(doc.text).body.replace(/^\n+/, '').replace(/\s+$/, '');
+          const title = meta ? noteName(meta) : noteTitle(rel, doc.text);
+          const text = [title, body].filter(Boolean).join('\n\n');
+          if (typeof navigator.share === 'function') {
+            try { await navigator.share({ title, text }); } catch (e) { if ((e as Error).name !== 'AbortError') toast('Sharing failed'); }
+          } else toast(await copyToClipboard(text) ? 'This browser has no share menu, so the note’s text was copied' : 'This browser has no share menu');
+        }).catch((err: NotesError) => toast(errorText(err, 'Reading the note')));
+        break;
       case 'delete': deleteNote(root, rel); break;
     }
   });
@@ -1009,16 +1047,21 @@ export function initSidebar(app: App): void {
       });
     });
   }
-  app.newNote = () => {
+  function makeNote(copyPath: boolean): void {
     const root = notesRoot();
     if (!root) { app.openSettings('notes'); el<HTMLInputElement>('fe-st-notes-root').focus(); return; }
     const d = new Date(), two = (n: number) => String(n).padStart(2, '0');
     const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
     const rel = `untitled-${stamp}.md`;
     notes.create(root, rel, '')
-      .then(() => openNoteRel(root, rel))
+      .then(async () => {
+        if (copyPath) toast(await copyToClipboard(notePath(root, rel)) ? 'Made a new note and copied its path' : 'Made a new note; copying its path failed');
+        openNoteRel(root, rel);
+      })
       .catch((err: NotesError) => toast(errorText(err, 'Making the note')));
-  };
+  }
+  app.newNote = () => makeNote(false);
+  app.newNoteCopyPath = () => makeNote(true);
   /// A new note holding whatever text is on the clipboard, named from its first line, opened for editing.
   app.newNoteFromClipboard = () => {
     const root = notesRoot();

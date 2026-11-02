@@ -172,7 +172,7 @@ const ACTION_ICON: Record<string, string> = {
   'area-next': UI_ICON.stack, 'area-prev': UI_ICON.stack, 'to-listing': UI_ICON.list, 'to-sidebar': UI_ICON.preview, 'to-tabs': UI_ICON.tab, 'to-toolbar': UI_ICON.stack, 'to-path': UI_ICON.link,
   'lens-places': PI.home, 'lens-saved': PI.bm, 'lens-notes': UI_ICON.notes, 'lens-recent': PI.recent, 'lens-search': PI.search, 'lens-ask': UI_ICON.ai, 'lens-docs': UI_ICON.comment,
   'open-bg': UI_ICON.tab, 'open-chrome': UI_ICON.external, menu: UI_ICON.list, 'select-all': UI_ICON.task, 'copy-paths': UI_ICON.copy, 'copy-path': UI_ICON.copy, 'copy-name': UI_ICON.copy,
-  filter: PI.search, 'new-note': UI_ICON.add, 'tree-open': UI_ICON.folderOpen, 'tree-close': PI.folder, deep: UI_ICON.stack,
+  filter: PI.search, 'new-note': UI_ICON.add, 'new-note-clip': UI_ICON.add, 'new-note-path': UI_ICON.add, 'tree-open': UI_ICON.folderOpen, 'tree-close': PI.folder, deep: UI_ICON.stack,
   'view-details': UI_ICON.table, 'view-list': UI_ICON.list, 'view-tree': UI_ICON.contents, 'view-tiles': PI.apps, 'view-icons': UI_ICON.image,
   'sort-name': UI_ICON.contents, 'sort-date': UI_ICON.clock, 'sort-size': UI_ICON.data, 'sort-type': UI_ICON.file, 'sort-rev': UI_ICON.rotate, group: UI_ICON.stack,
   'filter-panel': PI.search, hidden: UI_ICON.eye, 'zoom-in': UI_ICON.zoomIn, 'zoom-out': UI_ICON.zoomOut, 'zoom-reset': UI_ICON.actualSize,

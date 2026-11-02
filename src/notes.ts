@@ -103,6 +103,8 @@ export const notes = {
   restore: (root: string, trashed: string, to?: string) => call({ op: 'restore', root, trashed, to }) as Promise<{ rel: string; trashed: string }>,
   /// Remove a deleted note for good: it leaves .trash for the macOS Trash, so even that can be undone.
   purge: (root: string, trashed: string) => call({ op: 'purge', root, trashed }),
+  /// A note's words on the Pi screen. The Pi being off is `ok: false` with a sentence to show, never an error.
+  piShow: (root: string, rel: string) => call({ op: 'piShow', root, rel }) as unknown as Promise<{ ok: boolean; message: string }>,
   /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
   pick: (start?: string, kind?: 'any') => call({ op: 'pick', start, kind }).then(f => (f as { root: string }).root),
   /// The account's home folder, so Places can offer Home before any visit under it.
@@ -354,7 +356,7 @@ export function filterNotes<T extends { rel: string; title?: string; color?: str
   return list.filter(n => {
     const tags = (n.tags ?? []).map(t => t.toLowerCase());
     const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ''} ${tags.join(' ')}`.toLowerCase();
-    return words.every(w => w.startsWith('#') ? w.length > 1 && tags.some(t => t.includes(w.slice(1))) : hay.includes(w));
+    return words.every(w => w.startsWith('colour:') ? w.slice(7) === (colorName(n.color) ?? '') : w.startsWith('#') ? w.length > 1 && tags.some(t => t.includes(w.slice(1))) : hay.includes(w));
   });
 }
 

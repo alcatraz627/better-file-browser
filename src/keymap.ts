@@ -82,6 +82,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'copy-name', group: 'Listing', title: 'Copy name', keys: ['⇧Y'], scope: 'listing', own: true },
   { id: 'filter', group: 'Listing', title: 'Filter', keys: ['/', '⌘F'], own: true },
   { id: 'new-note', group: 'Listing', title: 'New note', keys: ['n'], own: true },
+  { id: 'new-note-path', group: 'Listing', title: 'New note and copy its path', keys: [], own: true },
   { id: 'new-note-clip', group: 'Listing', title: 'New note from the clipboard', keys: [], own: true },
 
   // View

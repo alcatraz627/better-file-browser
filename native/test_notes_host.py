@@ -624,5 +624,44 @@ check(rr['t'] == 'restored' and os.path.isfile(os.path.join(gr, 'elsewhere.md'))
       f'restoring it writes the note and fetches its picture back: {rr}')
 check(call({'op': 'trashList', 'root': gr})['notes'] == [], 'once restored it is no longer listed')
 
+# Show on the Pi: a stand-in Pi answers; the token comes from a scratch file; an absent Pi is a sentence, quickly.
+import threading, http.server
+seen = []
+class FakePi(http.server.BaseHTTPRequestHandler):
+    mode = 'on'
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+        seen.append((self.path, self.headers.get('X-Csync-Token'), body))
+        if FakePi.mode == '401': self.send_response(401); self.end_headers(); return
+        if FakePi.mode == '500': self.send_response(500); self.end_headers(); return
+        out = json.dumps({'sentToDisplay': FakePi.mode == 'on'}).encode()
+        self.send_response(200); self.send_header('Content-Length', str(len(out))); self.end_headers(); self.wfile.write(out)
+    def log_message(self, *a): pass
+srv = http.server.HTTPServer(('127.0.0.1', 0), FakePi)
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+tokfile = os.path.join(tempfile.mkdtemp(prefix='bfb-pitok-'), 'mesh.token')
+os.environ['BFB_PI_TOKEN_FILE'] = tokfile
+os.environ['BFB_PI_BASE'] = f'http://127.0.0.1:{srv.server_port}'
+proot = tempfile.mkdtemp(prefix='bfb-notes-pi-')
+with open(os.path.join(proot, 'shown.md'), 'w') as fh: fh.write('---\ntitle: "Shown"\n---\n' + ('word ' * 1200) + '\n')
+r = call({'op': 'piShow', 'root': proot, 'rel': 'shown.md'})
+check(r['t'] == 'pi' and r['ok'] is False and 'no mesh token' in r['message'] and not seen, f'with no token the Pi is not asked: {r}')
+with open(tokfile, 'w') as fh: fh.write('s3cret\n')
+r = call({'op': 'piShow', 'root': proot, 'rel': 'shown.md'})
+check(r == {'t': 'pi', 'ok': True, 'message': 'Showing on the Pi screen.'}, f'the Pi shows it: {r}')
+check(seen and seen[0][0] == '/v1/display/show' and seen[0][1] == 's3cret' and seen[0][2]['title'] == 'Shown' and len(seen[0][2]['text']) <= 4000 and not seen[0][2]['text'].endswith(' '),
+      f'it posts the title and the words, cut to 4000 after a whole word, with the token header: {len(seen[0][2]["text"])} chars')
+check('s3cret' not in json.dumps(r), 'and the token does not come back to the page')
+FakePi.mode = 'off'
+check(call({'op': 'piShow', 'root': proot, 'rel': 'shown.md'})['message'] == 'Sent. The Pi screen is off.', 'a Pi with its screen off says so')
+FakePi.mode = '401'
+check(call({'op': 'piShow', 'root': proot, 'rel': 'shown.md'})['message'] == 'The Pi did not accept the mesh token.', 'a refused token is said plainly')
+FakePi.mode = '500'
+check('said no (500)' in call({'op': 'piShow', 'root': proot, 'rel': 'shown.md'})['message'], 'any other refusal names its code')
+srv.shutdown(); srv.server_close()
+t0 = time.time()
+r = call({'op': 'piShow', 'root': proot, 'rel': 'shown.md'})
+check(r['ok'] is False and 'did not answer' in r['message'] and time.time() - t0 < 8, f'a Pi that is off is a sentence, not a hang or an error: {r["message"]} in {time.time() - t0:.1f}s')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)
