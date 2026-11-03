@@ -1198,7 +1198,7 @@ def op_send_thread(root, rel, thread_id, to):
     quote = ((t.get('anchor') or {}).get('exact') or '').strip()
     said = '\n'.join(f"- {c.get('author', {}).get('alias') or c.get('author', {}).get('name') or 'owner'}: {c.get('text', '').strip()}"
                      for c in t.get('comments', []) if not c.get('deleted'))
-    msg = (f"The owner sent you a comment thread from bfb.\n"
+    msg = (f"A comment thread from bfb.\n"
            f"Doc: {full}{f' (line {line})' if line else ''}\n"
            f"On: \"{quote[:300]}\"\n{said}\n\n"
            f"Read it with: bfb-docs comments show {full} {thread_id}\n"
@@ -1206,12 +1206,12 @@ def op_send_thread(root, rel, thread_id, to):
     exe = os.environ.get('BFB_CLAUDE_IPC') or _exe('claude-ipc')
     if not exe:
         raise NotesError('notes_io', 'claude-ipc is not installed')
-    # Chrome starts this host outside any session, so claude-ipc cannot tell
-    # who is sending: it goes as `user`, claude-ipc's name for the owner.
+    # Chrome starts this host outside any session, so it names itself as a
+    # source and makes no claim to be the owner.
     # A request, not an inform: claude-ipc wakes an idle session only for
     # query, request or response mail, and an inform waits until the owner
     # types there. No reply is owed to bfb, so nothing is chased either.
-    r = _run([exe, 'send', '--from', 'user', '--to', to, '--kind', 'request', '--no-reply-expected', msg], 15)
+    r = _run([exe, 'send', '--source', 'bfb', '--to', to, '--kind', 'request', '--no-reply-expected', msg], 15)
     if r.returncode:
         raise NotesError('notes_io', (r.stderr or r.stdout).strip()[-300:] or f'could not send to {to}')
     return {'t': 'sent', 'to': to, 'thread': thread_id}

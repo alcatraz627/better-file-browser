@@ -481,7 +481,7 @@ with mock.patch.object(nh, 'op_comments_read', return_value={'threads': [th]}), 
           and argv[argv.index('--to') + 1] == 'bfb' and 'look at this' in argv[-1],
           f'a sent thread is a request that wakes the agent and wants no reply: {argv[1:-1]}')
     # Chrome runs the host with no session, and claude-ipc refuses a sender it cannot name.
-    check('--from' in argv and argv[argv.index('--from') + 1] == 'user', f'the thread goes out as the owner: {argv[1:-1]}')
+    check('--source' in argv and argv[argv.index('--source') + 1] == 'bfb' and '--from' not in argv, f'the thread names bfb as its source and does not claim to be the owner: {argv[1:-1]}')
 
 # Local tools: only listed names can be started, start waits for the port, and
 # a failed pm2 call says why instead of reporting the tool as up.
