@@ -38,8 +38,10 @@ const AREA_KINDS_KEY = 'bfbAreaKinds';
 const AREA_EVENTS_KEY = 'bfbAreaEvents';
 // Below this the whole region is one smudge, so no areas show.
 const MIN_AREA_ZOOM = 8;
+// Further out an area is one coloured dot, for the rough shape of the city. From here it has a name and its patch.
+const LABEL_ZOOM = 13;
 // From here a label has room to say what the area is like as well as its name.
-const TAG_ZOOM = 12;
+const TAG_ZOOM = 14;
 const CHAR_PX = 6.6;
 const PILL_H = 26;
 // A label's coloured dots say what the area is, at a glance, without any words.
@@ -441,13 +443,14 @@ function attach(map: GMap, g: GMaps): void {
     const zoom = map.getZoom() ?? 0;
     const b = map.getBounds()?.toJSON();
     const wanted = areasOn && zoom >= MIN_AREA_ZOOM && b ? filterAreas(AREAS, areaKinds, eventsOnly) : [];
-    const keep = new Set(wanted.map(a => a.id));
+    const rough = zoom < LABEL_ZOOM;
+    const keep = new Set(rough ? [] : wanted.map(a => a.id));
     for (const [id, patch] of patches) {
       if (!keep.has(id)) { patch.setMap(null); patches.delete(id); }
     }
     for (const area of wanted) {
       // A map loaded without Google's shapes still gets the labels, which carry the meaning.
-      if (patches.has(area.id) || !g.Circle) continue;
+      if (rough || patches.has(area.id) || !g.Circle) continue;
       const colour = KIND_COLOUR[area.kinds[0]];
       const patch = new g.Circle({
         center: { lat: area.lat, lng: area.lng }, radius: area.radiusM, fillColor: colour, fillOpacity: 0.24,
@@ -467,18 +470,21 @@ function attach(map: GMap, g: GMaps): void {
       const w = area.name.length * CHAR_PX + 34 + area.kinds.slice(0, MAX_KIND_DOTS).length * 10;
       boxes.push({ id: area.id, x: p.x, y: p.y, w, fullW: withTag ? w + (area.tag.length + 2) * CHAR_PX : w, h: PILL_H });
     }
-    const fit = labelsThatFit(boxes);
+    // Dots take almost no room and may touch, since a cluster of them is the picture wanted.
+    const fit = rough ? null : labelsThatFit(boxes);
     for (const [id, pill] of pills) {
-      if (!fit.has(id)) pill.hidden = true;
+      if (!spots.has(id) || (fit && !fit.has(id))) pill.hidden = true;
     }
     for (const area of wanted) {
       const p = spots.get(area.id);
-      if (!p || !fit.has(area.id)) continue;
+      if (!p || (fit && !fit.has(area.id))) continue;
       const pill = pillFor(area);
       pill.hidden = false;
+      pill.classList.toggle('rough', rough);
+      pill.style.setProperty('--c', KIND_COLOUR[area.kinds.find(k => areaKinds.has(k)) ?? area.kinds[0]]);
       pill.style.left = `${p.x}px`;
       pill.style.top = `${p.y}px`;
-      pill.querySelector<HTMLElement>('.pill-tag')!.hidden = !(withTag && fit.get(area.id));
+      pill.querySelector<HTMLElement>('.pill-tag')!.hidden = !(withTag && fit?.get(area.id));
     }
   };
 

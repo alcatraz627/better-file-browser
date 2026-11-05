@@ -289,6 +289,9 @@ export const METRO_CSS = `
 .pills { position: absolute; left: 0; top: 0; }
 .pill { all: unset; position: absolute; box-sizing: border-box; display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 11px; background: rgba(255,255,255,.94); color: #202124; box-shadow: 0 0 0 1.5px var(--c), 0 1px 3px rgba(0,0,0,.3); font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; white-space: nowrap; cursor: pointer; transform: translate(-50%, -50%); }
 .pill[hidden] { display: none; }
+.pill.rough, .pill.rough:hover, .pill.rough.on { width: 12px; height: 12px; padding: 0; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.4); }
+.pill.rough:hover, .pill.rough.on { width: 16px; height: 16px; }
+.pill.rough > * { display: none; }
 .pill:hover, .pill.on { background: #fff; z-index: 2; box-shadow: 0 0 0 2px var(--c), 0 2px 6px rgba(0,0,0,.4); }
 .pill:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
 .pill-kinds { display: inline-flex; gap: 2px; }

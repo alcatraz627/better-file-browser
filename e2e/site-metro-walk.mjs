@@ -361,6 +361,23 @@ try {
   a = await areas();
   check('after a reload Areas and its filter stay as they were', a.pressed === 'true' && a.pills.includes('tsukiji') && !a.pills.includes('hibiya'), a);
   await chip('Food');
+  // Zoomed out an area is one coloured dot; zoomed in it has its name, patch and then its feel.
+  const pillLook = () => page.evaluate(() => {
+    const root = document.querySelector('[data-bfb-metro-dots]').shadowRoot;
+    const shown = [...root.querySelectorAll('.pill:not([hidden])')];
+    const words = p => [...p.children].some(c => c.checkVisibility() && c.textContent.trim());
+    return { n: shown.length, rough: shown.filter(p => p.classList.contains('rough')).length, withWords: shown.filter(words).length,
+      tags: shown.filter(p => p.querySelector('.pill-tag').checkVisibility()).length, size: Math.round(shown[0]?.getBoundingClientRect().width ?? 0), patches: window.walk.patches ?? 0 };
+  });
+  const atZoom = async z => { await page.evaluate(v => { window.walk.zoom = v; }, z); await areasBtn(); await sleep(30); await areasBtn(); await sleep(60); return pillLook(); };
+  const far = await atZoom(11);
+  check('zoomed out, every area is a small coloured dot with no words and no patch', far.n > 3 && far.rough === far.n && far.withWords === 0 && far.size <= 14 && far.patches === 0, far);
+  await shot(page, 'site-areas-rough');
+  const mid = await atZoom(13);
+  check('at zoom 13 labels and patches come back, without the feel', mid.rough === 0 && mid.withWords === mid.n && mid.n > 0 && mid.tags === 0 && mid.patches > 10, mid);
+  const near = await atZoom(15);
+  check('zoomed in further, labels say what the area is like', near.rough === 0 && near.tags > 0, near);
+  await page.evaluate(() => { window.walk.zoom = 14; });
   await areasBtn();
   await sleep(30);
   a = await areas();
