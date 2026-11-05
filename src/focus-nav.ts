@@ -4,7 +4,7 @@
 // ⌥ is held. It also binds the commands that act on the page's own buttons.
 import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
-import { bind, listenForKeys, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
+import { bind, listenForKeys, setContext, togglePalette, paletteOpen, runCommand, addPaletteSource } from './commands';
 import { isWebPath } from './places';
 import { listingShown } from './main-surface';
 import { isPreviewOpen, openPreview, noteAction, askInPreview } from './preview';
@@ -201,7 +201,7 @@ export function initFocusNav(app: App): void {
 
   // Commands that press the page's own buttons.
   const click = (id: string, init: MouseEventInit = {}) => () => { const b = document.getElementById(id); if (b && !b.hidden) b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); };
-  bind('palette', () => openPalette());
+  bind('palette', () => togglePalette());
   // Actions whose keys their own surfaces answer, bound here so the palette can run them too.
   const stripKey = (key: string) => () => { app.strip.handleKey(new KeyboardEvent('keydown', { key })); };
   bind('settings', () => app.openSettings());

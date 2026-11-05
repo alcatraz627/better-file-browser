@@ -1,3 +1,4 @@
+import { commentHtml } from '../src/comments-ui';
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { forOwner } from '../src/comments-ui';
@@ -26,4 +27,18 @@ describe('forOwner', () => {
   it('waits on the owner when an agent spoke last', () => expect(forOwner(thread(['human', 'agent']))).toBe(true));
   it('not when the owner spoke last', () => expect(forOwner(thread(['agent', 'human']))).toBe(false));
   it('never for a done thread', () => expect(forOwner(thread(['agent'], [], 'done'))).toBe(false));
+});
+
+describe('a comment that holds a tag', () => {
+  it('shows the tag as typed and draws nothing', () => {
+    const html = commentHtml('look <img src="http://remote.example/x.png"> and <b>this</b>');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('<b>');
+    expect(html).toContain('&lt;img');
+  });
+  it('holds in a list line too, and keeps Markdown working', () => {
+    const html = commentHtml('- <script>x</script> **bold**');
+    expect(html).not.toContain('<script');
+    expect(html).toContain('<strong>bold</strong>');
+  });
 });

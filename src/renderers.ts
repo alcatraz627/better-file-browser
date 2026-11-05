@@ -508,7 +508,7 @@ export function sanitizeHtml(html: string, baseUrl = ''): string {
 }
 
 /** Inline markdown: code spans, images, links, bold, italic, strikethrough. */
-export function mdInline(s: string, baseUrl = ''): string {
+export function mdInline(s: string, baseUrl = '', o: { html?: boolean } = {}): string {
   const htmlTags: string[] = [];
   let source = '';
   let codeTicks = 0;
@@ -523,7 +523,7 @@ export function mdInline(s: string, baseUrl = ''): string {
       i = end - 1;
       continue;
     }
-    if (s[i] !== '<' || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i))) { source += s[i]; continue; }
+    if (s[i] !== '<' || codeTicks || o.html === false || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i))) { source += s[i]; continue; }
     let end = i + 1, quote = '';
     for (; end < s.length; end++) {
       if (quote) { if (s[end] === quote) quote = ''; }

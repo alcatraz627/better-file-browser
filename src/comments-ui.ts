@@ -59,7 +59,8 @@ export function forOwner(t: DocThread): boolean {
 }
 
 /** A comment's text as the reader sees it: its own line breaks kept, and
- *  lines starting with "- " or "* " drawn as a list. */
+ *  lines starting with "- " or "* " drawn as a list. A tag someone typed shows
+ *  as they typed it, so a comment cannot draw anything of its own. */
 export function commentHtml(text: string): string {
   const out: string[] = [];
   let list: string[] = [];
@@ -68,10 +69,10 @@ export function commentHtml(text: string): string {
   const end = () => { if (para.length) { out.push(`<p>${para.join('<br>')}</p>`); para = []; } };
   for (const line of text.split('\n')) {
     const item = /^\s*[-*]\s+(.*)$/.exec(line);
-    if (item) { end(); list.push(mdInline(item[1])); continue; }
+    if (item) { end(); list.push(mdInline(item[1], '', { html: false })); continue; }
     flush();
     if (!line.trim()) { end(); continue; }
-    para.push(mdInline(line));
+    para.push(mdInline(line, '', { html: false }));
   }
   flush(); end();
   return out.join('');

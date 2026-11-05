@@ -178,6 +178,8 @@ function position(el: HTMLElement, o: LayerOptions): void {
   el.style.margin = '0';
   el.style.inset = 'auto';
   const gap = o.offset ?? 4, pad = 8;
+  el.style.maxHeight = '';
+  if (el.offsetHeight > innerHeight - pad * 2) { el.style.maxHeight = `${innerHeight - pad * 2}px`; el.style.overflowY = 'auto'; }
   const w = el.offsetWidth, h = el.offsetHeight;
   let x: number, y: number;
   if (place === 'point' && o.point) { x = o.point.x; y = o.point.y; }

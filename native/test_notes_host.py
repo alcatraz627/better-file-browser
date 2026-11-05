@@ -112,6 +112,13 @@ check(r['code'] == 'notes_missing' and not os.path.exists(os.path.join(root, 'su
 for bad in ['../escape.md', '/etc/passwd', 'sub/../../x.md']:
     r = call({'op': 'write', 'root': root, 'rel': bad, 'text': 'x'})
     check(r['t'] == 'error' and r['code'] == 'notes_bad_path', f'refuses {bad}: {r["code"]}')
+lockedNote = os.path.join(root, 'locked.md')
+with open(lockedNote, 'w') as fh: fh.write('keep\n')
+os.chmod(lockedNote, 0o444)
+r = call({'op': 'write', 'root': root, 'rel': 'locked.md', 'text': 'changed'})
+check(r.get('code') == 'notes_bad_path' and open(lockedNote).read() == 'keep\n', f'a read-only note is refused, not written through: {r}')
+os.chmod(lockedNote, 0o644)
+os.remove(lockedNote)
 r = call({'op': 'write', 'root': root, 'rel': 'notes.txt', 'text': 'x'})
 check(r['code'] == 'notes_bad_path', 'refuses a non-.md write')
 r = call({'op': 'read', 'root': root, 'rel': 'nope.md'})
@@ -140,6 +147,9 @@ w = call({'op': 'fileWrite', 'root': eroot, 'rel': 'conf.yaml', 'text': 'a: 2\n'
 check(w['t'] == 'written' and open(os.path.join(eroot, 'conf.yaml')).read() == 'a: 2\n', f'fileWrite saves a .yaml: {w}')
 check(open(w['backup']).read() == 'a: 1\n', 'fileWrite keeps the previous text as a backup')
 check(w['backup'].startswith(os.environ['BFB_BACKUP_DIR']), f'the test keeps its backups out of the real backup folder: {w["backup"]}')
+two = [call({'op': 'fileWrite', 'root': eroot, 'rel': 'conf.yaml', 'text': f'a: {t}\n', 'expectMtime': call({'op': 'fileRead', 'root': eroot, 'rel': 'conf.yaml'})['mtime']})['backup'] for t in (21, 22, 2)]
+check(len(set(two)) == 3 and open(two[0]).read() == 'a: 2\n' and open(two[1]).read() == 'a: 21\n', f'saves in one second keep a backup each: {two}')
+for b in two: os.remove(b)
 os.remove(w['backup'])
 w2 = call({'op': 'fileWrite', 'root': eroot, 'rel': 'conf.yaml', 'text': 'a: 3\n', 'expectMtime': r['mtime'] - 5000})
 check(w2['code'] == 'notes_conflict' and open(os.path.join(eroot, 'conf.yaml')).read() == 'a: 2\n', 'fileWrite refuses a stale mtime')

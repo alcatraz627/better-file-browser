@@ -1966,6 +1966,11 @@ ${text}
     el2.style.margin = "0";
     el2.style.inset = "auto";
     const gap = o.offset ?? 4, pad2 = 8;
+    el2.style.maxHeight = "";
+    if (el2.offsetHeight > innerHeight - pad2 * 2) {
+      el2.style.maxHeight = `${innerHeight - pad2 * 2}px`;
+      el2.style.overflowY = "auto";
+    }
     const w = el2.offsetWidth, h = el2.offsetHeight;
     let x2, y;
     if (place === "point" && o.point) {
@@ -2867,8 +2872,13 @@ ${text}
     return 100 - gaps;
   }
   var paletteEl = null;
+  var closePalette = null;
   function paletteOpen() {
     return !!paletteEl;
+  }
+  function togglePalette() {
+    if (paletteEl) closePalette?.();
+    else openPalette();
   }
   function openPalette(prefill = "") {
     if (paletteEl) {
@@ -2988,7 +2998,9 @@ ${text}
     });
     const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
       paletteEl = null;
+      closePalette = null;
     } });
+    closePalette = () => layer.close("api");
   }
 
   // src/panel-size.ts
@@ -4045,7 +4057,7 @@ ${text}
     };
     return Array.from(doc.body.childNodes).map(walk).join("");
   }
-  function mdInline(s, baseUrl = "") {
+  function mdInline(s, baseUrl = "", o = {}) {
     const htmlTags = [];
     let source = "";
     let codeTicks = 0;
@@ -4060,7 +4072,7 @@ ${text}
         i3 = end2 - 1;
         continue;
       }
-      if (s[i3] !== "<" || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i3))) {
+      if (s[i3] !== "<" || codeTicks || o.html === false || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i3))) {
         source += s[i3];
         continue;
       }
@@ -20988,6 +21000,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const diagBtn = box.querySelector("#fe-fe-diag");
     const scroller2 = box.querySelector("#fe-fe-scroll");
     box.classList.toggle("fe-fe-big", big);
+    host.noWrap?.(big);
     const lhPx = Math.round(parseFloat(getComputedStyle(ta).fontSize) * 1.7);
     paintEl.style.lineHeight = ta.style.lineHeight = lhPx + "px";
     const tw = big ? windowedText(ta, doc.text, TA_LINES) : wholeText(ta, doc.text);
@@ -21396,6 +21409,7 @@ and ${diags.length - 12} more` : "");
       clearTimeout(renderTimer);
       document.removeEventListener("selectionchange", onSelection);
       sizeTa.disconnect();
+      host.noWrap?.(false);
       box.innerHTML = "";
       host.closed();
     };
@@ -21929,7 +21943,7 @@ and ${diags.length - 12} more` : "");
       const item2 = /^\s*[-*]\s+(.*)$/.exec(line2);
       if (item2) {
         end();
-        list3.push(mdInline(item2[1]));
+        list3.push(mdInline(item2[1], "", { html: false }));
         continue;
       }
       flush();
@@ -21937,7 +21951,7 @@ and ${diags.length - 12} more` : "");
         end();
         continue;
       }
-      para.push(mdInline(line2));
+      para.push(mdInline(line2, "", { html: false }));
     }
     flush();
     end();
@@ -24353,6 +24367,10 @@ ${d.message}` : d.message;
         confirm: askYesNo,
         status,
         notify: (msg) => toast(msg, 5e3),
+        noWrap: (fixed) => {
+          wrapFixed = fixed;
+          syncWrap();
+        },
         typed: (t) => paintMeta(t),
         cannotEdit: (why) => {
           status(why);
@@ -24436,7 +24454,12 @@ ${d.message}` : d.message;
     document.getElementById("fe-ff-q").addEventListener("input", () => setTimeout(() => comments?.redraw(), 0));
     rawBtn.addEventListener("click", toggleRaw);
     const wrapBtn = document.getElementById("fe-fp-wrap");
-    const syncWrap = () => wrapBtn.classList.toggle("on", fe.dataset.wrap === "on");
+    let wrapFixed = false;
+    const syncWrap = () => {
+      wrapBtn.classList.toggle("on", !wrapFixed && fe.dataset.wrap === "on");
+      wrapBtn.disabled = wrapFixed;
+      wrapBtn.title = wrapFixed ? "A file this large does not wrap while editing" : "Wrap long lines in raw text and code";
+    };
     syncWrap();
     wrapBtn.addEventListener("click", () => {
       const s = getSettings();
@@ -25461,7 +25484,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           "Terminal",
           row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') + note("", "fe-st-term-hint") + wide(
             "Open with",
-            "Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window.",
+            "Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window. End a name with (files) to keep it off folders.",
             `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="4" spellcheck="false" title="One per line, Name: command"></textarea>`
           )
         ) },
@@ -27289,20 +27312,23 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     { id: "cursor", label: "Open in Cursor" },
     { id: "finder", label: "Show in Finder" }
   ];
-  var DEFAULT_COMMANDS = "Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add";
+  var DEFAULT_COMMANDS = "Show contents (files): cat\nRun with bash (files): bash\nAdd to VS Code: & code --add";
+  var OLD_DEFAULT = "Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add";
   function parseCommands(text) {
-    return (text ?? DEFAULT_COMMANDS).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
+    return (text === void 0 || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
       const at = l.indexOf(":");
       if (at < 1) return [];
-      const name2 = l.slice(0, at).trim();
+      const label = l.slice(0, at).trim();
+      const filesOnly = /\s*\(files\)$/i.test(label);
+      const name2 = label.replace(/\s*\(files\)$/i, "");
       let cmd = l.slice(at + 1).trim();
       const terminal = !cmd.startsWith("&");
       if (!terminal) cmd = cmd.slice(1).trim();
-      return name2 && cmd ? [{ name: name2, cmd, terminal }] : [];
+      return name2 && cmd ? [{ name: name2, cmd, terminal, ...filesOnly ? { filesOnly } : {} }] : [];
     });
   }
-  function openWithItems(commands) {
-    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
+  function openWithItems(commands, isDir = false) {
+    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => isDir && c.filesOnly ? "" : `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
   }
   function runOpenWith(act, path, commands, toast) {
     const pick2 = act.replace(/^ow:/, "");
@@ -27524,7 +27550,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
         `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        openWithItems(parseCommands(app.settings.openWithCmds))
+        openWithItems(parseCommands(app.settings.openWithCmds), en.isDir)
       ].join("");
       ctxMenu.dataset.idx = String(idx);
       ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
@@ -27684,7 +27710,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const cmds = parseCommands(app.settings.openWithCmds);
       return [
         ...APPS.map((a) => ({ title: a.label, sub: "this page", group: "Open with", icon: UI_ICON.external, run: () => runOpenWith("ow:" + a.id, path, cmds, toast) })),
-        ...cmds.map((c, i3) => ({ title: c.name, sub: `${c.cmd} on this page`, group: "Open with", icon: UI_ICON.terminal, run: () => runOpenWith("ow:#" + i3, path, cmds, toast) }))
+        ...cmds.flatMap((c, i3) => !app.fileMode && c.filesOnly ? [] : [{ title: c.name, sub: `${c.cmd} on this page`, group: "Open with", icon: UI_ICON.terminal, run: () => runOpenWith("ow:#" + i3, path, cmds, toast) }])
       ];
     });
     addPaletteSource(() => onListing() ? ls.all.filter((en) => !en.isParent).slice(0, 400).map((en) => ({
@@ -28193,7 +28219,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const b = document.getElementById(id);
       if (b && !b.hidden) b.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
     };
-    bind("palette", () => openPalette());
+    bind("palette", () => togglePalette());
     const stripKey = (key) => () => {
       app.strip.handleKey(new KeyboardEvent("keydown", { key }));
     };

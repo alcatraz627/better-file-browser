@@ -513,6 +513,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       confirm: askYesNo,
       status,
       notify: msg => toast(msg, 5000),
+      noWrap: fixed => { wrapFixed = fixed; syncWrap(); },
       typed: t => paintMeta(t),
       cannotEdit: why => { status(why); noteAtButton(why); },
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
@@ -550,8 +551,13 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   rawBtn.addEventListener('click', toggleRaw);
   // Wrap applies to every code view, here and in previews, and is remembered.
   const wrapBtn = document.getElementById('fe-fp-wrap')!;
+  let wrapFixed = false;
 
-  const syncWrap = () => wrapBtn.classList.toggle('on', fe.dataset.wrap === 'on');
+  const syncWrap = () => {
+    wrapBtn.classList.toggle('on', !wrapFixed && fe.dataset.wrap === 'on');
+    (wrapBtn as HTMLButtonElement).disabled = wrapFixed;
+    wrapBtn.title = wrapFixed ? 'A file this large does not wrap while editing' : 'Wrap long lines in raw text and code';
+  };
   syncWrap();
   wrapBtn.addEventListener('click', () => {
     const s = getSettings();

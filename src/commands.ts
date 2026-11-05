@@ -203,7 +203,13 @@ export function score(text: string, q: string): number {
 }
 
 let paletteEl: HTMLElement | null = null;
+let closePalette: (() => void) | null = null;
 export function paletteOpen(): boolean { return !!paletteEl; }
+/** The palette key: opens the palette, or closes it when it is already up. */
+export function togglePalette(): void {
+  if (paletteEl) closePalette?.(); else openPalette();
+}
+
 export function openPalette(prefill = ''): void {
   if (paletteEl) { paletteEl.querySelector('input')?.focus(); return; }
   const ctx = contextOf();
@@ -283,5 +289,6 @@ export function openPalette(prefill = ''): void {
   paint();
   for (const p of late) p.then(r => { if (paletteEl !== box) return; items.push(...r); paint(); }).catch(() => { /* that tab stays empty */ });
   // The palette sits over every other layer; focus goes back to where it was when it closes.
-  const layer = openLayer(box, { kind: 'command', place: 'none', focus: input, backdrop: box, onClose: () => { paletteEl = null; } });
+  const layer = openLayer(box, { kind: 'command', place: 'none', focus: input, backdrop: box, onClose: () => { paletteEl = null; closePalette = null; } });
+  closePalette = () => layer.close('api');
 }

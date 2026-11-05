@@ -118,7 +118,7 @@ export function settingsDialog(): DialogSpec {
           row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
           row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') +
           note('', 'fe-st-term-hint') +
-          wide('Open with', 'Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window.',
+          wide('Open with', 'Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window. End a name with (files) to keep it off folders.',
             `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="4" spellcheck="false" title="One per line, Name: command"></textarea>`)) },
 
       { key: 'files', label: 'Files', hint: 'Pages, icons', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'Reading, file pages and icons.', body:

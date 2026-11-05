@@ -77,6 +77,8 @@ export interface FileEditorHost {
   startAt?(text: string): number;
   /** Ask a yes or no question in the page's own style. */
   confirm?(message: string, yes: string): Promise<boolean>;
+  /** Whether this text is too large to wrap while it is edited. */
+  noWrap?(fixed: boolean): void;
   /** A short message at the bottom of the page. */
   notify?(text: string): void;
   /** The text as it stands while editing, so the counts around the page follow it. */
@@ -144,6 +146,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const diagBtn = box.querySelector<HTMLElement>('#fe-fe-diag')!;
   const scroller = box.querySelector<HTMLElement>('#fe-fe-scroll')!;
   box.classList.toggle('fe-fe-big', big);
+  host.noWrap?.(big);
   // Painted rows round their height to whole pixels while textarea lines keep
   // the fraction (22 against 22.1 px), so the two drift apart a line every few
   // hundred lines. A whole-pixel line height keeps them in step.
@@ -495,6 +498,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     clearTimeout(renderTimer);
     document.removeEventListener('selectionchange', onSelection);
     sizeTa.disconnect();
+    host.noWrap?.(false);
     box.innerHTML = '';
     host.closed();
   };

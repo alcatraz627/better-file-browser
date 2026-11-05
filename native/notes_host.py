@@ -199,6 +199,8 @@ def op_write(root, rel, text, expect_mtime=None):
             raise NotesError('notes_missing', 'the note was removed from disk')
         if mtime_ms(full) != int(expect_mtime):
             raise NotesError('notes_conflict', 'the note changed on disk since it was read')
+    if os.path.exists(full) and not os.access(full, os.W_OK):
+        raise NotesError('notes_bad_path', 'this file is read-only, so it is not edited here')
     atomic_write(full, text if isinstance(text, str) else '')
     return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
 
@@ -233,7 +235,8 @@ def op_file_write(root, rel, text, expect_mtime):
     if b'\r\n' in old:
         text = text.replace('\r\n', '\n').replace('\n', '\r\n')
     day = time.strftime('%Y%m%d')
-    dst = os.path.join(BACKUP_DIR, day, full.lstrip('/') + time.strftime('.%H%M%S'))
+    now = time.time()
+    dst = os.path.join(BACKUP_DIR, day, full.lstrip('/') + time.strftime('.%H%M%S', time.localtime(now)) + f'.{int(now * 1000) % 1000:03d}')
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     with open(dst, 'wb') as fh:
         fh.write(old)

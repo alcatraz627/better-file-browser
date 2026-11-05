@@ -193,7 +193,7 @@ export function initListingInput(app: App, listing: Listing): void {
           `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
           `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
           `<div class="fe-ctx-sep"></div>`,
-          openWithItems(parseCommands(app.settings.openWithCmds)),
+          openWithItems(parseCommands(app.settings.openWithCmds), en.isDir),
         ].join('');
     ctxMenu.dataset.idx = String(idx);
     ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, origin: holder, role: 'menu', group: 'menu' });
@@ -318,7 +318,7 @@ export function initListingInput(app: App, listing: Listing): void {
     const cmds = parseCommands(app.settings.openWithCmds);
     return [
       ...APPS.map(a => ({ title: a.label, sub: 'this page', group: 'Open with', icon: UI_ICON.external, run: () => runOpenWith('ow:' + a.id, path, cmds, toast) })),
-      ...cmds.map((c, i) => ({ title: c.name, sub: `${c.cmd} on this page`, group: 'Open with', icon: UI_ICON.terminal, run: () => runOpenWith('ow:#' + i, path, cmds, toast) })),
+      ...cmds.flatMap((c, i) => !app.fileMode && c.filesOnly ? [] : [{ title: c.name, sub: `${c.cmd} on this page`, group: 'Open with', icon: UI_ICON.terminal, run: () => runOpenWith('ow:#' + i, path, cmds, toast) }]),
     ];
   });
   // The palette also goes to anything in this folder.
