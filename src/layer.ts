@@ -118,7 +118,9 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
       delete el.dataset.layer;
       if (added) el.remove();
       // Focus goes back to where it came from when it was inside the layer.
-      if (hadFocus || document.activeElement === document.body) {
+      // A layer a key opened from the page itself had no control in focus, so the
+      // page keeps the keys rather than a button that Space would only open again.
+      if ((hadFocus || document.activeElement === document.body) && layer.returnTo !== document.body) {
         const back = (anchor ?? layer.returnTo) as HTMLElement | null;
         if (back?.isConnected) back.focus({ preventScroll: true });
       }

@@ -8,7 +8,7 @@
 import { startDrag } from './resize';
 
 /** The handle markup a renderer puts inside each header cell. */
-export const COL_HANDLE = '<span class="fe-col-rz rz" data-axis="x" title="Drag to resize this column · double-click to reset"></span>';
+export const COL_HANDLE = '<span class="fe-col-rz rz" data-axis="x" title="Drag to resize · double-click to reset"></span>';
 
 const MIN_W = 40;
 // How close to a cell's right edge the pointer must be to grab the column.
@@ -30,6 +30,25 @@ function edgeAt(e: MouseEvent): { table: HTMLTableElement; th: HTMLElement } | n
   const table = cell.closest<HTMLTableElement>('table')!;
   const th = cellsOf(table)[cell.cellIndex + cell.colSpan - 1];
   return th ? { table, th } : null;
+}
+
+// The column whose edge is lit, so the line shows down the whole table and not just its header.
+let lit: { table: HTMLTableElement; col: number } | null = null;
+
+/// Draw the grab line down a column's right edge, or clear it.
+function lightEdge(table: HTMLTableElement | null, col = -1): void {
+  if (lit?.table === table && lit?.col === col) return;
+  lit?.table.querySelectorAll('.fe-col-line').forEach(c => c.classList.remove('fe-col-line'));
+  lit = table ? { table, col } : null;
+  if (!table) return;
+  for (const row of table.rows) {
+    let end = -1;
+    for (const cell of row.cells) {
+      end += cell.colSpan;
+      if (end === col) { cell.classList.add('fe-col-line'); break; }
+      if (end > col) break;
+    }
+  }
 }
 
 /// Fix every column at its current width, so moving one edge moves only that
@@ -94,7 +113,10 @@ export function installColumnResize(): void {
     const cell = (e.target as Element | null)?.closest?.('table.fe-rz td, table.fe-rz th');
     const table = cell?.closest<HTMLElement>('table');
     document.querySelectorAll('table.fe-col-edge').forEach(x => { if (x !== table) x.classList.remove('fe-col-edge'); });
-    table?.classList.toggle('fe-col-edge', !!edgeAt(e));
+    const hit = edgeAt(e);
+    table?.classList.toggle('fe-col-edge', !!hit);
+    if (hit) lightEdge(hit.table, cellsOf(hit.table).indexOf(hit.th));
+    else lightEdge(null);
   }, { passive: true });
 
   // A press on an edge must not sort the column or select text.

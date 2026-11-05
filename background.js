@@ -1,3 +1,24 @@
+// Stations and lines change rarely, so a month-old area is still good.
+const TRANSIT_CACHE = 'bfb-transit-v1';
+const TRANSIT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const transitUrl = key => `https://bfb-transit.invalid/${encodeURIComponent(key)}`;
+
+async function transitCacheGet(key) {
+  const cache = await caches.open(TRANSIT_CACHE);
+  const hit = await cache.match(transitUrl(key));
+  if (!hit) return null;
+  if (Date.now() - Number(hit.headers.get('x-saved-at')) > TRANSIT_MAX_AGE_MS) {
+    await cache.delete(transitUrl(key));
+    return null;
+  }
+  return hit.text();
+}
+
+async function transitCachePut(key, text) {
+  const cache = await caches.open(TRANSIT_CACHE);
+  await cache.put(transitUrl(key), new Response(text, { headers: { 'x-saved-at': String(Date.now()) } }));
+}
+
 // Reads file:// content on behalf of content scripts. Page-context XHR to
 // file:// is blocked by CORS in modern Chrome (file pages have an opaque
 // origin); the extension service worker can still fetch file URLs as long as
@@ -40,6 +61,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (Math.abs(cur - msg.factor) < 0.001) return;
       return chrome.tabs.setZoom(tabId, msg.factor);
     }).then(() => sendResponse({ ok: true }), err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+  // Rail data for the metro overlay, kept so an area is only slow the first time.
+  if (msg.type === 'bfb-transit-get') {
+    transitCacheGet(msg.key).then(text => sendResponse({ text }), () => sendResponse({ text: null }));
+    return true;
+  }
+  if (msg.type === 'bfb-transit-put') {
+    transitCachePut(msg.key, msg.text).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
     return true;
   }
   // One-shot native call (terminal button): content scripts cannot use

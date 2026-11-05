@@ -86,140 +86,29 @@ try {
   });
 
   // 3. The floating preview: the AI bar is there at once, folds from the header, and answers can be stopped and retried.
-  await phase('floating preview', async () => {
-    await h.store.set('bfb-lens-v1', 'places');
-    page = await h.open();
+  await phase('preview asks in the sidebar', async () => {
+    const page = await h.open();
     await page.setViewport({ width: 1400, height: 900 });
     await page.waitForSelector('#fe-tbody tr[data-idx]');
     await openPreview(page, 'readme.md');
-    const early = await barState(page);
-    await waitReady(page);
-    const late = await barState(page);
-    check(early.shown && late.shown && early.bodyTop === late.bodyTop, `the AI bar is on screen the moment the preview opens and the file does not shift when the model answers: ${JSON.stringify({ early, late })}`);
-    check(await page.$eval('#fe-ql-ai-btn', b => !b.hidden && b.getBoundingClientRect().width > 0), 'the floating preview header has an AI button');
-    await shotAt(page, 'preview-bar');
-    await page.click('#fe-ql-ai-btn');
-    check(!(await barState(page)).shown, 'the header button folds the AI bar away');
-    await page.click('#fe-ql-body'); await page.keyboard.press('a'); await sleep(150);
-    check((await barState(page)).shown && await page.evaluate(() => document.activeElement?.id === 'fe-ql-ai-q'), 'a opens the bar and puts the cursor in its question box');
-
-    await page.type('#fe-ql-ai-q', 'Stream code');
+    check(await page.evaluate(() => !document.getElementById('fe-ql-ai') && !document.getElementById('fe-ql-ai-q')), 'the preview has no AI bar of its own');
+    check(await page.$eval('#fe-ql-ai-btn', b => !b.hidden && b.getBoundingClientRect().width > 0), 'the preview header has one Ask button');
+    const url = page.url();
+    await page.keyboard.press('a');
+    await page.waitForFunction(() => document.getElementById('fe-ask-q')?.checkVisibility() && document.activeElement?.id === 'fe-ask-q', { timeout: 5000 });
+    const on = await page.evaluate(() => ({ ctx: document.querySelector('.fe-ask-ctx').textContent, docked: document.getElementById('fe-qlook').classList.contains('side'), lens: document.querySelector('#fe-rail .fe-rail-btn.on')?.id }));
+    check(on.ctx.includes('readme.md') && on.docked && on.lens === 'fe-rail-ask' && page.url() === url, `a opens the sidebar's Ask on the previewed file, beside it, with no page change: ${JSON.stringify(on)}`);
+    await page.keyboard.type('What is it?');
     await page.keyboard.press('Enter');
-    check(await page.$eval('#fe-ql-ai-q', q => q.value) === '', 'the question box is empty once the question is sent');
-    await page.waitForFunction(() => /const a/.test(document.getElementById('fe-ql-ai-out-body')?.textContent ?? ''), { timeout: 10000 });
-    const mid = await page.evaluate(() => ({
-      pre: !!document.querySelector('#fe-ql-ai-out-body pre'), ticks: document.getElementById('fe-ql-ai-out-body').textContent.includes('```'),
-      stop: !document.getElementById('fe-ql-ai-stop').hidden, retry: !document.getElementById('fe-ql-ai-retry').hidden,
-      asked: document.getElementById('fe-ql-ai-out-q').textContent,
-    }));
-    check(mid.pre && !mid.ticks && mid.stop && !mid.retry && mid.asked === 'Stream code', `mid-answer, the code block draws as code and Stop shows: ${JSON.stringify(mid)}`);
-    await shotAt(page, 'preview-streaming');
-    await page.keyboard.press('Escape'); await sleep(250);
-    const stopped = await page.evaluate(() => ({ meta: document.getElementById('fe-ql-ai-out-meta').textContent, retry: !document.getElementById('fe-ql-ai-retry').hidden, stop: !document.getElementById('fe-ql-ai-stop').hidden }));
-    check(await pvOpen(page) && /stopped$/.test(stopped.meta) && stopped.retry && !stopped.stop, `Esc in the box stops the answer first and keeps what came: ${JSON.stringify(stopped)}`);
-    await shotAt(page, 'preview-stopped');
-    await page.keyboard.press('Escape'); await sleep(250);
-    check(!(await pvOpen(page)), 'the next Esc closes the preview');
-
-    await openPreview(page, 'readme.md');
-    const kept = await page.evaluate(() => ({ out: !document.getElementById('fe-ql-ai-out').hidden, q: document.getElementById('fe-ql-ai-out-q').textContent, body: document.getElementById('fe-ql-ai-out-body').textContent, retry: !document.getElementById('fe-ql-ai-retry').hidden }));
-    check(kept.out && kept.q === 'Stream code' && /const a/.test(kept.body) && kept.retry, `a file opened again still has its last answer: ${JSON.stringify(kept)}`);
-    await waitReady(page);
-    const calls = h.lmCalls().filter(c => c.args[0] === 'q').length;
-    await page.click('#fe-ql-ai-retry');
-    await page.waitForFunction(() => /in 1,204/.test(document.getElementById('fe-ql-ai-out-meta')?.textContent ?? ''), { timeout: 15000 });
-    check(h.lmCalls().filter(c => c.args[0] === 'q').length === calls + 1, 'Retry asks the same question again');
-
-    await page.type('#fe-ql-ai-q', 'Second question');
-    await page.keyboard.press('Enter');
-    await page.waitForFunction(() => /in 1,204/.test(document.getElementById('fe-ql-ai-out-meta')?.textContent ?? '') && /Second/.test(document.getElementById('fe-ql-ai-out-q')?.textContent ?? ''), { timeout: 15000 });
-    const second = await page.evaluate(() => ({ q: document.getElementById('fe-ql-ai-out-q').textContent, body: document.getElementById('fe-ql-ai-out-body').textContent, box: document.getElementById('fe-ql-ai-q').value }));
-    check(second.box === '' && !/const a/.test(second.body) && /Local answer/.test(second.body), `a new question replaces the old answer and leaves the box empty: ${JSON.stringify(second)}`);
-    const hist = await h.store.json('bfb-ask-history-v1', {});
-    const pv = Object.entries(hist).filter(([k]) => k.endsWith('/readme.md')).flatMap(([, cs]) => cs).filter(c => c.id.startsWith('pv-'));
-    check(pv.length === 2 && pv.some(c => c.turns.length === 1 && c.turns[0].q === 'Stream code'), `each opening of the preview files its questions as a chat of its own: ${JSON.stringify(pv.map(c => c.turns.map(t => t.q)))}`);
-    await page.keyboard.press('Escape'); await sleep(200);
+    await page.waitForFunction(() => /Local answer/.test(document.getElementById('fe-ask-thread')?.textContent ?? ''), { timeout: 15000 });
+    const sent = h.lmCalls().filter(c => c.args[0] === 'q').at(-1);
+    check(/Fixture/.test(sent?.stdin ?? ''), `the question goes with the previewed file's text, not the folder: ${JSON.stringify((sent?.stdin ?? '').slice(0, 60))}`);
+    await page.click('[data-ask-page]');
+    await sleep(200);
+    check(!(await page.$eval('.fe-ask-ctx', c => c.textContent)).includes('readme.md'), 'the chat can go back to this page');
+    await page.close();
   });
 
-  // 4. One "model is not running" message, with Retry, on every surface.
-  await phase('model-down message', async () => {
-    writeFileSync(h.lmDown, '');
-    await openPreview(page, 'readme.md');
-    await page.waitForFunction(() => /not running/.test(document.getElementById('fe-ql-ai-chip-txt')?.textContent ?? ''), { timeout: 15000 });
-    const dn = await page.evaluate(() => ({
-      chip: document.getElementById('fe-ql-ai-chip-txt').textContent, recheck: !document.getElementById('fe-ql-ai-recheck').hidden,
-      btns: [...document.querySelectorAll('.fe-ql-ai-btn')].map(b => [b.disabled, b.title]), qDisabled: document.getElementById('fe-ql-ai-q').disabled,
-    }));
-    check(DOWN.test(dn.chip) && dn.recheck && dn.btns.every(([off, t]) => off && DOWN.test(t)) && dn.qDisabled, `with the model down the preview says why once, on the disabled buttons too, and offers Retry: ${JSON.stringify(dn)}`);
-    await shotAt(page, 'preview-down');
-    await page.keyboard.press('Escape'); await sleep(200);
-    // A click while the check is still running waits for it, and a down model runs nothing.
-    writeFileSync(h.lmSlowStatus, '');
-    const before = h.lmCalls().filter(c => c.args[0] === 'q').length;
-    await openPreview(page, 'readme.md');
-    await page.waitForFunction(() => !document.getElementById('fe-ql-copy').disabled, { timeout: 5000 });
-    const early = await page.evaluate(() => { const b = document.getElementById('fe-ql-ai-sum'); const was = document.getElementById('fe-ql-ai-chip-txt').textContent; b.click(); return was; });
-    await page.waitForFunction(() => /not running/.test(document.getElementById('fe-ql-ai-chip-txt')?.textContent ?? ''), { timeout: 15000 });
-    await sleep(300);
-    const after = await page.evaluate(() => ({ out: !document.getElementById('fe-ql-ai-out').hidden, body: document.getElementById('fe-ql-ai-out-body').textContent }));
-    const ran = h.lmCalls().filter(c => c.args[0] === 'q').length - before;
-    check(/checking/.test(early) && !DOWN.test(after.body) && ran === 0, `Summarize clicked during the check runs nothing once the model is found down: ${JSON.stringify({ early, ...after, ran })}`);
-    await page.keyboard.press('Escape'); await sleep(200);
-    unlinkSync(h.lmDown);
-    const before2 = h.lmCalls().filter(c => c.args[0] === 'q').length;
-    await openPreview(page, 'readme.md');
-    await page.waitForFunction(() => !document.getElementById('fe-ql-copy').disabled, { timeout: 5000 });
-    const early2 = await chipText(page);
-    await page.evaluate(() => document.getElementById('fe-ql-ai-sum').click());
-    await waitReady(page);
-    await page.waitForFunction(() => /Local answer/.test(document.getElementById('fe-ql-ai-out-body')?.textContent ?? '') && document.getElementById('fe-ql-ai-out-q').textContent === 'Summarize', { timeout: 15000 }).catch(() => {});
-    const ran2 = h.lmCalls().filter(c => c.args[0] === 'q').length - before2;
-    check(/checking/.test(early2) && ran2 === 1, `and once the model is found ready, the held click runs once: ${JSON.stringify({ early2, ran2 })}`);
-    unlinkSync(h.lmSlowStatus);
-    writeFileSync(h.lmDown, '');
-    await page.keyboard.press('Escape'); await sleep(200);
-    await page.click('#fe-settings-btn');
-    await page.waitForSelector('#fe-settings-modal .fe-dlg-box');
-    await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="ai"]');
-    await page.waitForFunction(() => /not running/.test(document.getElementById('fe-st-ai-sub')?.textContent ?? ''), { timeout: 15000 });
-    check(DOWN.test(await page.$eval('#fe-st-ai-sub', s => s.textContent)), 'Settings says the same thing');
-    await page.keyboard.press('Escape');
-
-    await h.store.set('bfb-lens-v1', 'ask');
-    const down = await h.browser.newPage();
-    await down.setViewport({ width: 1400, height: 900 });
-    await down.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
-    await down.waitForFunction(() => /Local model is off/.test(document.getElementById('fe-ask-state')?.textContent ?? ''), { timeout: 15000 });
-    const ad = await down.evaluate(() => {
-      const st = document.getElementById('fe-ask-status'), rb = document.getElementById('fe-ask-recheck');
-      return {
-        state: document.getElementById('fe-ask-state').textContent, tip: st.title, retry: !rb.hidden && !rb.textContent.trim() && !!rb.querySelector('svg'),
-        oneLine: st.getBoundingClientRect().height < 30 && st.scrollWidth <= st.clientWidth + 1,
-        chips: [...document.querySelectorAll('.fe-ask-chip')].map(c => [c.disabled, c.title]), go: [document.getElementById('fe-ask-go').disabled, document.getElementById('fe-ask-go').title],
-      };
-    });
-    // Owner, 2026-10-27: the notice was too large; one terse line, the how-to in its tooltip, Retry as an icon.
-    check(ad.state === 'Local model is off' && DOWN.test(ad.tip) && ad.retry && ad.oneLine && ad.chips.every(([off, t]) => off && /Local model is off/.test(t)) && ad.go[0] && /Local model is off/.test(ad.go[1]),
-      `Ask says it in one terse line with the how-to on hover, Retry is an icon, and its disabled buttons say why: ${JSON.stringify(ad)}`);
-    await shotAt(down, 'ask-down', { x: 0, y: 40, width: 420, height: 520 });
-    unlinkSync(h.lmDown);
-    await down.click('#fe-ask-recheck');
-    await down.waitForFunction(() => !document.getElementById('fe-ask-q').disabled, { timeout: 15000 });
-    check(await down.$eval('#fe-ask-status', s => s.hidden), 'Retry finds the model once it is running and the form wakes');
-    // A remote model does not need the local one, so Ask shows no notice for it.
-    writeFileSync(h.lmDown, '');
-    await h.store.set('bfb-ask-model-v1', 'gemini:gemini-3.5-flash');
-    await down.reload({ waitUntil: 'load' });
-    await down.waitForFunction(() => !document.getElementById('fe-ask-q')?.disabled, { timeout: 15000 }).catch(() => null);
-    await sleep(800);
-    const gem = await down.evaluate(() => ({ hidden: document.getElementById('fe-ask-status').hidden, q: !document.getElementById('fe-ask-q').disabled }));
-    check(gem.hidden && gem.q, `with Gemini picked and the local model down, Ask shows no notice and stays usable: ${JSON.stringify(gem)}`);
-    unlinkSync(h.lmDown);
-    await h.store.set('bfb-ask-model-v1', '');
-    await down.close();
-  });
-
-  // 5. A page whose extension was reloaded says so, before anything fails.
   await phase('connection banner', async () => {
     await h.store.set('bfb-lens-v1', 'places');
     const stale = await h.open();

@@ -72,7 +72,7 @@ export function initDpLens(box: HTMLElement, go: (path: string) => void): void {
   const folded = new Set<string>(['never', 'archived']);
   const archived = () => new Set(archivedPref.get());
   box.innerHTML = `<div class="bar fe-lens-tools" data-inset hidden>
-      <label class="fe-lens-box"><input id="fe-dpl-q" class="tb" data-size="lg" data-lead="search" type="search" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches a page's title, name, project and topic. Esc clears."></label>
+      <label class="fe-lens-box"><input id="fe-dpl-q" class="tb" data-size="lg" data-lead="search" type="search" placeholder="Filter" spellcheck="false" autocomplete="off" title="Title, name, project and topic. Esc clears."></label>
     </div><div class="fe-dpl-rows"></div>`;
   const top = box.querySelector<HTMLElement>('.fe-lens-tools')!, rowsBox = box.querySelector<HTMLElement>('.fe-dpl-rows')!;
   const input = box.querySelector<HTMLInputElement>('#fe-dpl-q')!;
@@ -88,7 +88,7 @@ export function initDpLens(box: HTMLElement, go: (path: string) => void): void {
     const reachHtml = reach ? `<span class="fe-dpl-reach" data-reach="${r.reach}" title="${esc(reach.tip)}">${esc(reach.label)}</span>` : '';
     // An answer nobody heard is said on the row, so a failed wake is never silent.
     const lost = r.state === 'answered' && r.told === 'undelivered';
-    const toldHtml = lost ? `<span class="fe-dpl-told" data-told="undelivered" title="The answer was saved, but the agent that asked could not be told. It sees it next time it reads its pages.">agent not told</span>` : '';
+    const toldHtml = lost ? `<span class="fe-dpl-told" data-told="undelivered" title="Saved, but the agent was not told">agent not told</span>` : '';
     const sub = [toldHtml, reachHtml, origin && esc(origin)].filter(Boolean).join(' · ');
     return `<button type="button" class="row fe-dpl-row${unseen ? ' unseen' : ''}"${lost ? ' data-told="undelivered"' : ''} data-path="${esc(r.path)}" data-slug="${esc(r.slug)}"${r.reach ? ` data-reach="${r.reach}"` : ''} title="${esc(r.title ?? r.slug)}${unseen ? ' · you have not opened this one yet' : ''}${reach ? ` · ${esc(reach.tip)}` : ''}">
         <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ''}</span>

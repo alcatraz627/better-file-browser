@@ -84,6 +84,12 @@ export function sidebarShown(): boolean {
   return wanted ?? el('fe-side').style.display !== 'none';
 }
 
+/// Start with the sidebar hidden, with no slide, for a page that opens that way.
+export function startSidebarHidden(): void {
+  wanted = false;
+  el('fe-side').style.display = el('fe-side-rz').style.display = 'none';
+}
+
 /// Show or hide the sidebar card and its resize gutter. The card's width
 /// animates to and from zero, so the page beside it widens smoothly.
 export function setSidebarShown(show: boolean): void {

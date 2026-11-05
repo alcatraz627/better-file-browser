@@ -1001,10 +1001,11 @@ try {
   await page.waitForSelector('#fe');
   tabsA = await tabLabels(page);
   check(page.url().endsWith('/readme.md') && tabsA.length === 1 && await barIsActiveTab(page), `w closes the tab and navigates to its neighbour: ${JSON.stringify(tabsA)} ${page.url()}`);
-  await page.keyboard.press('T');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.keyboard.press('T')]);
+  await page.waitForSelector('#fe');
   await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
   tabsA = await tabLabels(page);
-  check(tabsA.join('|') === '*readme.md|nested' && page.url().endsWith('/readme.md'), `shift-T reopens the last closed tab at its place, URL unchanged: ${JSON.stringify(tabsA)}`);
+  check(tabsA.join('|') === '*readme.md|nested' && page.url().endsWith('/nested/'), `shift-T reopens the last closed tab at its place and goes there, as Chrome does: ${JSON.stringify(tabsA)} ${page.url()}`);
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe');
 

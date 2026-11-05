@@ -4,6 +4,7 @@
 // pictures, folding prose, the meter and the rail of items come from the
 // shared kit. gcc owns the answer itself; this module only draws the page
 // (docs: ~/.claude/features/decision-pages.md).
+import { askYesNo } from './ask-yes-no';
 import { esc, whenText } from './utils';
 import { copyWithCheck } from './copy-done';
 import { UI_ICON, GLYPH } from './control-icons';
@@ -21,6 +22,8 @@ import { clampHtml, wireClamps } from './docview-clamp';
 import { meterHtml } from './docview-status';
 import { outlineHtml, updateOutline, followOutline, type OutlineItem } from './docview-outline';
 import { answerBarHtml, answerPanelHtml, sentHtml, wireAnswer } from './dp-answer';
+
+const itemsWord = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`;
 
 export interface DpOption { code: string; label: string; rec?: boolean; why?: string; images?: ImageEntry[] }
 export interface DpDecision { id: string; question: string; context?: string; note?: string; group?: string; images?: ImageEntry[]; none?: boolean; noneLabel?: string; noneCode?: string; options: DpOption[] }
@@ -89,7 +92,7 @@ function headHtml(cfg: DpConfig, base: string): string {
       <span class="fe-dp-progress" id="fe-dp-progress" aria-live="polite"></span>
       ${cfg.notes !== false ? '<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">Notes</button>' : ''}
       <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>Marks</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Show only the cards you changed or noted (f)">Flagged only</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">Flagged only</button>
       <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">Reset</button>
       <span class="fe-dp-bar-gap"></span>${answerBarHtml()}
     </div>
@@ -188,8 +191,8 @@ function wireAnswers(cfg: DpConfig, box: HTMLElement, slug: string | undefined, 
       { state: 'changed', n: n('changed'), label: 'changed' },
       { state: 'noted', n: n('noted'), label: 'noted' },
       { state: 'drafted', n: n(null), label: 'as drafted' },
-    ], '', `${p.items} items`);
-    box.querySelector('#fe-dp-progress')!.textContent = p.asDrafted ? `${p.items} items · all as drafted` : `${p.items} items · ${p.flagged} flagged`;
+    ], '', itemsWord(p.items));
+    box.querySelector('#fe-dp-progress')!.textContent = p.asDrafted ? `${itemsWord(p.items)} · all as drafted` : `${itemsWord(p.items)} · ${p.flagged} flagged`;
   };
   // Draw the whole state onto the cards: used on load and after Reset.
   const paint = () => {
@@ -308,8 +311,8 @@ function wireAnswers(cfg: DpConfig, box: HTMLElement, slug: string | undefined, 
   };
   box.querySelector('#fe-dp-notes')?.addEventListener('click', () => allNotes(!notesOn.get()));
   box.querySelector('#fe-dp-flagged')!.addEventListener('click', () => flaggedOnly(!box.classList.contains('flagged-only')));
-  box.querySelector('#fe-dp-reset')!.addEventListener('click', () => {
-    if (!confirm('Put every answer back as drafted? Your picks and notes on this page are cleared.')) return;
+  box.querySelector('#fe-dp-reset')!.addEventListener('click', async () => {
+    if (!(await askYesNo('Put every answer back as drafted? Your picks and notes on this page are cleared.', 'Clear my answers'))) return;
     state = draftedState(cfg);
     saved.set(null);
     editedAt.set(Date.now());

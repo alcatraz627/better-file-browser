@@ -22,6 +22,19 @@ export function fitZoom(w: number, h: number, rot: number, stageW: number, stage
 export const STEP = 1.25;
 export const clampZoom = (z: number) => Math.min(16, Math.max(0.05, z));
 
+/**
+ * How much one wheel event zooms. A trackpad pinch sends dozens of tiny events
+ * a second and a mouse wheel sends a few large ones, so the zoom follows the
+ * size of the movement; a fixed step per event races to the limit on a pinch.
+ */
+export function pinchFactor(deltaY: number, lineMode = false): number {
+  const px = lineMode ? deltaY * 16 : deltaY;
+  return Math.exp(-Math.max(-30, Math.min(30, px)) * 0.01);
+}
+
+/** Where a picture was left: its view and how far it was scrolled. */
+export interface ViewState { view: View; left: number; top: number }
+
 /// The CSS transform for a view: the flip mirrors the screen, after the turn.
 export function viewTransform(v: View): string {
   return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
@@ -31,11 +44,13 @@ const BTN = (act: string, icon: string, text: string, title: string) =>
   `<button class="btn" data-img="${act}" title="${esc(title)}">${icon}<span>${text}</span></button>`;
 
 /// Builds the toolbar and the zoomable stage inside `wrap`. `open` hands the file to its default app.
+/// `start` opens the picture where another was left, and the result reports where this one is.
 export function mountImageTools(wrap: HTMLElement, o: {
   href: string; name: string; path: string;
   notify: (m: string) => void;
   openNative: (path: string) => Promise<boolean>;
-}): void {
+  start?: ViewState;
+}): { state: () => ViewState } {
   wrap.innerHTML = `
     <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
       ${BTN('in', UI_ICON.zoomIn, 'zoom in', 'Zoom in')}
@@ -47,13 +62,13 @@ export function mountImageTools(wrap: HTMLElement, o: {
       ${BTN('copy', UI_ICON.copyImage, 'copy image', 'Copy the picture as shown')}
       ${BTN('open', UI_ICON.external, 'open in app', 'Open in the default app')}
     </div>
-    <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}"></div></div>
+    <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}" draggable="false"></div></div>
     <div class="fe-ql-dim"></div>`;
   const stage = wrap.querySelector<HTMLElement>('.fe-ql-imgstage')!;
   const sizer = wrap.querySelector<HTMLElement>('.fe-ql-imgsizer')!;
   const img = wrap.querySelector<HTMLImageElement>('img.fe-ql-img')!;
   const dim = wrap.querySelector<HTMLElement>('.fe-ql-dim')!;
-  let v: View = { ...START_VIEW };
+  let v: View = { ...(o.start?.view ?? START_VIEW) };
 
   const natural = () => ({ w: img.naturalWidth, h: img.naturalHeight });
   const zoomNow = () => v.fit ? fitZoom(natural().w, natural().h, v.rot, stage.clientWidth, stage.clientHeight) : v.zoom;
@@ -69,9 +84,29 @@ export function mountImageTools(wrap: HTMLElement, o: {
     wrap.dataset.zoom = String(Math.round(z * 100));
     wrap.dataset.rot = String(v.rot);
     wrap.dataset.flip = v.flip ? '1' : '0';
+    stage.classList.toggle('can-pan', stage.scrollWidth > stage.clientWidth || stage.scrollHeight > stage.clientHeight);
   };
-  if (img.complete) draw(); else img.addEventListener('load', draw, { once: true });
+  const first = () => {
+    draw();
+    if (o.start) { stage.scrollLeft = o.start.left; stage.scrollTop = o.start.top; }
+  };
+  if (img.complete) first(); else img.addEventListener('load', first, { once: true });
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (v.fit) draw(); }).observe(stage);
+
+  /** Change the view while the picture stays put under a point on screen, so zooming goes where you are looking. */
+  const zoomAround = (next: View, x: number, y: number) => {
+    const a = sizer.getBoundingClientRect();
+    const fx = a.width ? (x - a.left) / a.width : 0.5, fy = a.height ? (y - a.top) / a.height : 0.5;
+    v = next;
+    draw();
+    const b = sizer.getBoundingClientRect();
+    stage.scrollLeft += b.left + fx * b.width - x;
+    stage.scrollTop += b.top + fy * b.height - y;
+  };
+  const middle = (): [number, number] => {
+    const r = stage.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  };
 
   const copy = async () => {
     try {
@@ -100,9 +135,9 @@ export function mountImageTools(wrap: HTMLElement, o: {
   };
 
   const act = (a: string) => {
-    if (a === 'in' || a === 'out') { v = { ...v, zoom: clampZoom(zoomNow() * (a === 'in' ? STEP : 1 / STEP)), fit: false }; }
+    if (a === 'in' || a === 'out') { zoomAround({ ...v, zoom: clampZoom(zoomNow() * (a === 'in' ? STEP : 1 / STEP)), fit: false }, ...middle()); return; }
     else if (a === 'fit') v = { ...v, fit: true };
-    else if (a === 'actual') v = { ...v, zoom: 1, fit: false };
+    else if (a === 'actual') { zoomAround({ ...v, zoom: 1, fit: false }, ...middle()); return; }
     else if (a === 'rotate') v = { ...v, rot: (v.rot + 90) % 360 };
     else if (a === 'flip') v = { ...v, flip: !v.flip };
     else if (a === 'copy') { void copy(); return; }
@@ -113,10 +148,37 @@ export function mountImageTools(wrap: HTMLElement, o: {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-img]');
     if (b) act(b.dataset.img!);
   });
-  // Wheel with ⌘ or ⌃ zooms, like a trackpad pinch.
+  // A pinch, or a wheel with ⌘ or ⌃, zooms at the pointer.
   stage.addEventListener('wheel', e => {
     if (!(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
-    act(e.deltaY < 0 ? 'in' : 'out');
+    zoomAround({ ...v, zoom: clampZoom(zoomNow() * pinchFactor(e.deltaY, e.deltaMode === 1)), fit: false }, e.clientX, e.clientY);
   }, { passive: false });
+  // A picture bigger than the stage can be dragged around.
+  stage.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !stage.classList.contains('can-pan')) return;
+    let x = e.clientX, y = e.clientY;
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add('panning');
+    const move = (m: PointerEvent) => {
+      stage.scrollLeft -= m.clientX - x;
+      stage.scrollTop -= m.clientY - y;
+      x = m.clientX; y = m.clientY;
+    };
+    const end = () => {
+      stage.classList.remove('panning');
+      stage.removeEventListener('pointermove', move);
+      stage.removeEventListener('pointerup', end);
+      stage.removeEventListener('pointercancel', end);
+    };
+    stage.addEventListener('pointermove', move);
+    stage.addEventListener('pointerup', end);
+    stage.addEventListener('pointercancel', end);
+  });
+  // A double click goes to actual size at that spot, and back to fit.
+  stage.addEventListener('dblclick', e => {
+    if (!v.fit) { v = { ...v, fit: true }; draw(); return; }
+    zoomAround({ ...v, fit: false, zoom: zoomNow() < 1 ? 1 : 2 }, e.clientX, e.clientY);
+  });
+  return { state: () => ({ view: { ...v }, left: stage.scrollLeft, top: stage.scrollTop }) };
 }

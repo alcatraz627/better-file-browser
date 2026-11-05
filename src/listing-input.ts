@@ -11,17 +11,21 @@ import { copyWithCheck } from './copy-done';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab, hasText, canAsk, copyContents, askAbout } from './preview';
 import { bind, addPaletteSource } from './commands';
 import { openLayer, raise, topmost, type Layer } from './layer';
-import { getSortConfig, getGroupMode, isSaved, toggleSaved, textPref } from './storage';
+import { getSortConfig, getGroupMode, isSaved, toggleSavedWithUndo, textPref } from './storage';
 import { askRename } from './doc-keep';
 import { getIcon, PI } from './icons';
 import { UI_ICON } from './control-icons';
 import type { SortConfig, GroupMode } from './types';
 import { go, reload } from './nav';
+import { listingShown } from './main-surface';
 
 export function initListingInput(app: App, listing: Listing): void {
   const { fe, toast, rawPath } = app;
   const { ls, sel } = listing;
   const scroll = el('fe-scroll');
+  const onHome = () => fe.classList.contains('fe-home-mode');
+  // The listing stays mounted under the pages that replace it, so its keys must not reach it there.
+  const onListing = () => listingShown();
   // A row's copy key shows the check on that row's copy button, as a click does.
   const copyText = (val: string, btn?: HTMLElement | null) => { void copyWithCheck(btn, val).then(ok => toast(ok ? `Copied: ${val}` : 'Copy failed')); };
   const rowBtn = (en: Entry, cls: string) => scroll.querySelector<HTMLElement>(`[data-idx="${ls.visible.indexOf(en)}"] .${cls}`);
@@ -49,8 +53,8 @@ export function initListingInput(app: App, listing: Listing): void {
     fe.classList.toggle('fe-selecting', on);
     if (!on && ls.selIdx >= 0) sel.setSel(ls.selIdx);
     selCount();
-  }, () => !app.fileMode);
-  bind('select-shown', () => { sel.selectAll(); selCount(); }, () => !app.fileMode);
+  }, onListing);
+  bind('select-shown', () => { sel.selectAll(); selCount(); }, onListing);
   const entryAt = (e: Event): Entry | null => {
     const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
     return holder ? ls.visible[parseInt(holder.dataset.idx!)] ?? null : null;
@@ -211,7 +215,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (item.dataset.act === 'term')    app.openInTerminal(en.isDir ? fp : rawPath);
     else if (item.dataset.act === 'rename')  renameRow(en);
     else if (item.dataset.act?.startsWith('ow:')) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
-    else if (item.dataset.act === 'save') { const now = toggleSaved(fp, en.name); app.refreshSaved(); toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`); }
+    else if (item.dataset.act === 'save') toggleSavedWithUndo(fp, en.name, toast, () => app.refreshSaved());
     else if (item.dataset.act === 'cp-paths') sel.copySelection();
     else if (item.dataset.act === 'cp-names') {
       const names = [...ls.selSet].sort((a, b) => a - b).map(i => ls.visible[i].name).join('\n');
@@ -221,7 +225,6 @@ export function initListingInput(app: App, listing: Listing): void {
 
   // The listing's named commands: what the key map gives keys to here, and
   // what the palette lists for this folder.
-  const onListing = () => !app.fileMode;
   const lead = () => (ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null);
   const leadRow = () => scroll.querySelector<HTMLElement>(`[data-idx="${ls.selIdx}"]`);
   const shown = () => ls.visible.map((_, i) => i).filter(i => sel.selectable(i) || ls.visible[i].isParent);
@@ -248,9 +251,14 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('open-chrome', () => { const en = lead(); if (en) go(en.href, 'chrome-tab'); }, () => onListing() && !!lead());
   bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en), rowBtn(en, 'fe-act-cp')); }, () => onListing() && !!lead());
   // Keys the listing answers itself, bound here too so the palette can run them.
-  bind('up', () => app.goUp());
-  bind('move', key => sel.moveSel(key === '↑' ? -1 : 1), onListing);
-  bind('pv-step', key => sel.previewStep(key === '↑' || key === '←' ? -1 : 1), () => isPreviewOpen());
+  bind('up', () => app.goUp(), () => !onHome());
+  bind('move', key => {
+    // A row left in focus by a click would read as a second current row.
+    const on = document.activeElement as HTMLElement | null;
+    if (on?.closest('#fe-scroll')) on.blur();
+    sel.moveSel(key === '↑' || key === 'k' ? -1 : 1);
+  }, onListing);
+  bind('pv-step', key => sel.previewStep(key === '↑' || key === '←' || key === 'k' ? -1 : 1), () => isPreviewOpen());
   bind('open', () => { const en = lead(); if (en) go(en.href); }, () => onListing() && !!lead());
   bind('look', () => { const en = lead(); if (en) sel.tryPreview(en); }, () => onListing() && !!lead());
   bind('select-all', () => sel.selectAll(), onListing);

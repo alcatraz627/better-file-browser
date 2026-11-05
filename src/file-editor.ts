@@ -10,16 +10,19 @@ import { highlightCode, splitHighlighted } from './renderers';
 import { formatFor, diagnose, type Diagnostic } from './formats';
 import { textPref } from './storage';
 import { notes, NotesError } from './notes';
-import { attachBuffer, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, type AutoMarker, type TextEdit } from './editor';
+import { attachBuffer, diffText, mapCaret, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, moveLines, duplicateLines, wrapSelection, type AutoMarker, type TextEdit } from './editor';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
 import { carrier } from './comment-anchor';
 import { errorText } from './errors';
+import { morphInto } from './morph-view';
 import { watch } from './watch';
-import { lineDiff } from './line-diff';
+import { lineDiffHtml } from './line-diff';
 
 const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
+const RENDER_MS = 150;      // the rendered side waits this long after a key, so typing never waits on a redraw
+const RETRY_MS = 4000;      // a failed save tries again this often while the text differs
 const modePref = textPref('bfb-edit-mode-v1');
 type Mode = 'raw' | 'split' | 'rich';
 const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -67,6 +70,12 @@ export interface FileEditorHost {
   cannotEdit?(why: string): void;
   // The saved text, so the reading view shows it when the editor closes.
   saved(text: string): void;
+  /** The file as already read, so the page can keep showing until the editor is ready. */
+  doc?: { text: string; mtime: number };
+  /** Where in the text the caret starts: the spot being read when Edit was pressed. Top when absent. */
+  startAt?(text: string): number;
+  /** Ask a yes or no question in the page's own style. */
+  confirm?(message: string, yes: string): Promise<boolean>;
   /** A short message at the bottom of the page. */
   notify?(text: string): void;
   /** The text as it stands while editing, so the counts around the page follow it. */
@@ -78,7 +87,7 @@ export interface FileEditorHost {
 
 export interface FileEditor {
   dirty(): boolean; close(): void;
-  /** Select a span given in the text as last saved, carried over unsaved edits. */
+  /** Show a span given in the text as last saved, carried over unsaved edits: its line comes into view and the caret goes there, while focus stays where it is. */
   select(start: number, end: number): void;
   /** The comment threads changed: mark the gutter again. */
   marks(): void;
@@ -86,7 +95,7 @@ export interface FileEditor {
 
 export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Promise<FileEditor | null> {
   let doc: { text: string; mtime: number };
-  try { doc = await notes.fileRead(host.root, host.rel); }
+  try { doc = host.doc ?? await notes.fileRead(host.root, host.rel); }
   catch (err) { const why = errorText(err, 'Opening it for editing'); if (host.cannotEdit) host.cannotEdit(why); else host.status(why); return null; }
   let lineCount = 1;
   for (let p = doc.text.indexOf('\n'); p !== -1 && lineCount <= BIG_LINES; p = doc.text.indexOf('\n', p + 1)) lineCount++;
@@ -129,7 +138,9 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const lhPx = Math.round(parseFloat(getComputedStyle(ta).fontSize) * 1.7);
   paintEl.style.lineHeight = ta.style.lineHeight = lhPx + 'px';
   const tw: TextWindow = big ? windowedText(ta, doc.text, TA_LINES) : wholeText(ta, doc.text);
-  const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
+  // An undo far from the view brings the caret's line back into it, once the rows are painted.
+  const revealCaret = () => requestAnimationFrame(() => { markLine(); rowEl(curRow)?.scrollIntoView({ block: 'nearest' }); });
+  const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set, caret: big ? undefined : at => { tw.select(at, at); revealCaret(); } });
   let base = doc.text;
   let saving = false;
   let failed = '';   // why the last save failed, until one succeeds
@@ -315,14 +326,16 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   let renderTimer = 0;
   const renderView = () => {
     if (!view || !fmt || mode === 'raw' || shown === tw.text()) return;
-    if (big && shown) { clearTimeout(renderTimer); renderTimer = window.setTimeout(drawView, BIG_RENDER_MS); return; }
-    drawView();
+    if (!shown) { drawView(); return; }
+    clearTimeout(renderTimer);
+    renderTimer = window.setTimeout(drawView, big ? BIG_RENDER_MS : RENDER_MS);
   };
+  const morphView = view ? morphInto(view) : () => {};
   const drawView = () => {
     const t = tw.text();
     if (!view || !fmt || mode === 'raw' || shown === t) return;
     const top = view.scrollTop;
-    view.innerHTML = fmt.rich(t, host.href);
+    morphView(fmt.rich(t, host.href));
     view.scrollTop = top;
     shown = t;
   };
@@ -346,8 +359,14 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     view.scrollTop = ratio * (view.scrollHeight - view.clientHeight);
   }, true);
 
-  const write = async (expect: number) => {
+  let inflight: Promise<void> | null = null;
+  let saveAgain = false;   // ⌘S pressed during a save
+  let retryTimer = 0;
+  let gone = false;        // the file was moved or deleted while open
+  const write = (expect: number): Promise<void> => { const p = writeNow(expect); inflight = p; return p; };
+  const writeNow = async (expect: number): Promise<void> => {
     saving = true; paint();
+    clearTimeout(retryTimer);
     let retryAt = 0;
     try {
       const text = tw.text();
@@ -363,32 +382,50 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
         if (now && now.text === doc.text && expect !== now.mtime) { doc = now; retryAt = now.mtime; }
         else showConflict();
       }
-      else { failed = errorText(e, 'Saving'); host.status(failed); }
+      else if (e.code === 'notes_missing') { failed = 'The file is no longer there.'; showGone(); }
+      else {
+        failed = errorText(e, 'Saving');
+        host.status(failed);
+        retryTimer = window.setTimeout(() => { if (isDirty()) save(false); }, RETRY_MS);
+      }
     } finally { saving = false; paint(); }
-    if (retryAt) await write(retryAt);
+    if (retryAt) return write(retryAt);
+    // Words typed while that save ran are still waiting for one of their own.
+    if (saveAgain) { saveAgain = false; save(); }
+    else if (isDirty() && !failed && banner.hidden) later();
   };
   // While the banner is up the file on disk is newer than the text this save
   // was based on, so a save would only be refused again. Say what to do instead.
   const save = (asked = true) => {
     clearTimeout(timer);
-    if (saving || !isDirty()) return;
+    if (saving) { if (asked) saveAgain = true; return; }
+    if (!isDirty()) return;
+    if (gone) { if (asked) askToChoose(); return; }
     if (!banner.hidden) { if (asked) askToChoose(); return; }
     void write(doc.mtime);
   };
   const askToChoose = () => {
-    const msg = 'Not saved: the file changed on disk. Choose Load from disk, Keep mine or Compare.';
+    const msg = 'Not saved: choose Reload, Compare or Keep mine.';
     (host.notify ?? host.status)(msg);
     banner.classList.add('flash');
     setTimeout(() => banner.classList.remove('flash'), 700);
   };
   const later = () => { clearTimeout(timer); timer = window.setTimeout(() => save(false), AUTOSAVE_MS); };
 
+  // Moved or deleted under the editor: nothing can be saved to it, so offer the text itself.
+  function showGone(): void {
+    gone = true;
+    banner.hidden = false;
+    banner.innerHTML = `<span>File moved or deleted. Your text is only here.</span>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="copy-all" title="Copy all the text">${UI_ICON.copyImage}<span>Copy</span></button>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="recheck" title="Look for the file again">${UI_ICON.rotate}<span>Try again</span></button>`;
+  }
   function showConflict(): void {
     banner.hidden = false;
-    banner.innerHTML = `<span>${esc(host.rel.split('/').pop()!)} changed on disk since you opened it.</span>
-      <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
-      <button class="btn" data-act="compare" title="Show the lines that differ between the file on disk and your text">Compare</button>
-      <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
+    banner.innerHTML = `<span>Changed on disk.</span>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="reload" title="Drop your changes, load the file">${UI_ICON.rotate}<span>Reload</span></button>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="compare" title="Show what differs from your text">${UI_ICON.versions}<span>Compare</span></button>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="overwrite" title="Save yours; the newer file is backed up">${UI_ICON.check}<span>Keep mine</span></button>`;
   }
   // The lines that differ, the copy on disk against this one, under the banner.
   const showDiff = async () => {
@@ -396,18 +433,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     let disk: string;
     try { disk = (await notes.fileRead(host.root, host.rel)).text; }
     catch (err) { host.status(errorText(err, 'Reading the file on disk')); return; }
-    const rows = lineDiff(disk, tw.text());
-    const changed = rows.filter(r => r.kind !== 'same');
-    // Only the changed lines and two lines of context around each.
-    const keep = new Set<number>();
-    rows.forEach((r, i) => { if (r.kind !== 'same') for (let k = Math.max(0, i - 2); k <= Math.min(rows.length - 1, i + 2); k++) keep.add(k); });
-    let html = '', skipped = false;
-    rows.forEach((r, i) => {
-      if (!keep.has(i)) { skipped = true; return; }
-      if (skipped) { html += '<div class="fe-fe-dgap">…</div>'; skipped = false; }
-      html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === 'gone' ? '−' : r.kind === 'new' ? '+' : ''}</span><span class="fe-fe-dt">${esc(r.text) || ' '}</span></div>`;
-    });
-    diffBox.innerHTML = `<div class="fe-fe-dhead">${changed.length ? `<span data-k="gone">− on disk</span><span data-k="new">+ yours</span>` : 'The two copies have the same lines.'}</div>${html}`;
+    diffBox.innerHTML = lineDiffHtml(disk, tw.text());
     diffBox.hidden = false;
   };
   // Called by the page's autoreload when the file changed underneath us.
@@ -420,16 +446,33 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       // Touched but unchanged (a sync tool, a formatter that wrote the same
       // bytes): take the new time quietly, there is nothing to choose between.
       if (now.text === doc.text) { doc = now; return; }
-      if (!isDirty()) { doc = now; base = now.text; buf.snap(); tw.set(now.text); buf.snap(); check(); paintSource(); paint(); }
+      if (!isDirty()) { doc = now; takeFromDisk(now.text); buf.snap(); check(); paint(); }
       else showConflict();
-    } catch { /* host gone; the next save reports it */ }
+    } catch (err) {
+      if ((err as NotesError).code === 'notes_missing') { if (!gone) showGone(); }
+      /* otherwise the host is gone; the next save reports it */
+    }
   };
+  // New text from disk: the caret keeps its words and the view stays put.
+  function takeFromDisk(next: string): void {
+    const was = tw.selection(), change = diffText(tw.text(), next), vp = viewport(), top = vp.scrollTop;
+    base = next;
+    buf.snap();
+    tw.set(next);
+    tw.select(mapCaret(was.start, change), mapCaret(was.end, change));
+    paintSource();
+    vp.scrollTop = top;
+  }
 
   // Done saves what is pending first; only a failed or conflicting save asks.
   const close = async () => {
     clearTimeout(timer);
-    if (isDirty() && !saving && banner.hidden) await write(doc.mtime);
-    if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
+    clearTimeout(retryTimer);
+    if (saving && inflight) await inflight;
+    if (isDirty() && banner.hidden) await write(doc.mtime);
+    if (isDirty() && !(await (host.confirm ?? (m => Promise.resolve(confirm(m))))('Your last changes are not saved. Leave anyway?', 'Leave without saving'))) return;
+    window.removeEventListener('beforeunload', onUnload);
+    window.removeEventListener('keydown', strayKey, true);
     stopWatch();
     clearTimeout(checkTimer);
     clearTimeout(renderTimer);
@@ -475,11 +518,38 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     else if (act === 'done') void close();
     else if (act === 'diag' && diags.length) goToLine(diags[0].line);
     else if (act === 'compare') void showDiff();
-    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); tw.set(now.text); banner.hidden = true; diffBox.hidden = true; paintSource(); paint(); host.typed?.(now.text); }
+    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; takeFromDisk(now.text); banner.hidden = true; diffBox.hidden = true; paint(); host.typed?.(now.text); }
+    else if (act === 'copy-all') { await navigator.clipboard.writeText(tw.text()); host.status('Copied all of the text'); }
+    else if (act === 'recheck') {
+      try { const now = await notes.fileStat(host.root, host.rel); doc = { ...doc, mtime: now.mtime }; gone = false; failed = ''; banner.hidden = true; save(false); }
+      catch { host.status('Still not there'); }
+    }
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
-  ta.addEventListener('input', () => { paintSource(); paint(); later(); checkLater(); });
-  const onSelection = () => { if (document.activeElement === ta) markLine(); };
+  // Typing at the very bottom keeps a little room under the caret's line.
+  const keepCaretClear = () => {
+    const row = rowEl(curRow), vp = viewport();
+    if (!row) return;
+    const gap = vp.getBoundingClientRect().bottom - row.getBoundingClientRect().bottom;
+    if (gap < lhPx) vp.scrollTop += lhPx - gap;
+  };
+  // The pill floats over the text. When the caret's own words reach under it, it fades
+  // so they can be read, and comes back under the pointer.
+  const pill = box.querySelector<HTMLElement>('#fe-fe-pill')!;
+  const clearPill = () => {
+    const words = rowEl(curRow)?.querySelector('.fe-fe-code');
+    let under = false;
+    if (words && mode !== 'rich') {
+      const r = document.createRange();
+      r.selectNodeContents(words);
+      const a = r.getBoundingClientRect(), b = pill.getBoundingClientRect();
+      under = a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+    }
+    pill.classList.toggle('under', under);
+  };
+  box.addEventListener('scroll', clearPill, true);
+  ta.addEventListener('input', () => { paintSource(); paint(); later(); checkLater(); if (!big) keepCaretClear(); markLine(); clearPill(); });
+  const onSelection = () => { if (document.activeElement === ta) { markLine(); clearPill(); } };
   document.addEventListener('selectionchange', onSelection);
   for (const ev of ['selectionchange', 'mouseup', 'keyup', 'focus']) ta.addEventListener(ev, markLine);
   // The textarea only covers the text itself, so a click on the blank space
@@ -500,7 +570,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     markLine();
   });
   box.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p' && fmt) { e.preventDefault(); nextMode(); }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); save(); }
+    else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p' && fmt) { e.preventDefault(); nextMode(); }
     else if (e.key === 'Escape' && mode === 'rich') { e.preventDefault(); setMode('raw'); }
   });
   // Large mode: keys that move the caret far bring the window along first.
@@ -537,9 +608,34 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (!ta.value.startsWith(autoMarker.prefix, autoMarker.lineStart) || ta.selectionStart < autoMarker.lineStart + autoMarker.prefix.length || !/^[-*+\d.)[\] xX]*$/.test(typed)) autoMarker = null;
   });
   ta.addEventListener('keydown', e => {
+    if (e.isComposing) { e.stopPropagation(); return; }   // these keys belong to the input method
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.shiftKey && e.key.toLowerCase() === 'p') return;   // the box cycles the view
-    if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+    const k = e.key.toLowerCase();
+    if (mod && e.shiftKey && k === 'p') return;   // the box cycles the view
+    if (mod && !e.shiftKey && k === 'k') return;   // the palette, here as everywhere
+    if (mod && !e.shiftKey && (k === 'b' || k === 'i' || k === 'e') && listy) {
+      e.preventDefault();
+      applyEdit(wrapSelection(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, k === 'b' ? '**' : k === 'i' ? '_' : '`'));
+    }
+    else if (e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const s = { start: ta.selectionStart, end: ta.selectionEnd };
+      applyEdit(e.shiftKey ? duplicateLines(ta.value, s) : moveLines(ta.value, s, e.key === 'ArrowDown' ? 1 : -1));
+    }
+    else if (!big && !mod && !e.altKey && (e.key === 'PageDown' || e.key === 'PageUp')) {
+      // The column scrolls, not the textarea, so the caret has to be brought along.
+      e.preventDefault();
+      const vp = viewport(), dir = e.key === 'PageDown' ? 1 : -1;
+      const y = rowEl(curRow)?.getBoundingClientRect().top ?? vp.getBoundingClientRect().top;
+      vp.scrollTop += dir * vp.clientHeight * 0.9;
+      const rows = [...paintEl.children];
+      let line = rows.findIndex(r => r.getBoundingClientRect().bottom > y);
+      if (line < 0) line = rows.length - 1;
+      const at = lineStart(ta.value, line);
+      ta.setSelectionRange(e.shiftKey ? ta.selectionStart : at, at);
+      markLine();
+    }
+    else if (mod && k === 's') { e.preventDefault(); save(); }
     // The undo buffer's own listener takes the step; this only keeps the
     // browser's undo, which knows nothing of the buffer, from running too.
     else if (mod && e.key.toLowerCase() === 'z') e.preventDefault();
@@ -558,16 +654,40 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     e.stopPropagation();   // page keys (r, t, w, [ ]) must not fire while typing
   });
   const stopWatch = watch(external, { pause: () => saving });
-  window.addEventListener('beforeunload', e => { if (box.isConnected && isDirty()) e.preventDefault(); });
+  const onUnload = (e: BeforeUnloadEvent) => { if (box.isConnected && isDirty()) e.preventDefault(); };
+  window.addEventListener('beforeunload', onUnload);
+  // Focus can fall out of the text (a closed field, a click on the status bar).
+  // A plain key then belongs in the text, never to the page commands behind it.
+  function strayKey(e: KeyboardEvent): void {
+    const on = document.activeElement as HTMLElement | null;
+    const lost = !on || on === document.body || on === document.documentElement || !!on.closest?.('#fe-fe-pill, #fe-status, #fe-ed-meta');
+    if (!lost || e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1 || mode === 'rich' || [...document.querySelectorAll<HTMLElement>('[role="dialog"], .fe-dlg')].some(d => d.checkVisibility())) return;
+    e.stopPropagation();
+    ta.focus({ preventScroll: true });
+  }
+  window.addEventListener('keydown', strayKey, true);
 
   diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);
   paintSource();
   paint();
   if (fmt) setMode(mode);
-  ta.focus();
+  ta.focus({ preventScroll: true });
+  // The caret starts at the spot being read, not at the end of the file.
+  const startAt = Math.min(host.startAt?.(doc.text) ?? 0, tw.text().length);
+  tw.select(startAt, startAt);
+  if (big) { if (startAt) selectSpan(startAt, startAt); }
+  else if (startAt) { markLine(); rowEl(curRow)?.scrollIntoView({ block: 'start' }); }
   return {
     dirty: isDirty, close: () => void close(),
-    select: (start, end) => { const at = carrier(base, tw.text()); selectSpan(at(start), at(end)); },
+    select: (start) => {
+      // Selecting would let the next key replace the words a comment is about, so the caret just goes to them.
+      const pos = carrier(base, tw.text())(start);
+      if (mode === 'rich') setMode('split');
+      const was = document.activeElement as HTMLElement | null;
+      if (big) selectSpan(pos, pos);
+      else { tw.select(pos, pos); markLine(); rowEl(curRow)?.scrollIntoView({ block: 'center' }); }
+      if (was && was !== ta) was.focus?.({ preventScroll: true });
+    },
     marks: markComments,
   };
 }

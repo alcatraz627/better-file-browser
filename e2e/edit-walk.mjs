@@ -12,6 +12,7 @@ const h = await launch();
 const results = [];
 const check = (ok, msg) => { results.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (!ok) process.exitCode = 1; };
 const typeAtEnd = async (page, text) => {
+  await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); t.setSelectionRange(t.value.length, t.value.length); });
   await page.focus('#fe-fe-ta');
   await page.keyboard.down('Meta'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Meta');
   await page.keyboard.type(text);

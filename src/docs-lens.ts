@@ -38,7 +38,7 @@ export function initDocsLens(box: HTMLElement, home: string, folder: string, go:
   const f: DocFilter = { q: '', me: false, due: false, tag: '', here: true, folder };
   box.innerHTML = `<div class="fe-docs-top" hidden>
       <input id="fe-docs-q" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="here" title="Only documents in this folder, up to four levels down">This folder</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
+      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="here" title="This folder only, four levels down">This folder</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
   const top = box.querySelector<HTMLElement>('.fe-docs-top')!, rowsBox = box.querySelector<HTMLElement>('.fe-docs-rows')!;
   const input = box.querySelector<HTMLInputElement>('#fe-docs-q')!;

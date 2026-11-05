@@ -28,6 +28,7 @@ import { openPreview, canPreview } from './preview';
 import { upgradeControls, type ValuedEl, type DropdownEl, type Opt } from './controls';
 import { emptyHtml, CLEAR } from './empty-state';
 import { errorText } from './errors';
+import { go } from './nav';
 
 export interface ListingState {
   all: Entry[];
@@ -175,6 +176,16 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     windowFrame = requestAnimationFrame(() => { windowFrame = 0; paintWindow(); });
   }, { passive: true });
 
+  // A tile's picture loads only as it comes near the view: a folder of screenshots holds
+  // full-size files, and the browser's own lazy loading reaches thousands of pixels ahead.
+  const pictureNear = new IntersectionObserver(items => items.forEach(it => {
+    if (!it.isIntersecting) return;
+    pictureNear.unobserve(it.target);
+    const img = it.target as HTMLImageElement;
+    img.src = img.dataset.src!;
+    img.removeAttribute('data-src');
+  }), { root: el('fe-scroll'), rootMargin: '300px' });
+
   // This Chrome tab remembers the selected row of each folder, by name.
   const leadPref = textPref('bfb-lead:' + rawPath, '', 'tab');
   let leadRestored = false;
@@ -224,6 +235,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       : null;
     if (win) measureWindow(); else tbody.innerHTML = rowParts.join('');
     tiles.innerHTML = tileParts.join('');
+    tiles.querySelectorAll('img[data-src]').forEach(img => pictureNear.observe(img));
     fe.classList.toggle('fe-has-find-hits', !!ls.contentHits);
     if (fe.dataset.view === 'tree') {
       ls.visible = [];
@@ -516,7 +528,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // no room for the rest; start over rather than show only Name.
   if (el('fe-table').offsetWidth && lastTh.offsetWidth < LAST_MIN) { saveColWidths({}); applyWidths(); }
   els('.fe-col-rz').forEach(handle => {
-    handle.title = 'Drag to resize this column · double-click to reset';
+    handle.title = 'Drag to resize · double-click to reset';
     const th = handle.closest<HTMLElement>('th')!;
     const key = th.dataset.ck!;
     // The last column gives up its room, down to its own minimum.
@@ -567,6 +579,13 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     el('fe-filter-btn').classList.toggle('on', open);
     el('fe-filter-btn').setAttribute('aria-expanded', String(open));
     if (open) el<HTMLInputElement>('fe-filter-q').focus();
+  });
+  // The panel closes on Esc like every other panel, and focus goes back to the button that opened it.
+  filterBar.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    el('fe-filter-btn').click();
+    (document.activeElement as HTMLElement | null)?.blur();
   });
   el<HTMLInputElement>('fe-filter-q').addEventListener('input', function () { stopFind(); ls.filter.q = this.value; refreshNameMatches(); });
   el('fe-regex-btn').addEventListener('click', function () {
@@ -716,6 +735,18 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // Deep search: the listing source becomes the crawled subtree.
   const deepBtn = el('fe-deep-btn');
   const searchEl = el<HTMLInputElement>('fe-search');
+  // From the filter box, ↓ goes to the rows and ↩ opens the first match. The Parent Directory
+  // row stays listed under any filter, so it has to be skipped or ↩ would climb a folder.
+  searchEl.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'Enter') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const first = ls.visible.findIndex((_, i) => sel.selectable(i));
+    if (first < 0) return;
+    searchEl.blur();
+    sel.setSel(first);
+    if (e.key === 'Enter') go(ls.visible[first].href);
+  });
   function startDeepCrawl(): void {
     deepReader?.close();
     const seq = ++ls.deepSeq;

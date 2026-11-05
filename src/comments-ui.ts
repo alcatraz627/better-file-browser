@@ -4,6 +4,7 @@
 // work). Select words and press `c` to start a thread. The native host owns
 // all anchoring; this file only maps spans between source and page.
 // Spec: .claude/specs/bfb-docs.md.
+import { askYesNo } from './ask-yes-no';
 import { notes, type DocThread, type CommentAuthor, type CommentOp, type CommentsReply } from './notes';
 import { esc, whenText } from './utils';
 import { copyWithCheck } from './copy-done';
@@ -206,7 +207,9 @@ export function mountComments(o: {
     const fresh = r.threads.flatMap(t => t.comments.filter(c => !seen.has(c.id) && c.author.kind === 'agent').map(c => c.author));
     if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
     r.threads.forEach(t => t.comments.forEach(c => seen.add(c.id)));
-    threads = r.threads; failed = ''; loaded = true;
+    // A thread whose every comment was deleted has nothing left to show or count.
+    threads = r.threads.filter(t => t.comments.some(c => !c.deleted)); failed = ''; loaded = true;
+    restoreTyped();
   };
   const load = async () => {
     const root = o.root();
@@ -387,7 +390,7 @@ export function mountComments(o: {
     : emptyHtml('empty', 'No comments yet', { icon: UI_ICON.comment, hintHtml: 'Select some text,<br>then press <kbd>c</kbd>' });
 
   // Which boxes are on screen now; text typed in a box that is going away is not kept.
-  const wanted = (id: string) => id === 'new' ? !!draft && !draft.attach : id.startsWith('edit:') ? editing === id.slice(5) : id === active;
+  const wanted = (id: string) => id === 'new' ? !!draft && !draft.attach : id.startsWith('edit:') ? editing === id.slice(5) : true;   // a reply waits for its thread to reopen
 
   const paint = () => {
     // Keep what was being typed, and where, across the repaint.
@@ -499,6 +502,8 @@ export function mountComments(o: {
     }
     const t = threads.find(x => x.id === id);
     if (t && t.place.offset !== null) o.picked?.({ offset: t.place.offset, length: t.place.length });
+    // While editing, a thread opened from its card takes the next key as a reply, never as an edit.
+    if (o.editing?.()) o.box.querySelector<HTMLElement>('.fe-cm-th.on textarea[data-for]')?.focus({ preventScroll: true });
   };
 
   // ── Starting a thread from a selection on the page ───────────────────────
@@ -512,6 +517,27 @@ export function mountComments(o: {
   };
   // A selection seen just before a click in the panel, which may clear it.
   let held: SourceSpan | null = null;
+
+  // Words typed in a comment box survive leaving the doc and coming back with Back.
+  const typedKey = `bfb-cm-typed:${o.path}`;
+  let restored = false;
+  const restoreTyped = () => {
+    if (restored) return;
+    restored = true;
+    try {
+      const was = JSON.parse(sessionStorage.getItem(typedKey) ?? 'null') as { typed: [string, string][]; parked: [string, string][]; draft: Draft | null } | null;
+      sessionStorage.removeItem(typedKey);
+      if (!was) return;
+      was.typed.forEach(([k, v]) => typed.set(k, v));
+      was.parked.forEach(([k, v]) => parked.set(k, v));
+      if (was.draft) { draft = was.draft; o.reveal(); }
+    } catch { /* storage blocked or an old shape: nothing to bring back */ }
+  };
+  window.addEventListener('pagehide', () => {
+    o.box.querySelectorAll<HTMLTextAreaElement>('textarea[data-for]').forEach(ta => { if (ta.value) typed.set(ta.dataset.for!, ta.value); });
+    if (!typed.size && !parked.size && !draft) return;
+    try { sessionStorage.setItem(typedKey, JSON.stringify({ typed: [...typed], parked: [...parked], draft })); } catch { /* storage blocked */ }
+  });
 
   const startDraft = async (span: SourceSpan, attach?: string) => {
     if (!o.root()) {
@@ -773,7 +799,11 @@ export function mountComments(o: {
       if (a === 'send-agent' && t) { void openSendMenu(act!, t); return; }
       if (a === 'untag') { void write([{ op: 'untag', thread: active, tags: [v] }], 'Tag'); return; }
       if (a === 'undue') { void write([{ op: 'due', thread: active }], 'Due date'); return; }
-      if (a === 'del') { void write([{ op: 'delete', thread: active, comment: v }], 'Delete'); return; }
+      if (a === 'del') {
+        const thread = active;
+        void askYesNo('Delete this comment? This cannot be undone.', 'Delete').then(yes => { if (yes) void write([{ op: 'delete', thread, comment: v }], 'Delete'); });
+        return;
+      }
       if (a === 'edit') { startEdit(v); return; }
       if (a === 'edit-cancel') { cancelEdit(); return; }
       if (a === 'edit-save') { void saveEdit(v); return; }
@@ -905,7 +935,8 @@ export function mountComments(o: {
     if (a === 'panel') { o.toggle(); return true; }
     if (a === 'clear') {
       if (!active && !draft) return false;
-      draft = null; active = ''; paint(); redraw();
+      if (draft) cancelDraft(true);
+      active = ''; paint(); redraw();
       return true;
     }
     if (a === 'next' || a === 'prev') { step(a === 'next' ? 1 : -1); return placed().length > 0; }

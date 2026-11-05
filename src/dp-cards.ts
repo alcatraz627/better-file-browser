@@ -49,9 +49,9 @@ const noteHtml = (id: string, notes: boolean) => notes ? `
 
 function optionHtml(d: DpDecision, o: DpOption, n: number, base: string, none = false): string {
   const imgs = mediaList(o.images, base);
-  return `<label class="fe-dp-opt${imgs.length ? ' tile' : ''}${none ? ' none' : ''}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} · ${o.label}`)}" title="Answer code ${esc(o.code)}">
+  return `<label class="fe-dp-opt${imgs.length ? ' tile' : ''}${none ? ' none' : ''}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} · ${o.label}`)}" data-media-choice="${esc(o.code)}" data-media-name="${esc(o.label)}"${o.rec ? ' data-media-rec' : ''} title="Answer code ${esc(o.code)}">
       <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
-      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map(m => mediaHtml(m, true)).join('')}</span>` : ''}
+      ${imgs.length ? `<span class="fe-dp-tile-img" style="--rest:${Math.min(3, Math.max(1, imgs.length - 1))}">${imgs.map(m => mediaHtml(m, true)).join('')}</span>` : ''}
       <span class="fe-dp-opt-row">
         <kbd class="fe-dp-num">${n}</kbd>
         <span class="fe-dp-opt-tx"><span class="fe-dp-opt-lbl">${esc(o.label)}</span>${o.why ? `<span class="fe-dp-why">${esc(o.why)}</span>` : ''}</span>

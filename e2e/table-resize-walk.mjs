@@ -36,6 +36,17 @@ try {
     const after = await widths(page, sel);
     check(Math.abs(after[0] - before[0] - 80) <= 2 && after[1] === before[1] && after[2] === before[2],
       `${theme}: dragging the Name edge widens Name alone: ${JSON.stringify({ before, after })}`);
+    // The grab line shows down every row of the column, from a body cell's edge too, and leaves with the pointer.
+    const edge = await page.$eval(`${sel} tbody tr:nth-child(2) td:nth-child(2)`, c => { const r = c.getBoundingClientRect(); return { x: r.right - 2, y: r.top + r.height / 2 }; });
+    await page.mouse.move(edge.x, edge.y);
+    await new Promise(r => setTimeout(r, 200));
+    const line = () => page.$$eval(`${sel} tr`, rows => rows.map(r => [...r.cells].filter(c => getComputedStyle(c).boxShadow.includes('inset')).map(c => c.cellIndex).join()));
+    const lines = await line();
+    check(lines.length === 3 && lines.every(l => l === '1'), `${theme}: at a body cell's edge the line runs down the whole column: ${JSON.stringify(lines)}`);
+    await page.mouse.move(5, 5);
+    await new Promise(r => setTimeout(r, 200));
+    const gone = await line();
+    check(gone.every(l => l === ''), `${theme}: the line leaves with the pointer: ${JSON.stringify(gone)}`);
     await page.screenshot({ path: join(SHOTS, `table-resize-md-${theme}.png`), clip: { x: 0, y: 0, width: 1400, height: 420 } });
     const box = await page.$eval(`${sel} thead th:nth-child(1) .fe-col-rz`, el => { const r = el.getBoundingClientRect(); return { x: r.left + 3, y: r.top + 5 }; });
     await page.mouse.click(box.x, box.y, { count: 2 });

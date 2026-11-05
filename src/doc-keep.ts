@@ -5,7 +5,7 @@
 // also what the listing and the preview use, so a renamed file's Saved entry
 // and tab follow it wherever the rename started.
 import { notes, NotesError, readProps, retitle, applyChange } from './notes';
-import { getSaved, saveSaved, getSettings } from './storage';
+import { getSaved, saveSaved, getSettings, removeSavedWithUndo } from './storage';
 import { retargetPlace, upsertPlace, removePlace, samePlace, renamePlace } from './places';
 import { openLayer, type Layer } from './layer';
 import { switchHtml, checkHtml } from './controls';
@@ -130,10 +130,15 @@ export function mountKeep(app: App): void {
       if (k === 'saved') {
         const on = (e.target as HTMLInputElement).checked;
         const label = field('label')!.value.trim() || baseOf(path);
-        saveSaved(on ? upsertPlace(getSaved(), { path, label }) : removePlace(getSaved(), path));
-        field('label')!.disabled = !on;
-        app.refreshSaved(); paintBtn();
-        say(on ? 'Saved' : 'Removed from Saved');
+        const check = e.target as HTMLInputElement;
+        const refresh = () => {
+          const kept = getSaved().some(p => samePlace(p.path, path));
+          check.checked = kept;
+          field('label')!.disabled = !kept;
+          app.refreshSaved(); paintBtn();
+        };
+        if (on) { saveSaved(upsertPlace(getSaved(), { path, label })); refresh(); say('Saved'); }
+        else { removeSavedWithUndo(path, app.toast, refresh); say(''); }
       } else if (k === 'pinned') {
         const on = (e.target as HTMLInputElement).checked;
         if (await writeNote(t => applyChange(t, { pinned: on }))) say(on ? 'Pinned in Notes' : 'Unpinned');

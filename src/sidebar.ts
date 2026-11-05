@@ -9,7 +9,7 @@ import { copyLink, onPhone } from './phone';
 import { runOpenWith } from './open-with';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref } from './storage';
+import { getSaved, saveSaved, removeSavedWithUndo, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor, isWebPath } from './places';
 import { renderSavedList } from './render';
 import { describeSync } from './sync-state';
@@ -33,6 +33,30 @@ const hiddenHistory = jsonPref<string[]>('bfb-trash-hidden-v1', [], v => Array.i
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const lensPref = textPref('bfb-lens-v1', 'notes');
+
+// The sidebar's list stays where it was across a page change, per lens and per Chrome
+// tab. Lists fill in after load, so the place is retried briefly until it can be reached.
+function keepLensScroll(lens: () => string): void {
+  const box = document.getElementById('fe-lenses');
+  if (!box) return;
+  const KEY = 'bfb-lens-scroll';
+  const read = (): Record<string, number> => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? '{}'); } catch { return {}; } };
+  window.addEventListener('pagehide', () => {
+    try { sessionStorage.setItem(KEY, JSON.stringify({ ...read(), [lens()]: box.scrollTop })); } catch { /* storage blocked */ }
+  });
+  const want = read()[lens()];
+  if (!want) return;
+  // Held for a moment even once reached: a status line drawn above would otherwise push the list by a row.
+  let frames = 60;
+  const stop = () => { frames = 0; };
+  for (const ev of ['wheel', 'keydown', 'pointerdown', 'touchstart']) box.addEventListener(ev, stop, { once: true, passive: true });
+  const place = () => {
+    if (frames-- <= 0) return;
+    box.scrollTop = want;
+    requestAnimationFrame(place);
+  };
+  place();
+}
 function initLenses(app: App): void {
   const rail = el('fe-rail');
   const btns = els<HTMLButtonElement>('#fe-rail .fe-rail-btn');
@@ -134,6 +158,7 @@ function initLenses(app: App): void {
   });
   lensPref.onChange(() => show(lensPref.get(), undefined, true));
   show(lensPref.get(), undefined, true);
+  keepLensScroll(() => lensPref.get());
 }
 
 export function initSidebar(app: App): void {
@@ -302,9 +327,16 @@ export function initSidebar(app: App): void {
       if (save && val !== orig) onSave(val); else onCancel?.();
       refreshSaved();
     };
+    // Finishing by key leaves the row in focus, redrawn or not, so the next key acts on that row.
+    const holder = target.closest<HTMLElement>('[data-path],[data-rel]');
+    const rowKey = holder?.dataset.path ? `[data-path="${CSS.escape(holder.dataset.path)}"]` : holder?.dataset.rel ? `[data-rel="${CSS.escape(holder.dataset.rel)}"]` : '';
+    const backToRow = () => setTimeout(() => {
+      const on = document.activeElement;
+      if (rowKey && (!on || on === document.body)) document.querySelector<HTMLElement>(`#fe-lenses ${rowKey} .fe-si-link, #fe-lenses ${rowKey}.fe-si-link`)?.focus({ preventScroll: true });
+    }, 60);
     target.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-      else if (e.key === 'Escape') { e.preventDefault(); target.textContent = orig; finish(false); }
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); backToRow(); }
+      else if (e.key === 'Escape') { e.preventDefault(); target.textContent = orig; finish(false); backToRow(); }
       e.stopPropagation();
     });
     target.addEventListener('blur', () => finish(true), { once: true });
@@ -328,8 +360,7 @@ export function initSidebar(app: App): void {
     els('.fe-rm-btn', svList).forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation(); e.preventDefault();
-        saveSaved(removePlace(getSaved(), btn.dataset.path!));
-        refreshSaved(); toast('Removed from Saved');
+        removeSavedWithUndo(btn.dataset.path!, toast, refreshSaved);
       });
     });
     els('.fe-pl-label', svList).forEach(lbl => {
@@ -431,10 +462,8 @@ export function initSidebar(app: App): void {
   }
   el('fe-sv-add').addEventListener('click', () => addCurrentFolder(true));
   el('fe-bm-btn').addEventListener('click', () => {
-    if (getSaved().some(p => samePlace(p.path, rawPath))) {
-      saveSaved(removePlace(getSaved(), rawPath));
-      refreshSaved(); toast('Removed from Saved');
-    } else addCurrentFolder(false);
+    if (getSaved().some(p => samePlace(p.path, rawPath))) removeSavedWithUndo(rawPath, toast, refreshSaved);
+    else addCurrentFolder(false);
   });
   attachSavedEvents();
   syncStar();
@@ -882,8 +911,9 @@ export function initSidebar(app: App): void {
       }).catch((err: NotesError) => toast(errorText(err, 'Renaming the note')));
     }, back);
   }
-  function deleteNote(root: string, rel: string): void {
-    if (editingRel() === rel) discardEditor();
+  async function deleteNote(root: string, rel: string): Promise<void> {
+    // Words typed in the last moment go with the note, so Undo brings them back too.
+    if (editingRel() === rel) { await saveEditor().catch(() => {}); rel = editingRel() ?? rel; discardEditor(); }
     notes.delete(root, rel).then(r => {
       refreshNotes();
       toast('Moved to .trash', 6000, { label: 'Undo', run: () => {
@@ -920,7 +950,7 @@ export function initSidebar(app: App): void {
         document.addEventListener('pointerup', () => setTimeout(start, 0), { once: true, capture: true });
         setTimeout(start, 800);
       },
-      del: r => deleteNote(root, r),
+      del: r => void deleteNote(root, r),
     };
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes, actions))
       .catch((err: NotesError) => toast(errorText(err, 'Opening the note')));
@@ -1112,11 +1142,11 @@ export function initSidebar(app: App): void {
     const { where, why, clashes, backup } = savedWhere();
     svWhere.hidden = where === 'unknown';
     svWhere.dataset.state = where;
-    const two = clashes ? ` ${clashes} ${clashes === 1 ? 'save holds' : 'saves hold'} two versions after a merge: choose which to keep.` : '';
-    const back = backup ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Put back the rows this browser had before Saved moved to the folder, beside what is there now">Bring back my earlier rows</button>' : '';
-    svWhere.innerHTML = where === 'folder' ? `Kept in your notes folder.${two}${back}`
-      : where === 'unreachable' ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ''}`
-      : `Kept only in this browser. ${esc(why)}${why.includes('moved back') ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ''}`;
+    const two = clashes ? ` · ${clashes} to settle` : '';
+    const back = backup ? ` <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Rows from before the move, beside today's">${UI_ICON.versions}<span>Restore rows</span></button>` : '';
+    svWhere.innerHTML = where === 'folder' ? `In your notes folder${two}${back}`
+      : where === 'unreachable' ? `<span title="${esc(why)}">Last copy: folder not answering</span>`
+      : `<span title="${esc(why)}">Only in this browser</span>${why.includes('moved back') ? ` <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on" title="Keep Saved in the notes folder">${UI_ICON.notes}<span>Move to Notes</span></button>` : ''}`;
     document.getElementById('fe-sv-where-on')?.addEventListener('click', () => void enableSavedFolder());
     document.getElementById('fe-sv-where-back')?.addEventListener('click', () => void restoreBackup());
   };

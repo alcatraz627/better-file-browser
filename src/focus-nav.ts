@@ -6,6 +6,7 @@ import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
 import { bind, listenForKeys, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
 import { isWebPath } from './places';
+import { listingShown } from './main-surface';
 import { isPreviewOpen, openPreview, noteAction, askInPreview } from './preview';
 import { raise, rovingFocus } from './layer';
 import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
@@ -230,18 +231,22 @@ export function initFocusNav(app: App): void {
   bind('fp-cm-due', () => app.filePage?.comment('due'), commentable);
   bind('fp-cm-attach', () => app.filePage?.comment('attach'), commentable);
   bind('fp-copy', click('fe-fp-copy'), () => !!app.filePage && !app.filePage.editing());
-  bind('fp-cm-step', key => app.filePage?.comment(key === '⌥↑' ? 'prev' : 'next'), commentable);
+  const reading = () => !!app.filePage && !app.filePage.editing();
+  const page = () => document.getElementById('fe-page');
+  bind('fp-line', key => page()?.scrollBy({ top: key === 'k' ? -60 : 60 }), reading);
+  bind('fp-ends', key => { const p = page(); if (p) p.scrollTop = key === '⇧G' ? p.scrollHeight : 0; }, reading);  bind('fp-cm-step', key => app.filePage?.comment(key === '⌥↑' ? 'prev' : 'next'), commentable);
   // Inside the comments box its own Esc runs: it puts a draft away and keeps focus.
-  bind('fp-cm-clear', () => app.filePage?.comment('clear'), () => !!app.filePage?.commentHeld() && !ae()?.closest('#fe-cm'));
+  bind('fp-cm-clear', () => { if (app.filePage?.commentHeld()) app.filePage.comment('clear'); else app.filePage?.closePeek(); },
+    () => (!!app.filePage?.commentHeld() && !ae()?.closest('#fe-cm')) || !!app.filePage?.peeking());
   bind('fp-find', () => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode && !app.filePage?.editing());
   bind('to-path', () => { focusFirst('#fe-bc', 'a.fe-crumb:last-of-type, .fe-crumb.cur, a'); flash(document.activeElement as HTMLElement); });
-  bind('deep', click('fe-deep-btn'), () => !app.fileMode);
+  bind('deep', click('fe-deep-btn'), listingShown);
   bind('sidebar', click('fe-side-toggle'));
   bind('theme', click('fe-theme-btn'));
   // On Home, l puts the cursor in Home's own path bar.
   bind('path', () => { const bar = document.querySelector<HTMLInputElement>('.fe-hp-go-in'); if (bar) bar.focus(); else click('fe-open-path')(); });
   bind('open-pick', click('fe-open-pick'));
-  bind('save', click('fe-bm-btn'), () => !!document.getElementById('fe-bm-btn'));
+  bind('save', click('fe-bm-btn'), () => !!document.getElementById('fe-bm-btn') && !app.fe.classList.contains('fe-home-mode'));
   bind('terminal', click('fe-term-btn'));
   bind('terminal-copy', click('fe-term-btn', { shiftKey: true }));
   const moveHere = (dir: 1 | -1) => { const id = document.querySelector<HTMLElement>('#fe-tabs .fe-tab.on')?.dataset.id; if (id) app.strip.move(id, dir); };
@@ -252,7 +257,9 @@ export function initFocusNav(app: App): void {
   const LENSES: [string, string][] = [['lens-home', 'home'], ['lens-places', 'places'], ['lens-saved', 'saved'], ['lens-notes', 'notes'], ['lens-recent', 'history'], ['lens-search', 'search'], ['lens-ask', 'ask'], ['lens-docs', 'comments'], ['lens-dp', 'decisions']];
   for (const [id, lens] of LENSES) bind(id, () => {
     if (!sidebarShown()) runCommand('sidebar');
-    app.showLens?.(lens);
+    // The rail's own click, so a lens picked by key is remembered like one picked by mouse.
+    const railBtn = document.getElementById(`fe-rail-${lens}`);
+    if (railBtn) railBtn.click(); else app.showLens?.(lens);
     setTimeout(() => {
       const box = document.getElementById(`fe-lens-${lens}`);
       (box?.querySelector<HTMLElement>('input[type="search"], textarea, .fe-tl-input') ?? box?.querySelector<HTMLElement>('.fe-si, .fe-si-link'))?.focus();

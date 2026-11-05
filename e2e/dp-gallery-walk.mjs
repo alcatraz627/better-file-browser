@@ -32,6 +32,10 @@ document.body.dataset.width = String(innerWidth);</script></body></html>`));
     decisions: [
       { id: 'D1', question: 'Which mock?', none: true, options: [1, 2, 3, 4].map(n => ({ code: 'abcd'[n - 1], label: `Mock ${n}`, images: [`mock${n}.html`], rec: n === 1 })) },
       { id: 'D2', question: 'Which picture?', options: [{ code: 'a', label: 'Dark', images: ['a.png'], rec: true }, { code: 'b', label: 'Light', images: ['b.png'] }, { code: 'c', label: 'Dark again', images: ['a.png'] }] },
+      { id: 'D3', question: 'Which arrangement?', options: [
+        { code: 'a', label: 'A. Calm table. Files in reading order.', images: ['a.png', 'b.png', 'a.png', 'b.png'] },
+        { code: 'c', label: 'C. Answer first. One line says whether to read it.', rec: true, images: ['b.png', 'a.png', 'b.png', 'a.png'] },
+      ] },
     ],
     sections: [
       { id: 's1', title: 'Two shots', images: ['a.png', 'b.png', '../escape.png'] },
@@ -188,7 +192,85 @@ document.body.dataset.width = String(innerWidth);</script></body></html>`));
   await page.click('.fe-dp-card[data-id="D1"] .fe-dv-media [data-media="focus"]');
   await page.waitForSelector('.fe-dv-view iframe.fe-dv-view-frame', { timeout: 4000 });
   const bigMock = await page.evaluate(() => ({ title: document.querySelector('.fe-dv-view-title').textContent, sandbox: document.querySelector('.fe-dv-view-frame').getAttribute('sandbox'), w: Math.round(document.querySelector('.fe-dv-view-frame').getBoundingClientRect().width) }));
-  check(bigMock.title === 'mock1.html · 1 of 4' && bigMock.sandbox === 'allow-scripts' && bigMock.w > 1000, `a mock page opens large, live and sandboxed: ${JSON.stringify(bigMock)}`);
+  check(/^a Mock 1/.test(bigMock.title) && bigMock.sandbox === 'allow-scripts' && bigMock.w > 700, `a mock page opens large, live and sandboxed, under its choice's name: ${JSON.stringify(bigMock)}`);
+  await page.keyboard.press('Escape');
+  await wait(200);
+
+  // Several pictures in one option: one leads and the rest sit small beneath it, so the option stays short.
+  const tile = await page.evaluate(() => {
+    const o = document.querySelector('.fe-dp-card[data-id="D3"] .fe-dp-opt[data-code="c"]');
+    const f = [...o.querySelectorAll('.fe-dv-media')].map(x => x.getBoundingClientRect());
+    return { h: Math.round(o.getBoundingClientRect().height), n: f.length, lead: Math.round(f[0].width), small: f.slice(1).map(x => Math.round(x.width)), sameRow: new Set(f.slice(1).map(x => Math.round(x.top))).size === 1 };
+  });
+  check(tile.n === 4 && tile.sameRow && tile.small.every(w => w * 2.5 < tile.lead) && tile.h < 760, `an option's four pictures read as one lead and three small, under one screen: ${JSON.stringify(tile)}`);
+  await shot(page, 'dp-tile-set');
+
+  // The large view of a set: the choice's name, a rail of the whole set, jumps from the rail.
+  const lead = '.fe-dp-card[data-id="D3"] .fe-dp-opt[data-code="c"] .fe-dv-media';
+  await page.evaluate(s => document.querySelector(s).scrollIntoView({ block: 'center' }), lead);
+  await page.hover(lead);
+  await page.click(`${lead} [data-media="focus"]`);
+  await page.waitForSelector('.fe-dv-view .fe-dv-rail', { timeout: 4000 });
+  await wait(600);
+  const heading = () => page.evaluate(() => ({ title: document.querySelector('.fe-dv-view-title').textContent.trim().replace(/\s+/g, ' '), sub: document.querySelector('.fe-dv-view-sub').textContent }));
+  const cat = await heading();
+  check(cat.title === 'c Answer first. One line says whether to read it. Recommended' && cat.sub === 'b.png · 1 of 4 in this choice · 5 of 8',
+    `the large view names the choice, whether it is recommended, and the place in the set: ${JSON.stringify(cat)}`);
+  const rail = await page.evaluate(() => ({
+    groups: [...document.querySelectorAll('.fe-dv-rail-grp')].map(g => [g.querySelector('.fe-dv-rail-name').textContent, g.querySelectorAll('.fe-dv-thumb img').length]),
+    current: document.querySelector('.fe-dv-thumb[aria-current]').dataset.at,
+    painted: [...document.querySelectorAll('.fe-dv-thumb img')].every(i => i.complete && i.naturalWidth > 0),
+  }));
+  check(rail.groups.length === 2 && rail.groups[0][0].startsWith('Calm table') && rail.groups.every(g => g[1] === 4) && rail.current === '4' && rail.painted,
+    `the rail shows every picture under its choice with the open one marked: ${JSON.stringify(rail)}`);
+  await shot(page, 'dp-focus-rail');
+  await page.click('.fe-dv-thumb[data-at="1"]');
+  await wait(300);
+  const jumped = await heading();
+  await page.keyboard.press('ArrowRight');
+  await wait(300);
+  const afterKey = await heading();
+  check(jumped.title.startsWith('a Calm table') && jumped.sub.endsWith('2 of 8') && afterKey.sub.endsWith('3 of 8'), `a click on the rail jumps there and ← → carry on from it: ${JSON.stringify([jumped, afterKey])}`);
+
+  // Zooming: a pinch moves smoothly, keeps the spot under the pointer, the picture drags, and the next picture opens at the same place.
+  const zoomed = () => page.evaluate(() => {
+    const w = document.querySelector('.fe-ql-imgwrap'), s = w.querySelector('.fe-ql-imgstage'), r = s.getBoundingClientRect();
+    return { zoom: +w.dataset.zoom, left: Math.round(s.scrollLeft), top: Math.round(s.scrollTop), cx: r.left + r.width * 0.75, cy: r.top + r.height * 0.75 };
+  });
+  await page.click('.fe-dv-view [data-img="actual"]');
+  await page.click('.fe-dv-view [data-img="in"]');
+  await page.click('.fe-dv-view [data-img="in"]');
+  await wait(200);
+  const z0 = await zoomed();
+  const spot = () => page.evaluate((x, y) => {
+    const i = document.querySelector('.fe-ql-img').getBoundingClientRect();
+    return [(x - i.left) / i.width, (y - i.top) / i.height];
+  }, z0.cx, z0.cy);
+  const s0 = await spot();
+  await page.mouse.move(z0.cx, z0.cy);
+  await page.keyboard.down('Control');
+  for (let n = 0; n < 12; n++) { await page.mouse.wheel({ deltaY: -3 }); await wait(16); }
+  await page.keyboard.up('Control');
+  await wait(150);
+  const z1 = await zoomed();
+  const s1 = await spot();
+  check(z1.zoom > z0.zoom && z1.zoom < z0.zoom * 1.6 && Math.abs(s1[0] - s0[0]) < 0.01 && Math.abs(s1[1] - s0[1]) < 0.01,
+    `twelve small pinch events zoom gently and the spot under the pointer stays: ${JSON.stringify({ z0: z0.zoom, z1: z1.zoom, s0, s1 })}`);
+  await page.mouse.down();
+  await page.mouse.move(z0.cx - 150, z0.cy - 100, { steps: 5 });
+  await page.mouse.up();
+  await wait(100);
+  const z2 = await zoomed();
+  check(Math.abs(z2.left - z1.left - 150) <= 2 && Math.abs(z2.top - z1.top - 100) <= 2, `a zoomed picture drags with the pointer: ${JSON.stringify([z1, z2])}`);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(() => document.querySelector('.fe-ql-imgwrap')?.dataset.zoom, { timeout: 4000 });
+  await wait(300);
+  const z3 = await zoomed();
+  check(z3.zoom === z2.zoom && Math.abs(z3.left - z2.left) <= 2 && Math.abs(z3.top - z2.top) <= 2, `the next picture opens at the same zoom and place: ${JSON.stringify([z2, z3])}`);
+  await page.evaluate(() => document.querySelector('.fe-ql-imgstage').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+  await wait(150);
+  const fitted = await page.evaluate(() => { const s = document.querySelector('.fe-ql-imgstage'); return { over: s.scrollWidth > s.clientWidth, pan: s.classList.contains('can-pan') }; });
+  check(!fitted.over && !fitted.pan, `a double click returns a zoomed picture to fit, and it no longer drags: ${JSON.stringify(fitted)}`);
   await page.keyboard.press('Escape');
   await wait(200);
 

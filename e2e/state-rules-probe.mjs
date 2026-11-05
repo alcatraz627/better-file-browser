@@ -24,7 +24,7 @@ try {
   const all = (sel, prop) => page.$$eval(sel, (els, p) => els.map(e => getComputedStyle(e)[p]), prop);
 
   // Parts that start hidden: hidden at rest, and shown once the attribute clears.
-  const rest = await page.evaluate(() => ['fe-sg-panel', 'fe-filter-bar', 'fe-find-depth-wrap', 'fe-find-cancel', 'fe-rc-tabs-sec', 'fe-ql-ai', 'fe-ql-ai-out', 'fe-settings-modal', 'fe-help-modal']
+  const rest = await page.evaluate(() => ['fe-sg-panel', 'fe-filter-bar', 'fe-find-depth-wrap', 'fe-find-cancel', 'fe-rc-tabs-sec', 'fe-settings-modal', 'fe-help-modal']
     .map(id => { const e = document.getElementById(id); if (!e) return `${id}:missing`; const hid = e.hidden && getComputedStyle(e).display === 'none'; e.hidden = false; const shown = getComputedStyle(e).display !== 'none'; e.hidden = true; return hid && shown ? '' : `${id}:${hid ? 'stays hidden when shown' : 'visible at rest'}`; })
     .filter(Boolean));
   check(rest.length === 0, `parts that start hidden hide at rest and show when cleared: ${rest.join(', ') || 'all 9'}`);

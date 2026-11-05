@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { turnedSize, fitZoom, clampZoom, viewTransform, START_VIEW } from '../src/image-tools';
+import { turnedSize, fitZoom, clampZoom, viewTransform, pinchFactor, START_VIEW } from '../src/image-tools';
 
 describe('image tools', () => {
+  it('a pinch follows the size of the movement, and one wheel notch stays a modest step', () => {
+    expect(pinchFactor(-3)).toBeGreaterThan(1);
+    expect(pinchFactor(-3)).toBeLessThan(1.05);
+    expect(pinchFactor(3)).toBeCloseTo(1 / pinchFactor(-3));
+    expect(pinchFactor(-100)).toBeLessThan(1.4);
+    expect(pinchFactor(-3, true)).toBeCloseTo(pinchFactor(-48));
+  });
   it('a quarter turn swaps width and height; a half turn does not', () => {
     expect(turnedSize(400, 200, 0)).toEqual({ w: 400, h: 200 });
     expect(turnedSize(400, 200, 90)).toEqual({ w: 200, h: 400 });

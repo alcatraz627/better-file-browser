@@ -1,6 +1,7 @@
 import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
 import { dedupePlaces, mergeLegacy, reconcileTags, samePlace, upsertPlace, removePlace } from './places';
 import { kvGet, kvSet, kvRemove, kvKeys, onKvChange } from './kv';
+import type { Toast } from './toast';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
@@ -152,6 +153,21 @@ export function toggleSaved(path: string, label: string): boolean {
   const was = list.some(p => samePlace(p.path, path));
   saveSaved(was ? removePlace(list, path) : upsertPlace(list, { path, label }));
   return !was;
+}
+/// Takes a place out of Saved and offers Undo, which brings back its name and tags. Every way of removing one comes here.
+export function removeSavedWithUndo(path: string, toast: Toast, refresh: () => void): void {
+  const before = getSaved();
+  saveSaved(removePlace(before, path));
+  refresh();
+  toast('Removed from Saved', 6000, { label: 'Undo', run: () => { saveSaved(before); refresh(); } });
+}
+/// Saves a place, or takes it out with Undo when it is already there; true when it is now saved.
+export function toggleSavedWithUndo(path: string, label: string, toast: Toast, refresh: () => void): boolean {
+  if (isSaved(path)) { removeSavedWithUndo(path, toast, refresh); return false; }
+  toggleSaved(path, label);
+  refresh();
+  toast('Saved');
+  return true;
 }
 // Saved lives in the notes folder (one file per save) with this store as its cache. A change here
 // marks the cache unsent and tells saved-sync.ts, which writes the folder; a pull from the folder

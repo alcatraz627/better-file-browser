@@ -95,6 +95,15 @@ os.environ['BFB_DIRECTIONS_ROOTS'] = ${JSON.stringify(join(profile, 'repos'))}
 os.environ['BFB_PHONE_SEED'] = ${JSON.stringify(join(profile, 'phone-seed.json'))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+# A walk writes seconds into this file to make every file save stall like a slow disk.
+_file_write = m.op_file_write
+def _stalled_file_write(*args):
+    import time
+    try:
+        with open(${JSON.stringify(join(profile, 'write-stall'))}) as f: time.sleep(float(f.read()))
+    except OSError: pass
+    return _file_write(*args)
+m.op_file_write = _stalled_file_write
 ${pickReply ? `m.run_picker = lambda start, kind=None: ${JSON.stringify(pickReply)}` : ''}
 m.main()
 `, { mode: 0o755 });
@@ -144,6 +153,10 @@ elif args[:1] == ['q']:
     if 'Fail please' in q:
         print(json.dumps({'t': 'error', 'code': 'timeout', 'message': 'took too long'}))
         sys.exit(0)
+    if 'Break midway' in q:
+        print(json.dumps({'t': 'chunk', 'text': 'Words written before the failure.'}), flush=True)
+        print(json.dumps({'t': 'error', 'code': 'timeout', 'message': 'took too long'}))
+        sys.exit(0)
     if 'Stream code' in q:
         import time
         for part in ['Here:\\n\\n', '\`\`\`js\\n', 'const a = 1;\\n', 'const b = 2;\\n']:
@@ -191,6 +204,8 @@ for e in events:
 `, { mode: 0o755 });
   writeFileSync(hostPath, `#!/usr/bin/env python3
 import os, runpy
+# A file named lm-gone in the profile makes the AI host fail to start, as with no toolkit installed.
+if os.path.exists(${JSON.stringify(join(profile, 'lm-gone'))}): raise SystemExit(1)
 os.environ['BFB_LM_BIN'] = ${JSON.stringify(fake)}
 os.environ['BFB_SEE_BIN'] = ${JSON.stringify(fakeSee)}
 os.environ['BFB_CODEX_BIN'] = ${JSON.stringify(fakeCodex)}
@@ -336,7 +351,7 @@ export async function launch({ headless = true, pickReply, lmStub = false, saved
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), codexFail: join(profile, 'codex-fail'), reposDir: join(profile, 'repos'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
+  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, writeStall: join(profile, 'write-stall'), lmDown: join(profile, 'lm-down'), lmGone: join(profile, 'lm-gone'), codexFail: join(profile, 'codex-fail'), reposDir: join(profile, 'repos'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().

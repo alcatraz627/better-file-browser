@@ -1,7 +1,28 @@
 // A line-by-line comparison of two texts, for showing what differs between the
 // copy on disk and the copy being edited.
 
+import { esc } from './utils';
+
 export interface DiffRow { kind: 'same' | 'gone' | 'new'; text: string }
+
+/** The changed lines between the disk's copy and yours, with two lines of context, ready to show. */
+export function lineDiffHtml(disk: string, mine: string): string {
+  const rows = lineDiff(disk, mine);
+  const keep = new Set<number>();
+  let changed = 0;
+  rows.forEach((r, i) => {
+    if (r.kind === 'same') return;
+    changed++;
+    for (let k = Math.max(0, i - 2); k <= Math.min(rows.length - 1, i + 2); k++) keep.add(k);
+  });
+  let html = '', skipped = false;
+  rows.forEach((r, i) => {
+    if (!keep.has(i)) { skipped = true; return; }
+    if (skipped) { html += '<div class="fe-fe-dgap">…</div>'; skipped = false; }
+    html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === 'gone' ? '−' : r.kind === 'new' ? '+' : ''}</span><span class="fe-fe-dt">${esc(r.text) || ' '}</span></div>`;
+  });
+  return `<div class="fe-fe-dhead">${changed ? '<span data-k="gone">− on disk</span><span data-k="new">+ yours</span>' : 'The two copies have the same lines.'}</div>${html}`;
+}
 
 // Past this many cells the full comparison costs too much; only the shared
 // head and tail are trimmed and everything between is shown as changed.

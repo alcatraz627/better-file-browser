@@ -35,7 +35,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'esc', group: 'Anywhere', title: 'Close, or step back', keys: ['Esc'] },
 
   // Go
-  { id: 'up', group: 'Go', title: 'Parent folder', keys: ['⌫', '⌘↑'], own: true, over: ['⌘↑'] },
+  { id: 'up', group: 'Go', title: 'Parent folder', keys: ['⌫', '⌘↑', 'h'], own: true, over: ['⌘↑'] },
   { id: 'home', group: 'Go', title: 'Home', keys: ['g h', 'e 0'], own: true, over: true },
   { id: 'path', group: 'Go', title: 'Type a path', keys: ['l'], own: true },
   { id: 'goto-bg', group: 'Go', title: 'Open the typed path as a background tab', keys: ['⌥↩'], scope: 'goto', own: true, field: true },
@@ -61,11 +61,11 @@ export const KEYMAP: KeyDef[] = [
   { id: 'lens-dp', group: 'Go', title: 'Decisions', keys: ['g 8'], own: true },
 
   // Listing
-  { id: 'move', group: 'Listing', title: 'Move', keys: ['↑', '↓'], scope: 'listing', own: true },
+  { id: 'move', group: 'Listing', title: 'Move', keys: ['↑', '↓', 'k', 'j'], scope: 'listing', own: true },
   { id: 'extend-up', group: 'Listing', title: 'Select upward', keys: ['⇧↑'], scope: 'listing', own: true },
   { id: 'extend-down', group: 'Listing', title: 'Select downward', keys: ['⇧↓'], scope: 'listing', own: true },
-  { id: 'first', group: 'Listing', title: 'First item', keys: ['Home'], scope: 'listing', own: true },
-  { id: 'last', group: 'Listing', title: 'Last item', keys: ['End'], scope: 'listing', own: true },
+  { id: 'first', group: 'Listing', title: 'First item', keys: ['Home', 'g g'], scope: 'listing', own: true },
+  { id: 'last', group: 'Listing', title: 'Last item', keys: ['End', '⇧G'], scope: 'listing', own: true },
   { id: 'page-up', group: 'Listing', title: 'Page up', keys: ['PgUp'], scope: 'listing', own: true },
   { id: 'list-rename', group: 'Listing', title: 'Rename the file', keys: ['F2'], scope: 'listing', own: true },
   { id: 'page-down', group: 'Listing', title: 'Page down', keys: ['PgDn'], scope: 'listing', own: true },
@@ -141,7 +141,7 @@ export const KEYMAP: KeyDef[] = [
 
   // Preview
   { id: 'pv-close', group: 'Preview', title: 'Close', keys: ['Space', 'Esc'], scope: 'preview', own: true },
-  { id: 'pv-step', group: 'Preview', title: 'Previous or next file', keys: ['↑', '↓', '←', '→'], scope: 'preview', own: true },
+  { id: 'pv-step', group: 'Preview', title: 'Previous or next file', keys: ['↑', '↓', '←', '→', 'k', 'j'], scope: 'preview', own: true },
   { id: 'pv-open', group: 'Preview', title: 'Open the page', keys: ['↩'], scope: 'preview', own: true },
   { id: 'pv-tab', group: 'Preview', title: 'Keep as a tab', keys: ['t'], scope: 'preview', own: true },
   { id: 'pv-dock', group: 'Preview', title: 'Dock or float', keys: ['d'], scope: 'preview', own: true },
@@ -150,6 +150,8 @@ export const KEYMAP: KeyDef[] = [
 
   // File page
   { id: 'fp-raw', group: 'File page', title: 'Raw or rendered', keys: ['r'], scope: 'file', own: true },
+  { id: 'fp-line', group: 'File page', title: 'Scroll a little', keys: ['k', 'j'], scope: 'file', own: true },
+  { id: 'fp-ends', group: 'File page', title: 'Top or end of the file', keys: ['g g', '⇧G'], scope: 'file', own: true },
   { id: 'fp-edit', group: 'File page', title: 'Edit', keys: ['e e'], scope: 'file', own: true },
   { id: 'fp-find', group: 'File page', title: 'Find in file', keys: ['/'], scope: 'file', own: true },
   { id: 'fp-comment', group: 'File page', title: 'Comment on the selection or paragraph', keys: ['c'], scope: 'file', own: true },
@@ -164,7 +166,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'fp-cm-due', group: 'File page', title: 'Set a due date on the comment', keys: ['⇧U'], scope: 'file', own: true },
   { id: 'fp-cm-attach', group: 'File page', title: 'Attach the comment to the selected words', keys: ['⇧A'], scope: 'file', own: true },
   { id: 'fp-cm-step', group: 'File page', title: 'Previous or next comment', keys: ['⌥↑', '⌥↓'], scope: 'file', own: true },
-  { id: 'fp-cm-clear', group: 'File page', title: 'Let go of the comment being looked at or written', keys: ['Esc'], scope: 'file', own: true },
+  { id: 'fp-cm-clear', group: 'File page', title: 'Let go of the comment being looked at or written, or close a floating Contents', keys: ['Esc'], scope: 'file', own: true },
   { id: 'fp-cm-post', group: 'File page', title: 'Post or reply; with ⇧, also mark the thread done or reopen it', keys: ['⌘↩', '⌘⇧↩'], scope: 'file' },
 
   // Editor

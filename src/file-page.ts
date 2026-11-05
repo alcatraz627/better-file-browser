@@ -4,6 +4,9 @@
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
 import { makeToast } from './toast';
+import { notes } from './notes';
+import { errorText } from './errors';
+import { askYesNo } from './ask-yes-no';
 import { esc, whenText } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
@@ -155,10 +158,10 @@ export function renderFileContent(): string {
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code">${GLYPH.wrap}Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)">${GLYPH.raw}Raw</button>
         <button id="fe-fp-copy" class="btn" title="Copy the file">${GLYPH.copyPage}Copy</button>
-        <button id="fe-fp-export" class="btn" title="Export as a Google Doc, Word document, PDF or web page" aria-haspopup="menu" hidden>${UI_ICON.export}Export</button>
-        <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
+        <button id="fe-fp-export" class="btn" title="Google Doc, Word, PDF or web page" aria-haspopup="menu" hidden>${UI_ICON.export}Export</button>
+        <span id="fe-ff" title="Find (/) · Enter next · ⇧Enter previous">
           ${GLYPH.find}
-          <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
+          <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find (/) · Enter next · ⇧Enter previous">
           <span id="fe-ff-n" aria-live="polite"></span>
           <button id="fe-ff-prev" class="btn" data-icon data-size="xs" title="Previous match (Shift+Enter)" disabled>${GLYPH.prev}</button>
           <button id="fe-ff-next" class="btn" data-icon data-size="xs" title="Next match (Enter)" disabled>${GLYPH.next}</button>
@@ -187,6 +190,8 @@ export interface FileContent {
   commentable(): boolean;
   /** Whether a comment is being looked at or written, which Esc lets go of. */
   commentHeld(): boolean;
+  /** True while the side rail floats over a narrow page, opened on request. */
+  peeking(): boolean; closePeek(): void;
   /** Whether the file is open in the editor. */
   editing(): boolean;
   /** Whether the editor holds changes not saved yet. */
@@ -198,10 +203,32 @@ const TOC_ROOMY = 1000;
 /// The room the docked card needs right of the text: its width, its 16px inset and a gap.
 const RAIL_ROOM = { toc: 240 + 16 + 16, cm: 320 + 16 + 16 } as const;
 
+/** Where in the source the reader is: the first block at the top of the view, found by its words. Zero when it cannot be placed. */
+function readingOffset(page: HTMLElement, text: string): number {
+  if (page.scrollTop < 8) return 0;
+  const top = page.getBoundingClientRect().top;
+  const blocks = page.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6,p,li,pre,td,.fe-cl');
+  for (let i = 0; i < blocks.length && i < 20000; i++) {
+    const r = blocks[i].getBoundingClientRect();
+    if (r.bottom <= top) continue;
+    // The first few words as written; marks like ** can split longer runs, so try shorter ones too.
+    const words = (blocks[i].textContent ?? '').replace(/^\d+(?=\D)/, '').trim().split(/\s+/);
+    for (const n of [6, 3, 1]) {
+      const at = text.indexOf(words.slice(0, n).join(' '));
+      if (words[0] && at >= 0) return at;
+    }
+    return 0;
+  }
+  return 0;
+}
+
 export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode; editableFolders?: string[] }): FileContent {
   const { ext, rawPath, href } = opts;
   let text = opts.text;
   const page = document.getElementById('fe-page')!;
+  // The reading column holds focus on arrival, so PageDown, Space and the arrows scroll it straight away.
+  page.tabIndex = -1;
+  page.focus({ preventScroll: true });
   const toc = document.getElementById('fe-toc')!;
   const rail = document.getElementById('fe-toc-rail')!;
   const tocBtn = document.getElementById('fe-fp-toc')!;
@@ -396,7 +423,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const editBox = document.getElementById('fe-fe')!;
   const editBtn = document.getElementById('fe-fp-edit')!;
   const toast = makeToast(document.getElementById('fe-toast')!);
-  const status = (t: string) => { document.getElementById('fe-status-text')!.textContent = t; };
+  // A message in the status line says what just happened, then leaves.
+  let statusTimer = 0;
+  const status = (t: string) => {
+    const el = document.getElementById('fe-status-text')!;
+    el.textContent = t;
+    clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => { if (el.textContent === t) { el.textContent = ''; paintMeta(); } }, 8000);
+  };
   const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? '';
   let root = editableRoot(rawPath, opts.editableFolders, home);
   const folder = rawPath.slice(0, rawPath.lastIndexOf('/'));
@@ -448,6 +482,11 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (!root && !(await askToAllow())) return;
     if (!root) return;
     editBtn.classList.add('busy');
+    // The page stays until the text is here, so pressing Edit never shows a blank frame.
+    let doc: { text: string; mtime: number };
+    try { doc = await notes.fileRead(root, rawPath.slice(root.length + 1)); }
+    catch (err) { const why = errorText(err, 'Opening it for editing'); status(why); noteAtButton(why); editBtn.classList.remove('busy'); return; }
+    const readingAt = readingOffset(page, doc.text);
     // Editing gets the room: the sidebar folds away (its edge still opens it) and comes back on Done.
     const sideWas = sidebarShown();
     if (sideWas) setSidebarShown(false);
@@ -461,7 +500,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     find.clear();
     editBtn.classList.add('on');
     editor = await openFileEditor(editBox, {
-      root, rel: rawPath.slice(root.length + 1), ext, href,
+      root, rel: rawPath.slice(root.length + 1), ext, href, doc,
+      startAt: () => readingAt,
+      confirm: askYesNo,
       status,
       notify: msg => toast(msg, 5000),
       typed: t => paintMeta(t),
@@ -540,6 +581,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     comment: a => !editor && !raw && !!comments?.act(a),
     commentable: () => !editor && !raw && !!comments,
     commentHeld: () => !editor && !raw && !!comments?.held(),
+    peeking: () => tight && peek && !rail.hidden && !comments?.held(),
+    closePeek: () => { peek = false; asked = false; paint(); },
     editing: () => !!editor,
     unsaved: () => !!editor?.dirty(),
     setText(fresh) {

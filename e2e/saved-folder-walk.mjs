@@ -82,7 +82,7 @@ try {
   const after = await ledger(page);
   check(JSON.stringify(after) === JSON.stringify(before), `the Saved lens reads the same after the move (labels, order, tags, groups)`);
   const whereAfter = await page.$eval('#fe-sv-where', e => e.textContent);
-  check(/Kept in your notes folder/.test(whereAfter), `the lens says it is kept in the notes folder: ${whereAfter}`);
+  check(/In your notes folder/.test(whereAfter), `the lens says it is kept in the notes folder: ${whereAfter}`);
 
   // 3. Idempotent: reloading changes no file.
   const stamps = () => Object.fromEntries(files().map(f => [f, statSync(join(savedDir, f)).mtimeMs]));
@@ -173,7 +173,7 @@ try {
   await reopen(page); await sleep(1500);
   check(files2().length === 0 && (await ledger(page)).length === 17, 'after a reload nothing is moved again, and Saved still shows its 17 rows');
   const where2 = await page.$eval('#fe-sv-where', e => e.textContent);
-  check(/moved back to this browser/.test(where2), `the lens says where Saved is: ${where2}`);
+  check(/Only in this browser/.test(where2), `the lens says where Saved is: ${where2}`);
   await shot(page, 'saved-folder-undone');
   await page.click('#fe-sv-where-on');
   check(await until(() => files2().length === 17), 'Move Saved to the notes folder brings it back, 17 files again');
@@ -284,7 +284,7 @@ try {
   await reopen(page); await sleep(1800);
   got = await rowLabels();
   check(got.length === 5, `E: the row with a clash is still listed, with its 4 neighbours: ${got}`);
-  check(await page.$('#fe-sv-list .fe-pl-item.fe-clash') !== null && /two versions/i.test(await page.$eval('#fe-sv-where', e => e.textContent)), 'E: it is marked, and the Saved line counts it');
+  check(await page.$('#fe-sv-list .fe-pl-item.fe-clash') !== null && /to settle/i.test(await page.$eval('#fe-sv-where', e => e.textContent)), 'E: it is marked, and the Saved line counts it');
   await shot(page, 'saved-folder-clash');
   await page.hover('#fe-sv-list .fe-pl-item.fe-clash'); await sleep(200);
   await page.click('#fe-sv-list .fe-pl-item.fe-clash .fe-clash-btn');

@@ -1,3 +1,4 @@
+import type { Entry } from './types';
 // What every module of the page shares: the page's identity, the live
 // settings, and the hooks modules hand each other once they are mounted.
 // main.ts creates it; the hooks start as no-ops and are replaced by the
@@ -35,6 +36,8 @@ export interface App {
   // Switch the sidebar to a lens (null keeps the current one); hideHistory
   // removes or restores the History lens's rail button.
   showLens?(lens: string | null, hideHistory?: boolean): void;
+  /** Open the sidebar's Ask on a file from this folder, without leaving the page. */
+  askAbout?(e: Entry): void;
   /** Open a note's colour, pin and tags menu beside `anchor`; `rel` is its path inside the notes folder. */
   editNoteProps?(rel: string, anchor: HTMLElement): void;
   /** Whether a Saved or Notes row can be moved one place with the keyboard (not while a filter hides part of its list). */

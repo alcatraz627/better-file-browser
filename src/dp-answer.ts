@@ -3,6 +3,7 @@
 // parses and stores every answer through the notes host; this module only asks
 // and shows. When gcc cannot be reached, the page still hands the owner a
 // picks line to paste, and says plainly that nothing was sent.
+import { askYesNo } from './ask-yes-no';
 import { esc, copyToClipboard } from './utils';
 import { flashCopied } from './copy-done';
 import { UI_ICON } from './control-icons';
@@ -39,9 +40,9 @@ const codeOf = (e: unknown) => (e as { code?: string })?.code ?? '';
 
 // One group, so at a narrow width the three wrap to the next line together.
 export const answerBarHtml = (): string => `<span class="fe-dp-bar-end">
-  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Show the answer as it will be sent (p)">Answer</button>
+  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">Answer</button>
   <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
-  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send the answer to the agent that asked (s or ⌘↩)">Submit</button></span>`;
+  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or ⌘↩)">Submit</button></span>`;
 
 export const answerPanelHtml = (): string => `
   <section class="card fe-dp-answer" id="fe-dp-answer" hidden aria-label="The answer as it will be sent">
@@ -179,7 +180,7 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
       return;
     }
     const replace = !!sent;
-    if (replace && !confirm('Replace the answer you already sent? The agent is told again.')) return;
+    if (replace && !(await askYesNo('Replace the answer you already sent? The agent is told again.', 'Replace'))) return;
     busy = true; paintButtons();
     try {
       const r = await dpIo().dp('submit', slug, { answer: text, replace }) as { notify?: Notify | null };

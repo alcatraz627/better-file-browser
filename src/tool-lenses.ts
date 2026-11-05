@@ -2,21 +2,22 @@
 // files of this folder (and its subfolders), and Ask puts a question about
 // this file or folder to a model (local, or Gemini when picked), keeping the chats. Both draw their rows with the
 // shared row spec and start work only when the person asks for it.
+import { askYesNo } from './ask-yes-no';
 import type { App } from './app';
 import type { Entry } from './types';
 import { el } from './el';
-import { esc, fileHref, pageHref, whenText, isFileUrl } from './utils';
+import { esc, fileHref, getExt, pageHref, whenText, isFileUrl } from './utils';
 import { copyWithCheck } from './copy-done';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
-import { icoFile } from './icons';
+import { icoFile, IMG_EXTS } from './icons';
 import { llmAvailability, llmModels, llmQuery, llmAttach, llmRunning, llmOrphans, isRemote, bareModel, LLM_ERROR_TEXT, type AskJob, type LlmCallbacks } from './llm';
 import { addTurn, endedTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, chatMarkdown, type AskChat, type AskTurn } from './ask-history';
 import { notes } from './notes';
 import { errorText } from './errors';
-import { addPaletteSource, bind } from './commands';
+import { addPaletteSource, bind, runCommand } from './commands';
 import { bareLabel, closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
 import { jsonPref, textPref, getSaved } from './storage';
@@ -116,6 +117,7 @@ function initSearch(app: App): void {
   q.addEventListener('keydown', e => {
     e.stopPropagation();
     if (e.key === 'Enter') { e.preventDefault(); void search(); }
+    else if (e.key === 'ArrowDown') { const hit = list.querySelector<HTMLElement>('.fe-srch-hit'); if (hit) { e.preventDefault(); hit.focus(); } }
     else if (e.key === 'Escape') { q.value = ''; remember(''); run++; list.innerHTML = ''; status.textContent = 'Type a word and press Enter.'; }
   });
   // Coming back to a folder, the last search is typed in again and runs once the lens is on screen.
@@ -149,14 +151,19 @@ const when = (at: number) => whenText(at);
 function initAsk(app: App): void {
   const box = document.getElementById('fe-ask');
   if (!box) return;
-  const subject = app.fileMode ? app.fileName : (app.folderPath.split('/').filter(Boolean).pop() || '/');
+  const pageSubject = app.fileMode ? app.fileName : (app.folderPath.split('/').filter(Boolean).pop() || '/');
+  let subject = pageSubject;
   // Chats are kept per file or folder, by its full path. A file shown as a
   // folder's #view= page has the folder as its URL path, so rawPath is used.
-  const key = app.fileMode ? app.rawPath : app.folderPath;
+  const pageKey = app.fileMode ? app.rawPath : app.folderPath;
+  let key = pageKey;
+  // A file from the listing or its preview, asked about without leaving the page; null means this page itself.
+  let about: { name: string; href: string; image: boolean } | null = null;
   const quick = app.fileMode
     ? [['summarize', 'Summarize'], ['explain', 'Explain']]
     : [['folder', 'What is in here?']];
-  const what = app.fileMode ? 'this file' : 'this folder';
+  const pageWhat = app.fileMode ? 'this file' : 'this folder';
+  let what = pageWhat;
   box.innerHTML = `
     <div class="fe-ask-top">
       <span class="fe-ask-model"><span class="dot"></span>${ddHtml('fe-ask-model', [{ value: '', label: 'Default model' }], "Which model answers. Models on this machine stay here; remote ones (Gemini) run on Google's servers.")}</span>
@@ -175,9 +182,9 @@ function initAsk(app: App): void {
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <div class="fe-ask-files" id="fe-ask-files" hidden></div>
-        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code, @gemini or @gpt to ask that model"></textarea>
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks · @gemini asks that model"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span></span>
-          <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach files from this folder, or drop a file here" aria-label="Attach files">${UI_ICON.attach}</button>
+          <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach from this folder, or drop a file" aria-label="Attach files">${UI_ICON.attach}</button>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? '↑'}</button></div>
       </div>
     </div>`;
@@ -224,11 +231,14 @@ function initAsk(app: App): void {
   let reason = '';
   const syncUsable = () => {
     const usable = localReady || isCloud();
-    q.disabled = go.disabled = !usable;
+    // Read-only, not disabled: a disabled box lets typed keys through to the page's shortcuts.
+    q.readOnly = !usable;
+    go.disabled = !usable && !cancel;   // Stop keeps working whatever the picker says
     const why = usable ? '' : reason;
     go.title = why || (cancel ? 'Stop' : 'Ask (Enter)');
     q.placeholder = why ? 'Ask is off until the model runs' : `Ask about ${what}`;
     box!.querySelectorAll<HTMLButtonElement>('.fe-ask-chip').forEach(b => { b.disabled = !usable; b.title = why; });
+    chipDot.className = isCloud() ? 'dot ready' : chipDot.dataset.local ?? 'dot';
     cloud.hidden = !isCloud();
     cloudTo.textContent = model().startsWith('gpt:') ? 'OpenAI' : 'Google';
     statusRow.hidden = !checked || localReady || isCloud();
@@ -239,17 +249,19 @@ function initAsk(app: App): void {
     state.textContent = 'Checking the local model…';
     recheck.hidden = true;
     const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
-    const kind = a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind;
+    // lm starts the server on demand and stops it when idle, so "down" only means the first answer takes a moment.
+    const runnable = a.kind === 'ready' || a.kind === 'down';
+    const kind = a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind === 'down' ? 'cold' : a.kind;
     statusRow.className = `fe-ask-status ${kind}`;
-    recheck.hidden = a.kind === 'ready';
+    recheck.hidden = runnable;
     // One terse line; the how-to sits in its tooltip. It only concerns the local
     // model, so a remote pick (Gemini) never shows it.
-    state.textContent = a.kind === 'ready' ? '' : a.kind === 'down' ? 'Local model is off' : 'lm is not installed';
-    statusRow.title = a.kind === 'ready' ? '' : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
-    reason = a.kind === 'ready' ? '' : a.kind === 'down' ? 'Local model is off: start it with lm' : 'lm is not installed';
-    chipDot.className = `dot ${kind}`;
-    chipDot.title = a.kind === 'ready' ? (a.cold ? 'Loads on the first question' : 'Ready') : state.textContent;
-    localReady = a.kind === 'ready';
+    state.textContent = runnable ? '' : 'lm is not installed';
+    statusRow.title = runnable ? '' : LLM_ERROR_TEXT.unavailable;
+    reason = runnable ? '' : 'lm is not installed';
+    chipDot.className = chipDot.dataset.local = `dot ${kind}`;
+    chipDot.title = a.kind === 'ready' && !a.cold ? 'Ready' : runnable ? 'Starts on the first question' : state.textContent;
+    localReady = runnable;
     const saved = askModelPref.get();
     // The first row names the model lm answers with, so no other row has to
     // claim "default": Gemini's own pick is tagged as Gemini's.
@@ -269,6 +281,10 @@ function initAsk(app: App): void {
 
   // What the model reads: the file's text, or the folder's listing.
   async function context(): Promise<{ ctx: string; name: string }> {
+    if (about) return { ctx: about.image ? '' : await fetchFileText(about.href), name: about.name };
+    // A data file opens as a view of its folder, so the address alone names the folder's page.
+    const viewed = new URLSearchParams(location.hash.slice(1)).get('view');
+    if (viewed) return { ctx: await fetchFileText(fileHref(app.folderPath.replace(/\/?$/, '/') + viewed)), name: viewed };
     if (app.fileMode) return { ctx: await fetchFileText(location.href.split('#')[0]), name: app.fileName };
     const url = fileHref(app.folderPath.replace(/\/?$/, '/'));
     const rows = (await listDir(url)).filter(e => !e.isParent).map(e => `${e.name}${e.isDir ? '/' : ''}\t${e.isDir ? '' : e.rawBytes + ' bytes'}`);
@@ -277,6 +293,8 @@ function initAsk(app: App): void {
 
   // What each turn's answer said, for its Copy and Quote buttons.
   const answers = new WeakMap<HTMLElement, string>();
+  // The stored turn behind each one on screen; a turn stopped before any text has none.
+  const turnData = new WeakMap<HTMLElement, AskTurn>();
   const nameOf = (p: string) => p.split('/').filter(Boolean).pop() ?? p;
   const fileChip = (p: string, remove = false) => `<span class="chip fe-ask-file" data-size="sm" title="${esc(p)}">${isImageName(p) ? UI_ICON.image : UI_ICON.file}<span>${esc(nameOf(p))}</span>${remove ? `<button type="button" class="btn" data-icon data-size="xs" data-unattach="${esc(p)}" title="Remove" aria-label="Remove ${esc(nameOf(p))}">${UI_ICON.close}</button>` : ''}</span>`;
   const turnEl = (question: string, files: string[] = [], via = '') => {
@@ -302,13 +320,22 @@ function initAsk(app: App): void {
     const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
     const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? 'Thinking' : 'Thought it through'}</span><span class="fe-ask-think-n">${words} word${words === 1 ? '' : 's'}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : '';
     const was = out.querySelector<HTMLDetailsElement>('.fe-ask-think')?.open;
+    // Follow the answer only for a reader already at the bottom, so scrolling up to read stays put.
+    let sc: HTMLElement = thread;
+    while (sc.parentElement && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
+    const atEnd = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
     out.innerHTML = think + renderMarkdown(done ? answer : closeOpenFence(answer));
     if (was) out.querySelector<HTMLDetailsElement>('.fe-ask-think')!.open = true;
+    if (atEnd && !done) sc.scrollTop = sc.scrollHeight;
   };
   // A turn that failed says why in plain words and offers to ask again.
   const asks = new WeakMap<HTMLElement, { intent: string; question?: string; model?: string; shown?: string; via?: string }>();
-  const paintError = (turn: HTMLElement, code: string, message: string) => {
-    turn.querySelector('.fe-ask-a')!.innerHTML = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(LLM_ERROR_TEXT[code] ?? (message || 'The model did not answer.'))}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+  const paintError = (turn: HTMLElement, code: string, message: string, keep = false) => {
+    const canned = LLM_ERROR_TEXT[code];
+    const why = canned && message && message !== canned ? `${canned} (${message})` : canned ?? (message || 'The model did not answer.');
+    const card = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(why)}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+    const out = turn.querySelector('.fe-ask-a')!;
+    if (keep) out.insertAdjacentHTML('beforeend', card); else out.innerHTML = card;
     turn.querySelector('.fe-ask-meta')!.textContent = '';
   };
   // On a folder, chats about what is inside it, four levels down, are listed too.
@@ -316,7 +343,7 @@ function initAsk(app: App): void {
   const below = (subject: string) => subject === key ? '' : subject.slice(key.length).replace(/^\//, '');
   const syncHistN = () => { const n = listed().length; histN.textContent = n ? String(n) : ''; };
   const clearThread = () => thread.querySelectorAll('.fe-ask-turn').forEach(t => t.remove());
-  const newChat = () => { cancel?.(); chatId = ''; turns = []; clearThread(); syncEmpty(); markFresh(key, true); q.focus(); };
+  const newChat = () => { cancel?.(); chatId = ''; turns = []; clearThread(); clearAttached(); syncEmpty(); markFresh(key, true); q.focus(); };
   const openChat = (c: AskChat) => {
     cancel?.();
     chatId = c.id; turns = c.turns.slice();
@@ -324,8 +351,10 @@ function initAsk(app: App): void {
     for (const t of turns) {
       const el = turnEl(t.q, t.files, t.via);
       asks.set(el, { intent: t.intent ?? 'qa', question: t.intent && t.intent !== 'qa' ? undefined : t.q });
-      if (t.error) { paintError(el, t.error, ''); continue; }
+      turnData.set(el, t);
+      if (t.error && !t.a) { paintError(el, t.error, ''); continue; }
       paint(el, t.a, true);
+      if (t.error) { paintError(el, t.error, '', true); continue; }
       el.querySelector('.fe-ask-meta')!.textContent = turnMeta(t);
     }
     syncEmpty();
@@ -355,7 +384,8 @@ function initAsk(app: App): void {
     if (go.disabled && !o.model) return;
     cancel?.();
     const shown = o.shown ?? question ?? (intent === 'folder' ? 'What is in here?' : intent === 'summarize' ? 'Summarize' : 'Explain');
-    const files = attached.slice();
+    // An image being asked about goes with every question, since it has no text to carry along.
+    const files = about?.image && !attached.includes(key) ? [key, ...attached] : attached.slice();
     const useModel = o.model ?? model();
     const turn = turnEl(shown, attached, o.via);
     asks.set(turn, { intent, question, ...o });
@@ -391,6 +421,7 @@ function initAsk(app: App): void {
     const meta = turn.querySelector<HTMLElement>('.fe-ask-meta')!;
     const started = base.at;
     const save = (t: AskTurn) => {
+      turnData.set(turn, t);
       turns.push(t);
       addTurn(key, chatId, t);
       syncHistN();
@@ -399,8 +430,10 @@ function initAsk(app: App): void {
     const showSteps = () => { if (!full) out.innerHTML = steps.map(x => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}…</span></div>`).join(''); };
     let full = '';
     let frame = 0;
+    // Some models send nothing until they finish, so the wait shows it is alive.
+    const waiting = window.setInterval(() => { if (!full) meta.textContent = `Thinking… ${Math.round((Date.now() - started) / 1000)}s`; }, 1000);
     go.classList.add('stop'); go.title = 'Stop'; go.setAttribute('aria-label', 'Stop');
-    const done = () => { cancel = null; cancelAnimationFrame(frame); go.classList.remove('stop'); syncUsable(); go.setAttribute('aria-label', 'Ask'); };
+    const done = () => { clearInterval(waiting); if (!full) meta.textContent = ''; cancel = null; cancelAnimationFrame(frame); go.classList.remove('stop'); syncUsable(); go.setAttribute('aria-label', 'Ask'); };
     // Stopping, a new chat or opening another chat all end the answer here:
     // the button returns to Ask and what arrived is kept, marked as stopped.
     let over = false;
@@ -419,7 +452,14 @@ function initAsk(app: App): void {
         // Reading an image takes a while; each one shows as a step until the answer starts.
         onStep: s => { steps.push(s); showSteps(); },
         // At most one paint per frame, however fast the text arrives.
-        onChunk: t => { full += t; frame ||= requestAnimationFrame(() => { frame = 0; paint(turn, full, false); }); },
+        onChunk: t => {
+          if (!full) meta.textContent = '';
+          full += t;
+          // A selection inside the answer would vanish on repaint, so the text waits until it is let go.
+          const s = getSelection();
+          if (s && !s.isCollapsed && out.contains(s.anchorNode)) return;
+          frame ||= requestAnimationFrame(() => { frame = 0; paint(turn, full, false); });
+        },
         onDone: info => {
           over = true; done();
           paint(turn, full, true);
@@ -433,8 +473,11 @@ function initAsk(app: App): void {
         onError: (code, message) => {
           over = true; done();
           if (code === 'cancelled') return;
-          paintError(turn, code, message);
-          save({ ...base, a: '', ms: 0, error: code });
+          // What had arrived stays on screen and in the chat, with the failure under it.
+          const kept = !!full.trim();
+          if (kept) paint(turn, full, true);
+          paintError(turn, code, message, kept);
+          save({ ...base, a: full, ms: Date.now() - started, error: code });
         },
       },
       {
@@ -529,7 +572,7 @@ function initAsk(app: App): void {
   });
   // The chat as markdown: the whole of it from the header, one answer from its row.
   const chatSubject = () => key;
-  const turnOf = (turn: HTMLElement) => turns[[...thread.querySelectorAll('.fe-ask-turn')].indexOf(turn)];
+  const turnOf = (turn: HTMLElement) => turnData.get(turn);
   const saveToNotes = (md: string, title: string) => {
     const root = app.settings.notesRoot;
     if (!root) { app.toast('Choose a Notes folder in Settings first'); return; }
@@ -596,7 +639,8 @@ function initAsk(app: App): void {
     menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), i => {
       const o = opts[i];
       const label = bareLabel(o.label);
-      void ask('qa', secondOpinion(asked.question ?? asked.shown ?? '', answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
+      const away = isRemote(o.value) ? `, sent to ${o.value.startsWith('gpt:') ? 'OpenAI' : 'Google'}` : '';
+      void ask('qa', secondOpinion(asked.question ?? asked.shown ?? '', answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}${away}` });
     });
   };
 
@@ -606,6 +650,7 @@ function initAsk(app: App): void {
     filesBox.hidden = !attached.length;
     filesBox.innerHTML = attached.map(p => fileChip(p, true)).join('');
   };
+  function clearAttached(): void { if (attached.length) { attached = []; paintFiles(); } }
   const attach = (p: string) => { if (!attached.includes(p)) { attached.push(p); paintFiles(); } };
   filesBox.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('[data-unattach]');
@@ -642,10 +687,19 @@ function initAsk(app: App): void {
   box.addEventListener('click', e => {
     const t = e.target as Element;
     const chip = t.closest<HTMLElement>('.fe-ask-chip');
-    if (chip) { void ask(chip.dataset.intent!); return; }
+    if (chip) { void ask(chip.dataset.q ? 'qa' : chip.dataset.intent!, chip.dataset.q); return; }
+    if (t.closest('[data-ask-page]')) { setSubject(null); return; }
     const row = t.closest<HTMLElement>('.fe-ask-h');
     const at = row?.dataset.subject ?? key;
-    if (row && t.closest('.fe-ask-h-del')) { deleteChat(at, row.dataset.chat!); if (row.dataset.chat === chatId) newChat(); paintHist(); syncHistN(); return; }
+    if (row && t.closest('.fe-ask-h-del')) {
+      void askYesNo('Delete this chat? This cannot be undone.', 'Delete').then(yes => {
+        if (!yes) return;
+        deleteChat(at, row.dataset.chat!);
+        if (row.dataset.chat === chatId) newChat();
+        paintHist(); syncHistN();
+      });
+      return;
+    }
     if (row && t.closest('.fe-ask-h-open')) {
       // A chat about something inside this folder opens on that page.
       if (at !== key) { showHist(false); app.strip.go(at, '#ask=' + encodeURIComponent(row.dataset.chat!)); return; }
@@ -655,8 +709,9 @@ function initAsk(app: App): void {
   el('fe-ask-new').addEventListener('click', () => { showHist(false); newChat(); });
   histBtn.addEventListener('click', () => showHist(hist.hidden));
   go.addEventListener('click', () => {
-    if (cancel) { cancel(); return; }
     const text = q.value.trim();
+    // A question typed while an answer runs replaces it; with nothing typed the button just stops.
+    if (cancel) { cancel(); if (!text) return; }
     if (!text) { q.focus(); return; }
     q.value = ''; grow();
     // "@code why…" asks that model this once; the picker stays as it was.
@@ -666,7 +721,18 @@ function initAsk(app: App): void {
   });
   q.addEventListener('keydown', e => {
     e.stopPropagation();
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go.click(); }
+    if (e.key === 'Enter' && !e.shiftKey && !q.readOnly) { e.preventDefault(); if (q.value.trim()) go.click(); }
+  });
+  // A question being typed and the files attached survive leaving the page and coming back.
+  const draftKey = `bfb-ask-draft:${key}`;
+  q.addEventListener('input', () => { try { sessionStorage.setItem(draftKey, q.value); } catch { /* storage blocked */ } });
+  try { const was = sessionStorage.getItem(draftKey); if (was && !q.value) { q.value = was; grow(); } } catch { /* storage blocked */ }
+  go.addEventListener('click', () => { try { sessionStorage.removeItem(draftKey); } catch { /* storage blocked */ } });
+  // Another tab may have added to this chat: read it again on coming back, when nothing is running here.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || cancel || !chatId) return;
+    const c = chatsFor(key).find(x => x.id === chatId);
+    if (c && c.turns.length !== turns.length) openChat(c);
   });
   syncHistN();
   // Every chat is in the palette's Chats tab. One about this page opens here;
@@ -677,6 +743,25 @@ function initAsk(app: App): void {
     app.showLens?.('ask');
     openChat(c);
   };
+  // Point the chat at a file from this folder, or back at the page, without a page change.
+  const setSubject = (e: Entry | null) => {
+    cancel?.();
+    about = e ? { name: e.name, href: e.href, image: IMG_EXTS.has(getExt(e)) } : null;
+    key = e ? decodeURIComponent(new URL(e.href, location.href).pathname) : pageKey;
+    subject = e ? e.name : pageSubject;
+    what = e ? `this ${about!.image ? 'image' : 'file'}` : pageWhat;
+    box.querySelector<HTMLElement>('.fe-ask-ctx')!.title = key;
+    box.querySelector<HTMLElement>('.fe-ask-ctx')!.innerHTML = `${e || app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span>${e ? `<button type="button" class="btn" data-icon data-size="xs" data-ask-page title="Back to this page's chat" aria-label="Back to this page's chat">${UI_ICON.close}</button>` : ''}`;
+    const chips = about?.image ? [['', 'Describe', 'Describe this image in detail, with any text in it verbatim.']] : e ? [['summarize', 'Summarize'], ['explain', 'Explain']] : quick;
+    box.querySelector<HTMLElement>('.fe-ask-empty p')!.textContent = `Ask anything about ${what}.`;
+    box.querySelector<HTMLElement>('.fe-ask-quick')!.innerHTML = chips.map(([k, l, ask]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}"${ask ? ` data-q="${esc(ask)}"` : ''}>${l}</button>`).join('');
+    chatId = ''; turns = []; clearThread(); clearAttached();
+    const last = chatsFor(key)[0];
+    if (last) openChat(last); else syncEmpty();
+    syncHistN();
+    syncUsable();
+  };
+  app.askAbout = e => { setSubject(e); runCommand('lens-ask'); };
   addPaletteSource(() => allChats().slice(0, 60).map(({ subject, chat }) => ({
     title: chat.title, sub: `${subject.split('/').filter(Boolean).pop() || '/'} · ${when(chat.at)}`, group: 'Chats', tab: 'chats' as const, icon: UI_ICON.ai,
     run: () => { if (subject === key) reopen(chat.id); else app.strip.go(subject, '#ask=' + encodeURIComponent(chat.id)); },

@@ -29,8 +29,8 @@ and stops thinking about them.
 | **Look** | see it without leaving | Space | File: preview. Note: read pane. Page: the same render, full width. Space again stops looking. |
 | **Keep** | make it stay | ★ or `+` | Place: Saved. Place open now: a tab. Note: Cmd+S, and autosave. |
 
-Esc always backs out one layer: editor to reader, reader to listing, then
-filter to empty. Nothing else is bound to Esc.
+Esc backs out one layer: a dialog or panel closes, the editor returns to the
+reader, a filter empties. A file page itself stays where it is.
 
 The pairing the owner already has from Chrome carries over unchanged: the
 tab strip is the working set and the sidebar is the long-term set, exactly as
@@ -38,7 +38,7 @@ browser tabs sit above browser bookmarks. Saved is bookmarks; tabs are tabs.
 
 Single-letter keys work when nothing is focused, the way the kanban board's
 do, so the two tools share one hand: `t` opens a tab for this folder, `w`
-closes the tab, `p` pins it, `[` and `]` move between tabs, `1` to `9` jump, `n` starts a
+closes the tab, `p` pins it, `[` and `]` move between tabs, `e 1` to `e 9` jump, `n` starts a
 new note. Chrome owns Cmd+T and Cmd+W and a page cannot take them, which is
 why these are bare letters.
 
@@ -128,8 +128,7 @@ where Places are kept.
   address bar staying honest is worth more than an in-page switch.
 - A folder you are in that has no tab shows as a temporary tab in italics,
   the way editors show a preview tab. `t` or double-click makes it permanent,
-  `p` pins it. Closing the last tab leaves the strip empty; the current
-  folder still renders.
+  `p` pins it. Closing the last tab goes to Home.
 
 ## What other tools help
 

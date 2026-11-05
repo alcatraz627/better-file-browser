@@ -9,7 +9,7 @@ import {
 } from './storage';
 import { notes } from './notes';
 import { initPreview, closePreview } from './preview';
-import { setSidebarShown, FOLD_SIDE_QUERY } from './motion';
+import { setSidebarShown, startSidebarHidden, FOLD_SIDE_QUERY } from './motion';
 import { initSidePeek } from './side-peek';
 import { initDragPan } from './drag-pan';
 import { mountKeep, askRename } from './doc-keep';
@@ -226,7 +226,7 @@ loadKv().catch(() => {}).then(function () {
   // hamburger still opens it, and widening brings it back as it was left.
   // The saved setting is not touched.
   const narrow = matchMedia(FOLD_SIDE_QUERY);
-  if (!settings.showSidebar || narrow.matches) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
+  if (!settings.showSidebar || narrow.matches) startSidebarHidden();
   narrow.addEventListener('change', () => {
     const docked = !!document.querySelector<HTMLElement>('#fe-qlook.side')?.checkVisibility() && settings.dockFoldsSidebar !== false;
     setSidebarShown(!narrow.matches && !docked && settings.showSidebar);
@@ -267,7 +267,7 @@ loadKv().catch(() => {}).then(function () {
     },
   };
 
-  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message),
+  initPreview({ iconRules: () => app.iconRules, askAbout: e => app.askAbout?.(e), keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: app.toast,
     savedChanged: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p),
     // The renamed file stays selected when its folder reloads.
     rename: (anchor, p) => askRename(app, anchor, p, to => { closePreview(); textPref('bfb-lead:' + rawPath, '', 'tab').set(to.slice(to.lastIndexOf('/') + 1)); reload(); }),
@@ -312,8 +312,9 @@ loadKv().catch(() => {}).then(function () {
   installColumnResize();
   const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
   initListingInput(app, listing);
-  initGallery(app, listing);
+  // The folder view goes first: it says at once when it may replace the listing, so Gallery opens nothing for it.
   if (!homeMode) void mountFolderView(app);
+  initGallery(app, listing);
   initSettingsUi(app);
   initPhoneSeed();
   initPhoneButtons(rawPath, app.toast);

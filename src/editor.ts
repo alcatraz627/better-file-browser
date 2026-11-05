@@ -2,6 +2,8 @@
 // rebuilt, keystrokes coalesced so a sentence is one undo step, and insert at
 // the caret. Carried over from the kanban board's editor.js, typed.
 const BUF_CAP = 60, BUF_COALESCE = 600;
+// Typing without a pause still breaks into steps this long, so one undo never takes back a whole paragraph.
+const BUF_RUN = 1500;
 // History holds the changed span of each step, not a copy of the text, so a
 // large file keeps its undo steps without holding dozens of full copies.
 // Oldest steps go first once their spans pass this many characters.
@@ -21,6 +23,13 @@ export function diffText(a: string, b: string): Patch {
   return { at: p, len: a.length - p - s, ins: b.slice(p, b.length - s) };
 }
 export const applyPatch = (t: string, p: Patch) => t.slice(0, p.at) + p.ins + t.slice(p.at + p.len);
+
+/** Where a caret belongs after a change: it keeps its words, and one inside the changed span lands at its end. */
+export function mapCaret(pos: number, p: Patch): number {
+  if (pos <= p.at) return pos;
+  if (pos >= p.at + p.len) return pos + p.ins.length - p.len;
+  return p.at + p.ins.length;
+}
 
 export function insertAtCursor(el: HTMLTextAreaElement, text: string): void {
   const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
@@ -159,9 +168,16 @@ export function tableSnippet(cols = 2, rows = 2): string {
 
 export interface Buffer { undo: () => boolean; redo: () => boolean; snap: () => void; depth: () => number; insert: (t: string) => void }
 
-/** `io` reads and writes the whole text when the textarea holds only part of it. */
+/**
+ * `io` reads and writes the whole text when the textarea holds only part of it;
+ * its `caret` puts the caret after an undo or redo, at the end of what changed.
+ */
 export function attachBuffer(el: HTMLTextAreaElement, id: string,
-  io: { get(): string; set(v: string): void } = { get: () => el.value, set: v => { el.value = v; } }): Buffer {
+  io: { get(): string; set(v: string): void; caret?(at: number): void } = {
+    get: () => el.value, set: v => { el.value = v; },
+    // Focusing again is what makes a textarea scroll its caret into view.
+    caret: at => { el.setSelectionRange(at, at); if (document.activeElement === el) { el.blur(); el.focus(); } },
+  }): Buffer {
   const h: Hist = bufHist.get(id) ?? { cur: '', past: [], future: [], timer: null };
   bufHist.set(id, h);
   h.cur = io.get() ?? '';
@@ -169,7 +185,9 @@ export function attachBuffer(el: HTMLTextAreaElement, id: string,
   h.future = [];
 
   // Each past step turns the current text back into the one before it.
+  let runStart = 0;
   const snap = () => {
+    runStart = 0;
     const now = io.get() ?? '';
     if (now === h.cur) return;
     h.past.push(diffText(now, h.cur));
@@ -178,8 +196,20 @@ export function attachBuffer(el: HTMLTextAreaElement, id: string,
     while (h.past.length > BUF_CAP || (h.past.length > 1 && chars > BUF_CHARS)) chars -= h.past.shift()!.ins.length;
     h.future = [];                       // a new edit forks the timeline
   };
-  const record = () => { if (h.timer) clearTimeout(h.timer); h.timer = setTimeout(snap, BUF_COALESCE); };
-  const put = (v: string) => { h.cur = v; io.set(v); el.dispatchEvent(new Event('input', { bubbles: true })); };
+  const record = () => {
+    if (h.timer) clearTimeout(h.timer);
+    const now = Date.now();
+    if (runStart && now - runStart > BUF_RUN) snap();
+    runStart ||= now;
+    h.timer = setTimeout(snap, BUF_COALESCE);
+  };
+  const put = (v: string) => {
+    const change = diffText(h.cur, v);
+    h.cur = v;
+    io.set(v);
+    io.caret?.(change.at + change.ins.length);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  };
   const step = (from: Patch[], to: Patch[]) => {
     const prev = applyPatch(h.cur, from.pop()!);
     to.push(diffText(prev, h.cur));

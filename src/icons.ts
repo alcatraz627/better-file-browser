@@ -116,6 +116,8 @@ export function getIcon(e: Entry, iconRules: IconRule[] | null): string {
   if (iconRules) {
     for (const rule of iconRules) {
       if (!rule.enabled) continue;
+      // A rule like "claude" means files named that; a folder of the same name stays a folder.
+      if (e.isDir && !/\/$/.test(rule.pattern)) continue;
       try {
         if (new RegExp(rule.pattern, 'i').test(e.name)) return icoCustom(rule.label, rule.color, rule.glyph);
       } catch { /* invalid regex — skip */ }

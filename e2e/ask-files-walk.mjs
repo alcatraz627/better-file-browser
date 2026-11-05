@@ -79,25 +79,32 @@ try {
   await answered(page, n + 1);
   const gem = h.lmCalls().filter(c => c.args[0] === 'gemini').at(-1);
   const via = await page.$eval(last, t => ({ via: t.querySelector('.fe-ask-via')?.textContent.trim(), a: t.querySelector('.fe-ask-a').textContent.trim() }));
-  check(/Another model answered the question "why does it loop\?"/.test(gem?.args.at(-1) ?? '') && via.via === 'Second opinion from gemini-3.8-flash' && /Gemini says hello/.test(via.a),
+  check(/Another model answered the question "why does it loop\?"/.test(gem?.args.at(-1) ?? '') && /^Second opinion from gemini-3\.8-flash, sent to Google$/.test(via.via ?? '') && /Gemini says hello/.test(via.a),
     `another model checks the answer as a second opinion: ${JSON.stringify(via)}`);
   await page.screenshot({ path: join(SHOTS, `ask-second-opinion${sfx}.png`), clip: { x: 0, y: 40, width: 380, height: 860 } });
 
-  // An image in the preview takes Ask too: Describe reads it with the vision model.
+  // An image in the preview takes Ask in the sidebar: Describe reads it with the vision model.
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('.fe-nm');
   await page.$$eval('.fe-nm', ns => ns.find(n => n.textContent.trim() === 'shot.png')?.click());
-  await page.waitForFunction(() => document.getElementById('fe-ql-ai')?.hidden === false, { timeout: 10000 }).catch(() => null);
-  const bar = await page.evaluate(() => ({ shown: document.getElementById('fe-ql-ai')?.hidden === false, exp: document.getElementById('fe-ql-ai-exp')?.textContent }));
-  check(bar.shown && bar.exp === 'Describe', `an image preview offers Ask, with Describe: ${JSON.stringify(bar)}`);
-  await page.click('#fe-ql-ai-exp');
-  await page.waitForFunction(() => /Local answer/.test(document.getElementById('fe-ql-ai-out-body')?.textContent ?? ''), { timeout: 10000 }).catch(() => null);
+  await page.waitForSelector('#fe-ql-ai-btn', { visible: true, timeout: 5000 });
+  await page.click('#fe-ql-ai-btn');
+  await page.waitForSelector('.fe-ask-chip[data-q]', { visible: true, timeout: 5000 });
+  check(!(await page.$('#fe-ask-files .fe-ask-file, .fe-ask-foot .fe-ask-file')), 'the image being asked about is not listed a second time as an attachment');
+  await page.click('.fe-ask-chip[data-q]');
+  await page.waitForFunction(() => /Local answer|screenshot/i.test(document.getElementById('fe-ask-thread')?.textContent ?? ''), { timeout: 15000 }).catch(() => null);
+  const pvMeta = await page.$$eval('#fe-ask-thread .fe-ask-meta', m => m.at(-1)?.textContent ?? '');
   const seeImg = h.lmCalls().filter(c => c.args[0] === 'see').at(-1);
   const qImg = h.lmCalls().filter(c => c.args[0] === 'q').at(-1);
-  const pvMeta = await page.$eval('#fe-ql-ai-out-meta', m => m.textContent);
   check(seeImg.args[1].endsWith('/shot.png') && /Describe this image/.test(seeImg.args[2]) && qImg.args.includes('shot.png') && /blue Save button/.test(qImg.stdin) && /in 1,204/.test(pvMeta),
     `Describe sends the image to the vision model and answers from its reading: ${pvMeta}`);
   await page.screenshot({ path: join(SHOTS, `ask-image-preview${sfx}.png`) });
+  const seesBefore = h.lmCalls().filter(c => c.args[0] === 'see').length;
+  await page.focus('#fe-ask-q');
+  await page.keyboard.type('And a follow-up');
+  await page.keyboard.press('Enter');
+  await sleep(1500);
+  check(h.lmCalls().filter(c => c.args[0] === 'see').length > seesBefore, 'a follow-up about the image still sends the image');
   check(h.lmCalls().every(c => c.args[0] !== 'warm'), 'nothing warmed a model');
 } finally {
   for (const r of results) console.log(r);

@@ -84,6 +84,22 @@ try {
   await sleep(500);
   const after = await state();
   check(after.shown && !after.edge, `Done brings the sidebar back: ${JSON.stringify(after)}`);
+
+  // A page that opens with the sidebar hidden: a peek there must close again and leave it hidden.
+  await h.store.set('bfb-settings-v1', { showSidebar: false, editableFolders: [h.fixture] });
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe-edge', { timeout: 8000 });
+  await sleep(300);
+  const hiddenAtLoad = await state();
+  await page.mouse.move(700, 400);
+  await page.mouse.move(4, 400, { steps: 4 });
+  await sleep(250);
+  const peeked = await state();
+  await page.mouse.move(800, 400, { steps: 3 });
+  await sleep(900);
+  const closed = await state();
+  check(!hiddenAtLoad.shown && hiddenAtLoad.edge && peeked.peek && !closed.peek && !closed.shown && closed.edge,
+    `opened hidden, a peek closes again and the edge still works: ${JSON.stringify({ hiddenAtLoad, peeked, closed })}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();

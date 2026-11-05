@@ -53,6 +53,7 @@ const beta = 2;
   const seed = cli('--as', 'bfb', 'comments', 'new', doc, '--quote', 'lens rail landed yesterday', 'Can we demo it? #schedule').results[0].thread;
   const all = () => cli('comments', 'list', doc, '--all');
   const byText = t => all().find(x => x.comments.some(c => c.text.includes(t)));
+  const byTextIn = (file, t) => cli('comments', 'list', file, '--all').find(x => x.comments.some(c => !c.deleted && c.text.includes(t)))?.id;
 
   const page = await h.open();
   await page.setViewport({ width: 1400, height: 900 });
@@ -275,7 +276,7 @@ const beta = 2;
   await page.click(`#fe-cm .fe-cm-th[data-id="${seed}"]`);
   await sleep(200);
   const sel = await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); return t.value.slice(t.selectionStart, t.selectionEnd); });
-  check(sel === 'lens rail landed yesterday', `opening a thread while editing selects its words in the text: ${JSON.stringify(sel)}`);
+  check(sel === '', `opening a thread while editing selects nothing, so the next key cannot replace its words: ${JSON.stringify(sel)}`);
   const gut = await page.evaluate(() => {
     const ta = document.getElementById('fe-fe-ta');
     const row = document.querySelectorAll('#fe-fe-paint .fe-fe-row')[6].getBoundingClientRect();
@@ -309,6 +310,68 @@ const beta = 2;
   t = all().find(x => x.id === seed);
   check(attachQuote === 'The rail went out with mixed reviews' && t?.place.state === 'anchored' && t.anchor.exact === 'The rail went out with mixed reviews',
     `Attach to selection moves a detached thread onto the selected words: ${JSON.stringify({ attachQuote, place: t?.place.state, exact: t?.anchor.exact })}`);
+
+  // Typed comment words survive the ordinary moves that used to drop them.
+  const keep = join(h.fixture, 'keep.md');
+  writeFileSync(keep, '# Keep\n\nFirst words to talk about here.\n\nSecond words to talk about here.\n\nThird words nobody has marked.\n');
+  const threadA = cli('--as', 'bfb', 'comments', 'new', keep, '--quote', 'First words', 'About the first').results[0].thread;
+  const threadB = cli('--as', 'bfb', 'comments', 'new', keep, '--quote', 'Second words', 'About the second').results[0].thread;
+  const openKeep = async () => {
+    await page.goto('file://' + keep, { waitUntil: 'load' });
+    await page.waitForSelector('#fe-fp-cm');
+    await sleep(300);
+    if (!(await page.evaluate(() => !!document.querySelector('#fe-cm')?.checkVisibility()))) await page.click('#fe-fp-cm');
+    await page.waitForSelector('#fe-cm .fe-cm-th', { visible: true, timeout: 8000 });
+  };
+  const openThread = async id => {
+    await page.click(`#fe-cm .fe-cm-th[data-id="${id}"] .fe-cm-q`);
+    await page.waitForSelector(`#fe-cm .fe-cm-th.on[data-id="${id}"] textarea[data-for="${id}"]`, { timeout: 3000 });
+  };
+  await openKeep();
+  await openThread(threadA);
+  await page.focus(`textarea[data-for="${threadA}"]`);
+  await page.keyboard.type('reply typed before switching');
+  await openThread(threadB);
+  await openThread(threadA);
+  check(await page.$eval(`textarea[data-for="${threadA}"]`, x => x.value) === 'reply typed before switching', 'a reply survives opening another thread and coming back');
+
+  const startDraft = async () => {
+    await select('Third words nobody');
+    await page.waitForFunction(() => !document.getElementById('fe-cm-add').hidden, { timeout: 3000 });
+    await page.click('#fe-cm-add');
+    await page.waitForSelector('#fe-cm .fe-cm-new textarea', { timeout: 4000 });
+  };
+  await startDraft();
+  await page.keyboard.type('new words kept');
+  await page.click('#fe-page .fe-md h1');
+  await page.keyboard.press('Escape');
+  await sleep(200);
+  await startDraft();
+  check(await page.$eval('.fe-cm-new textarea', x => x.value) === 'new words kept', 'a new comment put away by a click and Esc comes back on the same words');
+
+  await page.goto('file://' + join(h.fixture, 'notes.txt'), { waitUntil: 'load' });
+  await page.goBack({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-cm .fe-cm-new textarea', { timeout: 8000 }).catch(() => null);
+  const draftBack = await page.$eval('.fe-cm-new textarea', x => x.value).catch(() => null);
+  check(draftBack === 'new words kept', `a new comment survives leaving the doc and Back: ${JSON.stringify(draftBack)}`);
+
+  // Deleting asks first, and a thread with nothing left in it does not linger.
+  await page.focus('.fe-cm-new textarea');
+  await page.click('.fe-cm-new [data-a="post"]');
+  await page.waitForFunction(() => !document.querySelector('#fe-cm .fe-cm-new'), { timeout: 5000 });
+  const mine = byTextIn(keep, 'new words kept');
+  await page.waitForSelector(`#fe-cm .fe-cm-th.on[data-id="${mine}"] [data-a="del"]`, { timeout: 4000 }).catch(() => openThread(mine));
+  await page.click(`#fe-cm .fe-cm-th[data-id="${mine}"] [data-a="del"]`);
+  await page.waitForSelector('.fe-yesno-box', { timeout: 2000 });
+  await page.click('.fe-yesno-box [data-a="no"]');
+  await sleep(300);
+  check(byTextIn(keep, 'new words kept') === mine, 'Cancel on the delete question keeps the comment');
+  await page.click(`#fe-cm .fe-cm-th[data-id="${mine}"] [data-a="del"]`);
+  await page.waitForSelector('.fe-yesno-box', { timeout: 2000 });
+  await page.click('.fe-yesno-box [data-a="yes"]');
+  await sleep(700);
+  const afterDel = await page.evaluate(id => ({ card: !!document.querySelector(`#fe-cm .fe-cm-th[data-id="${id}"]`), words: /Deleted/.test(document.querySelector('#fe-cm').innerText), toast: document.getElementById('fe-toast')?.textContent }), mine);
+  check(!afterDel.card && !afterDel.words, `deleting a thread's only comment removes its card: ${JSON.stringify(afterDel)}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();

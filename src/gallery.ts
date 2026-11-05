@@ -18,6 +18,7 @@ import { CODE_EXTS, TABLE_EXTS } from './renderers';
 import { fetchFileText } from './file-fetch';
 import { jsonPref } from './storage';
 import { go } from './nav';
+import { listingShown } from './main-surface';
 
 const stripPref = jsonPref<{ h: number }>('bfb-gallery-v1', { h: 168 }, v => !!v && typeof v === 'object' && typeof (v as { h: unknown }).h === 'number');
 const MIN_STRIP = 96;
@@ -34,7 +35,7 @@ export function initGallery(app: App, listing: Listing): void {
   const scroll = document.getElementById('fe-scroll');
   if (!stage || !grip || !scroll) return;
   const card = stage.querySelector<HTMLElement>('.fe-gal-card')!;
-  const on = () => fe.dataset.view === 'gallery' && !app.fileMode;
+  const on = () => fe.dataset.view === 'gallery' && listingShown();
 
   // The strip's height, kept between visits; the stage takes the rest.
   const setStrip = (h: number) => {
@@ -96,7 +97,8 @@ export function initGallery(app: App, listing: Listing): void {
       card.hidden = true;
     }
   };
-  new MutationObserver(sync).observe(fe, { attributes: true, attributeFilter: ['data-view'] });
+  // The class changes when a folder's page and its files swap, which starts or ends the view too.
+  new MutationObserver(sync).observe(fe, { attributes: true, attributeFilter: ['data-view', 'class'] });
   document.addEventListener('bfb-lead', show);
   sync();
 

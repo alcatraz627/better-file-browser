@@ -7,7 +7,7 @@
 import { esc } from './utils';
 import { UI_ICON, GLYPH } from './control-icons';
 import { openLayer, type Layer } from './layer';
-import { mountImageTools } from './image-tools';
+import { mountImageTools, type ViewState } from './image-tools';
 import { bind } from './commands';
 import { mountDiagram, type LabOptions } from './diagram-lab';
 
@@ -18,7 +18,9 @@ const MOCK_TALL = 2400;
 
 /** A box drawn on a picture to say "look here": its place as fractions (0 to 1) of the picture, and a short label. */
 export interface Mark { x: number; y: number; w: number; h: number; label?: string }
-export interface Media { src: string; name: string; kind: 'img' | 'html'; marks?: Mark[] }
+/** The choice a picture belongs to: the answer's code, what it is called, and whether it is the recommended one. */
+export interface MediaCategory { code: string; label: string; rec: boolean }
+export interface Media { src: string; name: string; kind: 'img' | 'html'; marks?: Mark[]; cat?: MediaCategory }
 /** An `images` entry: a path, or a path with the marks to draw on it. */
 export type ImageEntry = string | { src: string; marks?: Mark[] };
 
@@ -104,9 +106,18 @@ export function stripHtml(ms: Media[]): string {
 }
 
 const mediaIn = (scope: Element) => [...scope.querySelectorAll<HTMLElement>('.fe-dv-media')];
+
+/** A choice's name without its answer code, which shows beside it: "C. Answer first" with code c reads "Answer first". */
+export function choiceName(code: string, label: string): string {
+  const lead = label.slice(0, code.length).toLowerCase() === code.toLowerCase() ? label.slice(code.length) : '';
+  return /^[.):]\s+\S/.test(lead) ? lead.replace(/^[.):]\s+/, '') : label;
+}
+
 const toMedia = (f: HTMLElement): Media => {
   const marks = f.dataset.marks ? marksOf(JSON.parse(f.dataset.marks)) : [];
-  return { src: f.dataset.src!, name: f.dataset.name!, kind: f.dataset.kind as Media['kind'], ...(marks.length ? { marks } : {}) };
+  const opt = f.closest<HTMLElement>('[data-media-choice]');
+  const cat = opt ? { code: opt.dataset.mediaChoice!, label: choiceName(opt.dataset.mediaChoice!, opt.dataset.mediaName ?? ''), rec: 'mediaRec' in opt.dataset } : undefined;
+  return { src: f.dataset.src!, name: f.dataset.name!, kind: f.dataset.kind as Media['kind'], ...(marks.length ? { marks } : {}), ...(cat ? { cat } : {}) };
 };
 const smooth = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
@@ -145,7 +156,7 @@ function shell(title: string, label: string): { root: HTMLElement; body: HTMLEle
   root.className = 'fe-dlg fe-dv-view';
   root.innerHTML = `<div class="fe-dlg-bg scrim"></div>
     <div class="panel fe-dv-view-box" role="dialog" aria-label="${esc(label)}" tabindex="-1">
-      <header class="bar fe-dv-view-head"><b class="fe-dv-view-title">${esc(title)}</b><span class="fe-dv-view-tools"></span>${actBtn('close', UI_ICON.close, 'Close (Esc)')}</header>
+      <header class="bar fe-dv-view-head"><span class="fe-dv-view-titles"><b class="fe-dv-view-title">${esc(title)}</b><span class="fe-dv-view-sub" hidden></span></span><span class="fe-dv-view-tools"></span>${actBtn('close', UI_ICON.close, 'Close (Esc)')}</header>
       <div class="fe-dv-view-body"></div>
     </div>`;
   (document.getElementById('fe') ?? document.body).append(root);
@@ -162,10 +173,49 @@ function openShell(root: HTMLElement, onClose?: () => void): Layer {
   return layer;
 }
 
-/** Open one item of a set large, with ← → and the arrow buttons moving through the set. */
+/** The side rail of a large view: a small copy of every item in the set, under the choice each belongs to. */
+function railHtml(set: Media[]): string {
+  const groups: { cat?: MediaCategory; at: number[] }[] = [];
+  set.forEach((m, i) => {
+    const last = groups[groups.length - 1];
+    if (last && last.cat?.code === m.cat?.code) last.at.push(i);
+    else groups.push({ cat: m.cat, at: [i] });
+  });
+  const thumb = (i: number) => {
+    const m = set[i];
+    return `<button type="button" class="fe-dv-thumb" data-at="${i}" title="${esc(m.name)}" aria-label="${esc(`${m.cat ? `${m.cat.label}: ` : ''}${m.name}`)}">${m.kind === 'img'
+      ? `<img src="${esc(m.src)}" alt="" loading="lazy" draggable="false">`
+      : `<span class="fe-dv-thumb-mock">${esc(m.name)}</span>`}</button>`;
+  };
+  return groups.map(g => `<section class="fe-dv-rail-grp"${g.cat ? ` data-code="${esc(g.cat.code)}"` : ''}>
+      ${g.cat ? `<header class="fe-dv-rail-head" title="${esc(g.cat.label)}"><span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${esc(g.cat.label)}</span></header>` : ''}
+      <div class="fe-dv-rail-thumbs">${g.at.map(thumb).join('')}</div>
+    </section>`).join('');
+}
+
+/**
+ * Open one item of a set large, with a rail of the whole set to skim and jump
+ * across, and ← → and the arrow buttons moving through it. Each picture opens
+ * at the zoom and scroll the last was left at, so the same spot can be compared
+ * across a set of same-sized pictures.
+ */
 export function openFocus(set: Media[], at: number, notify: (m: string) => void): void {
   viewer?.layer.close('replaced');
   const { root, body, head } = shell('', 'Large view');
+  const rail = document.createElement('nav');
+  if (set.length > 1) {
+    const row = document.createElement('div');
+    row.className = 'fe-dv-view-row';
+    rail.className = 'fe-dv-rail';
+    rail.setAttribute('aria-label', 'Everything in this set');
+    rail.innerHTML = railHtml(set);
+    body.replaceWith(row);
+    row.append(rail, body);
+  }
+  const titleEl = head.querySelector<HTMLElement>('.fe-dv-view-title')!;
+  const subEl = head.querySelector<HTMLElement>('.fe-dv-view-sub')!;
+  let tools: { state: () => ViewState } | null = null;
+  let left: ViewState | undefined;
   const anyMarks = set.some(m => m.marks);
   head.querySelector('.fe-dv-view-tools')!.innerHTML = (anyMarks ? actBtn('marks', UI_ICON.eye, 'Show or hide the marks', ' aria-pressed="true"') : '')
     + (set.length > 1 ? actBtn('prev', UI_ICON.prev, 'Previous (←)') + actBtn('next', UI_ICON.next, 'Next (→)') : '');
@@ -175,14 +225,28 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void)
   let i = at;
   const draw = () => {
     const m = set[i];
-    head.querySelector('.fe-dv-view-title')!.textContent = set.length > 1 ? `${m.name} · ${i + 1} of ${set.length}` : m.name;
+    const place = set.length > 1 ? `${i + 1} of ${set.length}` : '';
+    if (m.cat) {
+      const same = set.filter(x => x.cat?.code === m.cat!.code);
+      titleEl.innerHTML = `<span class="badge" data-size="sm" data-tone="quiet">${esc(m.cat.code)}</span> <span class="fe-dv-view-name">${esc(m.cat.label)}</span>${m.cat.rec ? ' <span class="badge fe-dp-rec" data-size="sm" data-tone="quiet">Recommended</span>' : ''}`;
+      titleEl.title = m.cat.label;
+      subEl.textContent = [m.name, same.length > 1 ? `${same.indexOf(m) + 1} of ${same.length} in this choice` : '', place].filter(Boolean).join(' · ');
+      subEl.hidden = false;
+    } else titleEl.textContent = place ? `${m.name} · ${place}` : m.name;
+    rail.querySelectorAll<HTMLElement>('.fe-dv-thumb').forEach(t => {
+      const on = t.dataset.at === String(i);
+      if (on) { t.setAttribute('aria-current', 'true'); t.scrollIntoView({ block: 'nearest' }); }
+      else t.removeAttribute('aria-current');
+    });
     body.dataset.kind = m.kind;
     if (marksBtn) marksBtn.hidden = !m.marks;
+    if (tools) left = tools.state();
+    tools = null;
     if (m.kind === 'html') body.innerHTML = `<iframe class="fe-dv-view-frame" sandbox="allow-scripts" src="${esc(m.src)}" title="${esc(m.name)}"></iframe>`;
     else {
       body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
-      mountImageTools(body.firstElementChild as HTMLElement, {
-        href: m.src, name: m.name, path: decodeURIComponent(new URL(m.src, location.href).pathname), notify,
+      tools = mountImageTools(body.firstElementChild as HTMLElement, {
+        href: m.src, name: m.name, path: decodeURIComponent(new URL(m.src, location.href).pathname), notify, start: left,
         // Outside the extension (the web build of a page) there is no app to open it in.
         openNative: p => typeof chrome === 'undefined' || !chrome.runtime?.id ? Promise.resolve(false) : new Promise(res => chrome.runtime.sendMessage(
           { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_file', path: p } },
@@ -195,6 +259,12 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void)
   const step = (by: number) => { if (set.length > 1) { i = (i + by + set.length) % set.length; draw(); } };
   head.querySelector('[data-media="prev"]')?.addEventListener('click', () => step(-1));
   head.querySelector('[data-media="next"]')?.addEventListener('click', () => step(1));
+  rail.addEventListener('click', e => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('.fe-dv-thumb');
+    if (t) { i = Number(t.dataset.at); draw(); }
+  });
+  // A pinch that lands beside the picture must not zoom the whole browser page.
+  root.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
   marksBtn?.addEventListener('click', () => {
     const off = root.classList.toggle('marks-off');
     marksBtn.setAttribute('aria-pressed', String(!off));

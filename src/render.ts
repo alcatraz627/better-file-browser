@@ -103,7 +103,7 @@ export function renderTile(e: Entry, ctx: RenderContext, idx = -1, hit?: Content
   const tipData = buildTipData(e, ctx);
   const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
   const iconHtml = isImg
-    ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>`
+    ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" data-src="${esc(e.href)}" decoding="async" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>`
     : getIcon(e, ctx.iconRules);
   return `<a href="${esc(e.href)}" class="fe-tile${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
             data-name="${esc(e.name.toLowerCase())}"
@@ -116,13 +116,6 @@ export function renderTile(e: Entry, ctx: RenderContext, idx = -1, hit?: Content
     ${e.isParent ? '' : `<span class="fe-tile-meta"><span class="fe-tile-tp">${fmtType(e)}</span><span class="fe-tile-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</span><span class="fe-tile-tags">${tagChips(e, ctx)}${commentBadge(e, ctx)}</span></span>`}
     ${itemActions(e, ctx.rawPath)}
   </a>`;
-}
-
-export function renderRows(entries: Entry[], ctx: RenderContext, start = 0): string {
-  return entries.map((e, i) => renderRow(e, ctx, start + i)).join('');
-}
-export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): string {
-  return entries.map((e, i) => renderTile(e, ctx, start + i)).join('');
 }
 
 // Saved folders, untagged first, then one sub-heading per tag. Each row has
@@ -151,7 +144,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
         ${icon}<span class="fe-sl fe-pl-label">${esc(name)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
-      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ''}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="Two versions after a merge. Choose one.">Two versions</button>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
       ${web ? '' : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy link" aria-label="Copy link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>

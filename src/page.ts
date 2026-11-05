@@ -10,7 +10,7 @@ import { HELP_TABS } from './help';
 import { renderDialog, type DialogSpec } from './dialog';
 import { settingsDialog, SORT_OPTS, SORT_DIR_OPTS, GROUP_OPTS } from './settings-page';
 import { renderFileContent } from './file-page';
-import { renderRows, renderTiles, renderSavedList, renderCrumbs, type RenderContext } from './render';
+import { renderSavedList, renderCrumbs, type RenderContext } from './render';
 import { segHtml, ddHtml, sliderHtml, checkHtml } from './controls';
 import { DENSITY_NAMES } from './storage';
 
@@ -93,7 +93,7 @@ export function renderPage(p: PageParams): string {
       ${withId(UI_ICON.appearance, 'fe-sun')}
       ${withId(line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>'), 'fe-moon')}
     </button>
-    <button id="fe-help-btn" class="btn" data-icon title="Help (press ?), what's here and how to use it">
+    <button id="fe-help-btn" class="btn" data-icon title="Help (?)">
       ${PI.help}
     </button>
     <button id="fe-settings-btn" class="btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
@@ -127,7 +127,7 @@ export function renderPage(p: PageParams): string {
       <div class="bar fe-lens-tools" data-inset>
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
-          <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
+          <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Names and tags; #work for tags only">
           <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
         </label>
       </div>
@@ -172,8 +172,8 @@ export function renderPage(p: PageParams): string {
 
     <div id="fe-main">
       <div id="fe-tabbar">
-        <a id="fe-tab-home" class="fe-tab-home" hidden title="Home (g h): what waits on you, your chats and every repo's directions" aria-label="Home"><span class="fe-tab-ico">${line(LINE_ICON.home, 16)}</span></a>
-        <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+        <a id="fe-tab-home" class="fe-tab-home" hidden title="Home (g h)" aria-label="Home"><span class="fe-tab-ico">${line(LINE_ICON.home, 16)}</span></a>
+        <div id="fe-tabs" title="Tabs here: t keep, w close, p pin"></div>
         <div id="fe-tabs-end">
           <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
           <button id="fe-open-pick" class="btn" data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
@@ -181,6 +181,7 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
       ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div><div id="fe-home-page" hidden></div>'}
+      <div id="fe-listing">
       <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">
@@ -198,7 +199,7 @@ export function renderPage(p: PageParams): string {
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? 'currentColor' : 'none'}"/>`, 14)}
           </button>
           <span class="bar-sep" aria-hidden="true"></span>
-          <div id="fe-density-wrap" title="Detail: drag left for fewer, bigger items, right for smaller items with more facts (- and =)">
+          <div id="fe-density-wrap" title="Detail: left bigger, right more facts (- =)">
             <span class="fe-density-end" aria-hidden="true">${line('<rect width="16" height="16" x="4" y="4" rx="2"/>', 13)}</span>
             ${sliderHtml('fe-density', [1, 2, 3, 4, 5], '', 'Detail', DENSITY_NAMES)}
             <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
@@ -224,7 +225,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
-            <input id="fe-filter-q" class="tb" data-lead="search" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+            <input id="fe-filter-q" class="tb" data-lead="search" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; .* for a pattern"/>
             <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono aria-pressed="false" title="Treat the pattern as a regular expression">.*</button></span>
           </label>
           <span class="fe-panel-lbl">Type</span>
@@ -238,7 +239,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text</span>
           <label class="fe-in-box fe-in-text">
-            <input id="fe-find-text" class="tb" data-lead="search" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <input id="fe-find-text" class="tb" data-lead="search" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Searches text files under 2 MB. Enter runs."/>
             <span class="fe-in-chips">
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
@@ -252,29 +253,30 @@ export function renderPage(p: PageParams): string {
           <button id="fe-find-cancel" class="btn" data-variant="outline" hidden title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
-          <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
+          <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view">${line(STAR, 13)}Save view</button>
         </div>
       </div>
 
       <div id="fe-gal" hidden><div class="fe-gal-card" hidden></div></div>
-      <div id="fe-gal-rz" title="Drag to resize the preview and the strip · double-click to reset" role="separator" aria-orientation="horizontal" aria-label="Resize the gallery" tabindex="0" hidden></div>
+      <div id="fe-gal-rz" title="Drag to resize · double-click to reset" role="separator" aria-orientation="horizontal" aria-label="Resize the gallery" tabindex="0" hidden></div>
       <div id="fe-scroll">
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name · again flips · drag the edge to resize">Name <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
-              <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
-              <th class="c-tg" data-ck="tg" title="Tags of saved files and folders · drag the edge to resize">Tags<span class="fe-col-rz" title="Drag to resize this column"></span></th>
-              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name · again flips">Name <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize · double-click to reset"></span></th>
+              <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize · double-click to reset"></span></th>
+              <th class="c-tg" data-ck="tg" title="Tags of saved items · drag to resize">Tags<span class="fe-col-rz" title="Drag to resize · double-click to reset"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize · double-click to reset"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date · again flips">Modified <span class="si">↕</span></th>
               <th class="c-match" title="Number of content matches">Matches</th>
             </tr>
           </thead>
-          <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
+          <tbody id="fe-tbody"></tbody>
         </table>
-        <div id="fe-tiles">${renderTiles(ALL_ENTRIES, ctx0)}</div>
+        <div id="fe-tiles"></div>
         <div id="fe-tree"></div>
         <div id="fe-empty" hidden></div>
+      </div>
       </div>
 
       <div id="fe-statusbar" class="bar">

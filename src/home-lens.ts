@@ -11,7 +11,7 @@ import { esc, whenText, fileHref, pageHref } from './utils';
 import { UI_ICON, LINE_ICON, line } from './control-icons';
 import { allChats, type AskChat } from './ask-history';
 import { ago, REACH, type DpRow } from './dp-lens';
-import { jsonPref, getSaved, saveSaved, getRecents, forgetRecent, keptNotesList, homeDir } from './storage';
+import { jsonPref, getSaved, saveSaved, removeSavedWithUndo, getRecents, forgetRecent, keptNotesList, homeDir } from './storage';
 import { renamePlace, setTags, parseTags, removePlace, isWebPath } from './places';
 import { summarizeRepo, sortRepos, openPages, homeStats, splitByAge, type RepoSummary, type HomeStat } from './home-model';
 import { runCommand } from './commands';
@@ -182,10 +182,10 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
       <div class="fe-hp-acts" role="toolbar" aria-label="Start something">${ACTIONS.map(actionBtn).join('')}</div>
       <form class="fe-hp-go" role="search" autocomplete="off">
         <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
-        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
+        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; suggestions follow">
         <datalist id="fe-hp-go-list"></datalist>
         <button type="submit" class="btn" data-icon data-variant="ghost" title="Open this path here (↵)" aria-label="Open this path here">${UI_ICON.next}</button>
-        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab" aria-label="Open as a web link">${UI_ICON.link}</button>
+        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open as a web link in a tab" aria-label="Open as a web link">${UI_ICON.link}</button>
         <button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
       </form>
       <p class="fe-hp-go-msg" role="status" hidden></p>
@@ -332,11 +332,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
     else if (act === 'edit' && anchor) editSaved(path, anchor);
     else if (act === 'props' && anchor) app?.editNoteProps?.(path.slice(notesRoot().length + 1), anchor);
     else if (act === 'unsave') {
-      const before = getSaved();
-      saveSaved(removePlace(before, path));
-      app?.refreshSaved();
-      refreshQuick();
-      app?.toast('Removed from Saved', 6000, { label: 'undo', run: () => { saveSaved(before); app?.refreshSaved(); refreshQuick(); } });
+      removeSavedWithUndo(path, app?.toast ?? (() => {}), () => { app?.refreshSaved(); refreshQuick(); });
     }
   });
   function showInSidebar(lens: 'saved' | 'notes', path: string): void {

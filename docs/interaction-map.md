@@ -27,9 +27,11 @@ are shown as `code`.
 | `n` | new note (only when a Notes folder is set) |
 | `r` | raw or rendered (file page only) |
 | `t` `w` `p` | keep, close, pin the current tab |
-| `T` | reopen the last closed tab, at its place |
+| `T` | reopen the last closed tab, at its place, and go there |
 | `[` `]` | previous, next tab |
-| `1`..`9` | jump to a tab |
+| `e 1`..`e 9` | jump to a tab |
+| `j` `k` `G` `g g` | down, up, last, first: rows in a listing, scrolling on a file page |
+| `h` | parent folder |
 
 ## Listing rows and tiles
 
@@ -63,8 +65,8 @@ A folder always navigates.
 | right-click | the same menu | none | the same menu, with Unpin |
 | hover `✕` | close | none | no `✕` |
 
-`w` on a pinned or temporary tab does nothing. `p` on a temporary tab keeps and
-pins it.
+`w` on a pinned tab does nothing. `w` on a temporary tab closes it and lands on
+the next tab, or Home. `p` on a temporary tab keeps and pins it.
 
 ## Sidebar
 
@@ -94,7 +96,7 @@ panel when a note is opened as a reading tab.
 | crumb click / `⌥` / middle / `⌘` | go / background tab / browser tab |
 | crumb `▾` | dropdown of that folder; type to narrow, `Enter` opens the first |
 | `…` | folders folded for room, and the folders above `~` |
-| empty part of the bar | type a path: `Enter` goes in this tab, `Esc` restores; missing or unreadable paths are marked |
+| empty part of the bar | type a path: `Enter` goes there and keeps the old place as a tab, `Esc` restores; missing or unreadable paths are marked |
 | `★` | save or unsave the current place |
 | terminal | open here; `⇧`-click copies the command instead |
 | sun / moon | toggle the theme |

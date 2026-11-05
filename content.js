@@ -634,6 +634,25 @@
     saveSaved(was ? removePlace(list3, path) : upsertPlace(list3, { path, label }));
     return !was;
   }
+  function removeSavedWithUndo(path, toast, refresh) {
+    const before = getSaved();
+    saveSaved(removePlace(before, path));
+    refresh();
+    toast("Removed from Saved", 6e3, { label: "Undo", run: () => {
+      saveSaved(before);
+      refresh();
+    } });
+  }
+  function toggleSavedWithUndo(path, label, toast, refresh) {
+    if (isSaved(path)) {
+      removeSavedWithUndo(path, toast, refresh);
+      return false;
+    }
+    toggleSaved(path, label);
+    refresh();
+    toast("Saved");
+    return true;
+  }
   var SAVED_DIRTY_KEY = "bfb-saved-dirty-v1";
   var savedChanged = null;
   function onSavedChanged(fn) {
@@ -1901,7 +1920,7 @@ ${text}
         el2.removeAttribute("popover");
         delete el2.dataset.layer;
         if (added) el2.remove();
-        if (hadFocus || document.activeElement === document.body) {
+        if ((hadFocus || document.activeElement === document.body) && layer.returnTo !== document.body) {
           const back = anchor ?? layer.returnTo;
           if (back?.isConnected) back.focus({ preventScroll: true });
         }
@@ -2163,7 +2182,7 @@ ${text}
     { id: "theme", group: "Anywhere", title: "Dark or light", keys: ["\u21E7L"], own: true, over: true },
     { id: "esc", group: "Anywhere", title: "Close, or step back", keys: ["Esc"] },
     // Go
-    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"], own: true, over: ["\u2318\u2191"] },
+    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191", "h"], own: true, over: ["\u2318\u2191"] },
     { id: "home", group: "Go", title: "Home", keys: ["g h", "e 0"], own: true, over: true },
     { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
     { id: "goto-bg", group: "Go", title: "Open the typed path as a background tab", keys: ["\u2325\u21A9"], scope: "goto", own: true, field: true },
@@ -2188,11 +2207,11 @@ ${text}
     { id: "lens-docs", group: "Go", title: "Comments", keys: ["g 7"], own: true },
     { id: "lens-dp", group: "Go", title: "Decisions", keys: ["g 8"], own: true },
     // Listing
-    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing", own: true },
+    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193", "k", "j"], scope: "listing", own: true },
     { id: "extend-up", group: "Listing", title: "Select upward", keys: ["\u21E7\u2191"], scope: "listing", own: true },
     { id: "extend-down", group: "Listing", title: "Select downward", keys: ["\u21E7\u2193"], scope: "listing", own: true },
-    { id: "first", group: "Listing", title: "First item", keys: ["Home"], scope: "listing", own: true },
-    { id: "last", group: "Listing", title: "Last item", keys: ["End"], scope: "listing", own: true },
+    { id: "first", group: "Listing", title: "First item", keys: ["Home", "g g"], scope: "listing", own: true },
+    { id: "last", group: "Listing", title: "Last item", keys: ["End", "\u21E7G"], scope: "listing", own: true },
     { id: "page-up", group: "Listing", title: "Page up", keys: ["PgUp"], scope: "listing", own: true },
     { id: "list-rename", group: "Listing", title: "Rename the file", keys: ["F2"], scope: "listing", own: true },
     { id: "page-down", group: "Listing", title: "Page down", keys: ["PgDn"], scope: "listing", own: true },
@@ -2264,7 +2283,7 @@ ${text}
     { id: "side-props", group: "Sidebar", title: "Note colour, pin and tags", keys: ["#"], scope: "sidebar", own: true },
     // Preview
     { id: "pv-close", group: "Preview", title: "Close", keys: ["Space", "Esc"], scope: "preview", own: true },
-    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193", "\u2190", "\u2192"], scope: "preview", own: true },
+    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193", "\u2190", "\u2192", "k", "j"], scope: "preview", own: true },
     { id: "pv-open", group: "Preview", title: "Open the page", keys: ["\u21A9"], scope: "preview", own: true },
     { id: "pv-tab", group: "Preview", title: "Keep as a tab", keys: ["t"], scope: "preview", own: true },
     { id: "pv-dock", group: "Preview", title: "Dock or float", keys: ["d"], scope: "preview", own: true },
@@ -2272,6 +2291,8 @@ ${text}
     { id: "pv-ask", group: "Preview", title: "Ask about it", keys: ["a"], scope: "preview", own: true },
     // File page
     { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
+    { id: "fp-line", group: "File page", title: "Scroll a little", keys: ["k", "j"], scope: "file", own: true },
+    { id: "fp-ends", group: "File page", title: "Top or end of the file", keys: ["g g", "\u21E7G"], scope: "file", own: true },
     { id: "fp-edit", group: "File page", title: "Edit", keys: ["e e"], scope: "file", own: true },
     { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file", own: true },
     { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file", own: true },
@@ -2286,7 +2307,7 @@ ${text}
     { id: "fp-cm-due", group: "File page", title: "Set a due date on the comment", keys: ["\u21E7U"], scope: "file", own: true },
     { id: "fp-cm-attach", group: "File page", title: "Attach the comment to the selected words", keys: ["\u21E7A"], scope: "file", own: true },
     { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file", own: true },
-    { id: "fp-cm-clear", group: "File page", title: "Let go of the comment being looked at or written", keys: ["Esc"], scope: "file", own: true },
+    { id: "fp-cm-clear", group: "File page", title: "Let go of the comment being looked at or written, or close a floating Contents", keys: ["Esc"], scope: "file", own: true },
     { id: "fp-cm-post", group: "File page", title: "Post or reply; with \u21E7, also mark the thread done or reopen it", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
     // Editor
     { id: "ed-save", group: "Editor", title: "Save", keys: ["\u2318S"], scope: "editor" },
@@ -2556,6 +2577,7 @@ ${text}
     if (iconRules) {
       for (const rule of iconRules) {
         if (!rule.enabled) continue;
+        if (e.isDir && !/\/$/.test(rule.pattern)) continue;
         try {
           if (new RegExp(rule.pattern, "i").test(e.name)) return icoCustom(rule.label, rule.color, rule.glyph);
         } catch {
@@ -3074,6 +3096,10 @@ ${text}
   function sidebarShown() {
     return wanted ?? el("fe-side").style.display !== "none";
   }
+  function startSidebarHidden() {
+    wanted = false;
+    el("fe-side").style.display = el("fe-side-rz").style.display = "none";
+  }
   function setSidebarShown(show) {
     wanted = show;
     const side = el("fe-side"), rz = el("fe-side-rz");
@@ -3232,7 +3258,7 @@ ${text}
   }
 
   // src/col-resize.ts
-  var COL_HANDLE = '<span class="fe-col-rz rz" data-axis="x" title="Drag to resize this column \xB7 double-click to reset"></span>';
+  var COL_HANDLE = '<span class="fe-col-rz rz" data-axis="x" title="Drag to resize \xB7 double-click to reset"></span>';
   var MIN_W = 40;
   var EDGE = 5;
   var installed = false;
@@ -3248,6 +3274,24 @@ ${text}
     const table2 = cell.closest("table");
     const th = cellsOf(table2)[cell.cellIndex + cell.colSpan - 1];
     return th ? { table: table2, th } : null;
+  }
+  var lit = null;
+  function lightEdge(table2, col = -1) {
+    if (lit?.table === table2 && lit?.col === col) return;
+    lit?.table.querySelectorAll(".fe-col-line").forEach((c) => c.classList.remove("fe-col-line"));
+    lit = table2 ? { table: table2, col } : null;
+    if (!table2) return;
+    for (const row2 of table2.rows) {
+      let end = -1;
+      for (const cell of row2.cells) {
+        end += cell.colSpan;
+        if (end === col) {
+          cell.classList.add("fe-col-line");
+          break;
+        }
+        if (end > col) break;
+      }
+    }
   }
   function freeze(table2) {
     if (table2.classList.contains("fe-rz-fixed")) return;
@@ -3309,7 +3353,10 @@ ${text}
       document.querySelectorAll("table.fe-col-edge").forEach((x2) => {
         if (x2 !== table2) x2.classList.remove("fe-col-edge");
       });
-      table2?.classList.toggle("fe-col-edge", !!edgeAt(e));
+      const hit = edgeAt(e);
+      table2?.classList.toggle("fe-col-edge", !!hit);
+      if (hit) lightEdge(hit.table, cellsOf(hit.table).indexOf(hit.th));
+      else lightEdge(null);
     }, { passive: true });
     document.addEventListener("click", (e) => {
       if (edgeAt(e)) e.stopPropagation();
@@ -4592,68 +4639,6 @@ ${text}
     return false;
   }
 
-  // src/ask-quote.ts
-  var QUOTE_MAX = 4e3;
-  function quoteMarkdown(text, from) {
-    let body = text.trim();
-    const cut = body.length > QUOTE_MAX;
-    if (cut) body = body.slice(0, QUOTE_MAX).trimEnd() + " \u2026";
-    const lines = [`From ${from}${cut ? " (shortened)" : ""}:`, "", ...body.split("\n")];
-    return lines.map((l) => l ? `> ${l}` : ">").join("\n") + "\n\n";
-  }
-  var nameOf2 = (path) => path.split("/").filter(Boolean).pop() || "/";
-  function quoteTargets(here, tabPaths, recent, chatsFor2, max = 8) {
-    const out = [{ ...here, label: "This chat", here: true }];
-    const seen = /* @__PURE__ */ new Set([here.subject]);
-    const add = (subject, chat, label) => {
-      if (!chat || seen.has(subject) || out.length >= max) return;
-      seen.add(subject);
-      out.push({ subject, chatId: chat.id, title: chat.title, label, here: false });
-    };
-    for (const p of tabPaths) add(p, chatsFor2(p)[0], `${nameOf2(p)} \xB7 open tab`);
-    for (const r of recent) add(r.subject, r.chat, nameOf2(r.subject));
-    return out;
-  }
-  var handoffPref = jsonPref("bfb-ask-quote-v1", null, (v) => v === null || typeof v === "object" && typeof v.text === "string");
-  var HANDOFF_TTL = 2 * 6e4;
-  function sendQuote(h) {
-    handoffPref.set(h);
-  }
-  function takeQuote(subject, now = Date.now()) {
-    const h = handoffPref.get();
-    if (!h || h.subject !== subject) return null;
-    handoffPref.set(null);
-    return now - h.at <= HANDOFF_TTL ? h : null;
-  }
-  var LANE_DEFAULT = /\(((Gemini|Codex) )?default\)$/;
-  var bareLabel = (label) => label.replace(/ \(((Gemini|Codex) )?default\)$/, "");
-  function resolveMention(text, opts) {
-    const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
-    if (!m) return null;
-    const want = m[1].toLowerCase();
-    const lane = (name2) => opts.filter((o) => o.value.startsWith(name2 + ":"));
-    const remote = [...lane("gemini"), ...lane("gpt")];
-    const laneDefault = (name2) => lane(name2).find((o) => LANE_DEFAULT.test(o.label)) ?? lane(name2)[0];
-    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? remote.find((o) => o.value.slice(o.value.indexOf(":") + 1).toLowerCase() === want) ?? (want === "gemini" || want === "gpt" ? laneDefault(want) : void 0);
-    return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
-  }
-  function secondOpinion(question, answer) {
-    return `Another model answered the question "${question}" as below. Check that answer against the context: say plainly what is wrong or missing, then give a better answer.
-
-Their answer:
-${answer}`;
-  }
-  var isImageName = (name2) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name2);
-  function closeOpenFence(text) {
-    const fences = text.match(/^\s*```/gm)?.length ?? 0;
-    return fences % 2 ? text + "\n```" : text;
-  }
-  function splitThinking(text) {
-    const m = /^\s*<think>([\s\S]*?)(<\/think>|$)/.exec(text);
-    if (!m) return { thinking: "", answer: text, open: false };
-    return { thinking: m[1].trim(), answer: text.slice(m[0].length).replace(/^\s+/, ""), open: !m[2] };
-  }
-
   // src/note-meta-ui.ts
   var colorDot = (c) => dotIcon(c ? `var(--nc-${c})` : null);
   var openMenu = null;
@@ -4823,7 +4808,7 @@ ${answer}`;
       ${p.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
       <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>
       <button class="btn fe-chip-btn fe-chip-rem${p.remindAt ? " active" : ""}${reminderState(p) === "missed" ? " missed" : ""}" data-size="sm" data-m="remind" title="${p.remindAt ? "Change or clear this reminder" : "Set a reminder"}">${UI_ICON.clock}<span>${esc(reminderLabel(p))}</span></button>
-      ${p.agent ? `<span class="chip fe-chip-agent" title="This note was made or last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ""}
+      ${p.agent ? `<span class="chip fe-chip-agent" title="Last edited by an agent">${UI_ICON.ai}<span>${esc(p.agent)}</span></span>` : ""}
       <button class="btn fe-chip-btn fe-chip-exp${p.expires ? " active" : ""}${p.expires && Date.parse(p.expires) <= Date.now() ? " expired" : ""}" data-size="sm" data-m="expires" title="${p.expires ? "After this time the note is listed under Expired. It is never deleted. Click to change." : "Set a time after which the note is listed under Expired"}">${UI_ICON.clock}<span>${p.expires ? `${Date.parse(p.expires) <= Date.now() ? "Expired" : "Expires"} ${esc(whenShort(p.expires))}` : "Expiry"}</span></button>
       ${p.expires ? `<button class="btn" data-icon data-size="xs" data-tone="danger" data-m="expires-clear" title="Remove the expiry" aria-label="Remove the expiry">${UI_ICON.close}</button>` : ""}
       ${p.url ? `<span class="chip fe-chip-url" title="${esc(p.url)}">${UI_ICON.link}<span class="fe-chip-url-t">${esc(plain(p.url))}</span><button class="btn" data-icon data-size="xs" data-m="url-open" title="Open ${esc(p.url)}" aria-label="Open the link">${UI_ICON.tab}</button><button class="btn" data-icon data-size="xs" data-m="url-copy" title="Copy the link" aria-label="Copy the link">${UI_ICON.copy ?? UI_ICON.link}</button></span>` : ""}`;
@@ -4920,6 +4905,10 @@ ${answer}`;
   }
   var STEP = 1.25;
   var clampZoom = (z) => Math.min(16, Math.max(0.05, z));
+  function pinchFactor(deltaY, lineMode = false) {
+    const px2 = lineMode ? deltaY * 16 : deltaY;
+    return Math.exp(-Math.max(-30, Math.min(30, px2)) * 0.01);
+  }
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
@@ -4936,13 +4925,13 @@ ${answer}`;
       ${BTN("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
       ${BTN("open", UI_ICON.external, "open in app", "Open in the default app")}
     </div>
-    <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}"></div></div>
+    <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}" draggable="false"></div></div>
     <div class="fe-ql-dim"></div>`;
     const stage = wrap.querySelector(".fe-ql-imgstage");
     const sizer = wrap.querySelector(".fe-ql-imgsizer");
     const img = wrap.querySelector("img.fe-ql-img");
     const dim = wrap.querySelector(".fe-ql-dim");
-    let v = { ...START_VIEW };
+    let v = { ...o.start?.view ?? START_VIEW };
     const natural = () => ({ w: img.naturalWidth, h: img.naturalHeight });
     const zoomNow = () => v.fit ? fitZoom(natural().w, natural().h, v.rot, stage.clientWidth, stage.clientHeight) : v.zoom;
     const draw = () => {
@@ -4959,12 +4948,33 @@ ${answer}`;
       wrap.dataset.zoom = String(Math.round(z * 100));
       wrap.dataset.rot = String(v.rot);
       wrap.dataset.flip = v.flip ? "1" : "0";
+      stage.classList.toggle("can-pan", stage.scrollWidth > stage.clientWidth || stage.scrollHeight > stage.clientHeight);
     };
-    if (img.complete) draw();
-    else img.addEventListener("load", draw, { once: true });
+    const first = () => {
+      draw();
+      if (o.start) {
+        stage.scrollLeft = o.start.left;
+        stage.scrollTop = o.start.top;
+      }
+    };
+    if (img.complete) first();
+    else img.addEventListener("load", first, { once: true });
     if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => {
       if (v.fit) draw();
     }).observe(stage);
+    const zoomAround = (next, x2, y) => {
+      const a = sizer.getBoundingClientRect();
+      const fx = a.width ? (x2 - a.left) / a.width : 0.5, fy = a.height ? (y - a.top) / a.height : 0.5;
+      v = next;
+      draw();
+      const b = sizer.getBoundingClientRect();
+      stage.scrollLeft += b.left + fx * b.width - x2;
+      stage.scrollTop += b.top + fy * b.height - y;
+    };
+    const middle = () => {
+      const r = stage.getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2];
+    };
     const copy = async () => {
       try {
         const reply = await new Promise((res) => chrome.runtime.sendMessage({ type: "bfb-fetch-image", url: new URL(o.href, location.href).href }, (r) => res(r ?? { ok: false, error: "no reply" })));
@@ -4998,10 +5008,13 @@ ${answer}`;
     };
     const act = (a) => {
       if (a === "in" || a === "out") {
-        v = { ...v, zoom: clampZoom(zoomNow() * (a === "in" ? STEP : 1 / STEP)), fit: false };
+        zoomAround({ ...v, zoom: clampZoom(zoomNow() * (a === "in" ? STEP : 1 / STEP)), fit: false }, ...middle());
+        return;
       } else if (a === "fit") v = { ...v, fit: true };
-      else if (a === "actual") v = { ...v, zoom: 1, fit: false };
-      else if (a === "rotate") v = { ...v, rot: (v.rot + 90) % 360 };
+      else if (a === "actual") {
+        zoomAround({ ...v, zoom: 1, fit: false }, ...middle());
+        return;
+      } else if (a === "rotate") v = { ...v, rot: (v.rot + 90) % 360 };
       else if (a === "flip") v = { ...v, flip: !v.flip };
       else if (a === "copy") {
         void copy();
@@ -5021,13 +5034,44 @@ ${answer}`;
     stage.addEventListener("wheel", (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      act(e.deltaY < 0 ? "in" : "out");
+      zoomAround({ ...v, zoom: clampZoom(zoomNow() * pinchFactor(e.deltaY, e.deltaMode === 1)), fit: false }, e.clientX, e.clientY);
     }, { passive: false });
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || !stage.classList.contains("can-pan")) return;
+      let x2 = e.clientX, y = e.clientY;
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add("panning");
+      const move = (m) => {
+        stage.scrollLeft -= m.clientX - x2;
+        stage.scrollTop -= m.clientY - y;
+        x2 = m.clientX;
+        y = m.clientY;
+      };
+      const end = () => {
+        stage.classList.remove("panning");
+        stage.removeEventListener("pointermove", move);
+        stage.removeEventListener("pointerup", end);
+        stage.removeEventListener("pointercancel", end);
+      };
+      stage.addEventListener("pointermove", move);
+      stage.addEventListener("pointerup", end);
+      stage.addEventListener("pointercancel", end);
+    });
+    stage.addEventListener("dblclick", (e) => {
+      if (!v.fit) {
+        v = { ...v, fit: true };
+        draw();
+        return;
+      }
+      zoomAround({ ...v, fit: false, zoom: zoomNow() < 1 ? 1 : 2 }, e.clientX, e.clientY);
+    });
+    return { state: () => ({ view: { ...v }, left: stage.scrollLeft, top: stage.scrollTop }) };
   }
 
   // src/editor.ts
   var BUF_CAP = 60;
   var BUF_COALESCE = 600;
+  var BUF_RUN = 1500;
   var BUF_CHARS = 8e6;
   var bufHist = /* @__PURE__ */ new Map();
   function diffText(a, b) {
@@ -5039,6 +5083,11 @@ ${answer}`;
     return { at: p, len: a.length - p - s, ins: b.slice(p, b.length - s) };
   }
   var applyPatch = (t, p) => t.slice(0, p.at) + p.ins + t.slice(p.at + p.len);
+  function mapCaret(pos, p) {
+    if (pos <= p.at) return pos;
+    if (pos >= p.at + p.len) return pos + p.ins.length - p.len;
+    return p.at + p.ins.length;
+  }
   function insertAtCursor(el2, text) {
     const a = el2.selectionStart ?? el2.value.length, b = el2.selectionEnd ?? a;
     el2.value = el2.value.slice(0, a) + text + el2.value.slice(b);
@@ -5151,15 +5200,28 @@ ${sep}
 ${body}
 `;
   }
-  function attachBuffer(el2, id, io2 = { get: () => el2.value, set: (v) => {
-    el2.value = v;
-  } }) {
+  function attachBuffer(el2, id, io2 = {
+    get: () => el2.value,
+    set: (v) => {
+      el2.value = v;
+    },
+    // Focusing again is what makes a textarea scroll its caret into view.
+    caret: (at) => {
+      el2.setSelectionRange(at, at);
+      if (document.activeElement === el2) {
+        el2.blur();
+        el2.focus();
+      }
+    }
+  }) {
     const h = bufHist.get(id) ?? { cur: "", past: [], future: [], timer: null };
     bufHist.set(id, h);
     h.cur = io2.get() ?? "";
     h.past = [];
     h.future = [];
+    let runStart = 0;
     const snap = () => {
+      runStart = 0;
       const now = io2.get() ?? "";
       if (now === h.cur) return;
       h.past.push(diffText(now, h.cur));
@@ -5170,11 +5232,16 @@ ${body}
     };
     const record = () => {
       if (h.timer) clearTimeout(h.timer);
+      const now = Date.now();
+      if (runStart && now - runStart > BUF_RUN) snap();
+      runStart ||= now;
       h.timer = setTimeout(snap, BUF_COALESCE);
     };
     const put = (v) => {
+      const change = diffText(h.cur, v);
       h.cur = v;
       io2.set(v);
+      io2.caret?.(change.at + change.ins.length);
       el2.dispatchEvent(new Event("input", { bubbles: true }));
     };
     const step2 = (from, to) => {
@@ -5213,366 +5280,107 @@ ${body}
     return { undo, redo, snap, depth: () => h.past.length + 1, insert: (t) => insertAtCursor(el2, t) };
   }
 
-  // src/llm.ts
-  function openProxyPort() {
-    try {
-      return chrome.runtime.connect({ name: "bfb-llm" });
-    } catch {
-      return null;
-    }
-  }
-  function llmAvailability() {
-    return new Promise((resolve) => {
-      let done = false;
-      const settle2 = (res) => {
-        if (done) return;
-        done = true;
-        resolve(res);
-      };
-      const port = openProxyPort();
-      if (!port) {
-        settle2({ kind: "unavailable", reason: "extension messaging unavailable" });
-        return;
-      }
-      const timer3 = setTimeout(() => {
-        try {
-          port.disconnect();
-        } catch {
-        }
-        settle2({ kind: "unavailable", reason: "status check timed out" });
-      }, 5e3);
-      port.onMessage.addListener((msg) => {
-        if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer3);
-        try {
-          port.disconnect();
-        } catch {
-        }
-        if (msg.t === "status" && msg.data?.server === "up") {
-          settle2({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
-        } else if (msg.t === "status") {
-          settle2({ kind: "down", status: msg.data });
-        } else {
-          settle2({ kind: "unavailable", reason: msg.message || "lm host not found" });
-        }
-      });
-      port.onDisconnect.addListener(() => {
-        clearTimeout(timer3);
-        settle2({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
-      });
-      port.postMessage({ op: "status" });
-    });
-  }
-  function defaultTier(tiers, def) {
-    const bare = (x2) => x2.replace(/:latest$/, "");
-    const d = bare(def);
-    if (!d) return -1;
-    const byName = tiers.findIndex((t) => bare(t.alias) === d);
-    return byName >= 0 ? byName : tiers.findIndex((t) => bare(t.model) === d);
-  }
-  var REMOTE = /^(gemini|gpt):/;
-  var isRemote = (value) => REMOTE.test(value);
-  var bareModel = (value) => value.replace(REMOTE, "");
-  function llmModels() {
-    return new Promise((resolve) => {
-      let done = false;
-      const settle2 = (r) => {
-        if (!done) {
-          done = true;
-          resolve(r);
-        }
-      };
-      const port = openProxyPort();
-      if (!port) {
-        settle2({ tiers: [], gemini: [], gpt: [] });
-        return;
-      }
-      const timer3 = setTimeout(() => {
-        try {
-          port.disconnect();
-        } catch {
-        }
-        settle2({ tiers: [], gemini: [], gpt: [] });
-      }, 2e4);
-      port.onMessage.addListener((msg) => {
-        if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer3);
-        try {
-          port.disconnect();
-        } catch {
-        }
-        settle2(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
-      });
-      port.onDisconnect.addListener(() => {
-        clearTimeout(timer3);
-        settle2({ tiers: [], gemini: [], gpt: [] });
-      });
-      port.postMessage({ op: "models" });
-    });
-  }
-  function llmQuery(opts, cb, job) {
-    const port = openProxyPort();
-    if (!port) {
-      cb.onError("unavailable", "AI host not installed");
-      return () => {
-      };
-    }
-    const stop = follow(port, cb, job?.id);
-    port.postMessage({
-      op: "query",
-      ctx: opts.ctx,
-      ctxName: opts.ctxName,
-      intent: opts.intent,
-      question: opts.question,
-      timeout: opts.timeout ?? 120,
-      model: opts.model,
-      files: opts.files,
-      ...job ? { job } : {}
-    });
-    return stop;
-  }
-  function llmAttach(id, cb) {
-    const port = openProxyPort();
-    if (!port) {
-      cb.onGone();
-      return () => {
-      };
-    }
-    const stop = follow(port, cb, id, cb);
-    port.postMessage({ op: "attach", id });
-    return stop;
-  }
-  function llmRunning() {
-    return oneFrame({ op: "running" }, "running", (m) => m.jobs ?? [], []);
-  }
-  function llmOrphans() {
-    return oneFrame({ op: "orphans" }, "orphans", (m) => m.list ?? [], []);
-  }
-  function oneFrame(msg, t, read2, empty) {
-    return new Promise((resolve) => {
-      const port = openProxyPort();
-      if (!port) {
-        resolve(empty);
-        return;
-      }
-      const timer3 = setTimeout(() => {
-        try {
-          port.disconnect();
-        } catch {
-        }
-        resolve(empty);
-      }, 3e3);
-      port.onMessage.addListener((m) => {
-        if (m?.t !== t) return;
-        clearTimeout(timer3);
-        try {
-          port.disconnect();
-        } catch {
-        }
-        resolve(read2(m));
-      });
-      port.onDisconnect.addListener(() => {
-        clearTimeout(timer3);
-        resolve(empty);
-      });
-      port.postMessage(msg);
-    });
-  }
-  function follow(port, cb, jobId, attach) {
-    let finished = false;
-    let gotFrame = false;
-    const finish = () => {
-      finished = true;
+  // src/watch.ts
+  var EVERY_MS = 2e3;
+  var STALE_TICKS = 3;
+  var subs = /* @__PURE__ */ new Set();
+  var timer = 0;
+  function tick() {
+    if (document.visibilityState !== "visible") return;
+    for (const s of subs) {
+      if (s.running && ++s.running <= STALE_TICKS) continue;
+      let paused;
       try {
-        port.disconnect();
+        paused = !!s.pause?.();
       } catch {
+        paused = true;
       }
-    };
-    port.onMessage.addListener((msg) => {
-      if (finished || !msg) return;
-      if (msg.t === "replay") {
-        gotFrame = true;
-        attach?.onReplay(msg.text ?? "", msg.steps ?? []);
-      } else if (msg.t === "gone") {
-        finish();
-        attach?.onGone();
-      } else if (msg.t === "chunk") {
-        gotFrame = true;
-        cb.onChunk(msg.text ?? "");
-      } else if (msg.t === "step") {
-        gotFrame = true;
-        cb.onStep?.(msg.text ?? "");
-      } else if (msg.t === "done") {
-        finish();
-        cb.onDone({ model: msg.model ?? "", ms: msg.ms ?? 0, truncated: !!msg.truncated, tokensIn: msg.tokens_in || void 0, tokensOut: msg.tokens_out || void 0 });
-      } else if (msg.t === "error") {
-        finish();
-        cb.onError(msg.code ?? "unknown", msg.message ?? "");
-      } else if (msg.t === "native-gone") {
-        finish();
-        cb.onError(gotFrame ? "disconnected" : "unavailable", msg.message ?? "");
+      if (paused) {
+        s.running = 0;
+        continue;
       }
-    });
-    port.onDisconnect.addListener(() => {
-      if (!finished) {
-        finished = true;
-        cb.onError("disconnected", "AI host disconnected");
-      }
-    });
+      const run = s.running = 1;
+      Promise.resolve().then(s.check).catch(() => {
+      }).finally(() => {
+        if (s.running === run) s.running = 0;
+      });
+    }
+  }
+  function watch(check, o = {}) {
+    const s = { check, pause: o.pause, running: 0 };
+    subs.add(s);
+    if (!timer) timer = window.setInterval(tick, EVERY_MS);
     return () => {
-      if (jobId && !finished) try {
-        port.postMessage({ op: "cancel", id: jobId });
-      } catch {
+      subs.delete(s);
+      if (!subs.size) {
+        clearInterval(timer);
+        timer = 0;
       }
-      finish();
     };
   }
-  function llmWarm(on) {
-    return new Promise((resolve) => {
-      let done = false;
-      const settle2 = (r) => {
-        if (!done) {
-          done = true;
-          resolve(r);
-        }
-      };
-      const port = openProxyPort();
-      if (!port) {
-        settle2({ ok: false, message: "AI host not installed" });
+
+  // src/line-diff.ts
+  function lineDiffHtml(disk, mine) {
+    const rows = lineDiff(disk, mine);
+    const keep = /* @__PURE__ */ new Set();
+    let changed = 0;
+    rows.forEach((r, i3) => {
+      if (r.kind === "same") return;
+      changed++;
+      for (let k = Math.max(0, i3 - 2); k <= Math.min(rows.length - 1, i3 + 2); k++) keep.add(k);
+    });
+    let html = "", skipped = false;
+    rows.forEach((r, i3) => {
+      if (!keep.has(i3)) {
+        skipped = true;
         return;
       }
-      const timer3 = setTimeout(() => {
-        try {
-          port.disconnect();
-        } catch {
-        }
-        settle2({ ok: false, message: "timed out" });
-      }, 3e4);
-      port.onMessage.addListener((msg) => {
-        if (msg?.t !== "warm" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer3);
-        try {
-          port.disconnect();
-        } catch {
-        }
-        settle2(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
-      });
-      port.onDisconnect.addListener(() => {
-        clearTimeout(timer3);
-        settle2({ ok: false, message: chrome.runtime.lastError?.message });
-      });
-      port.postMessage({ op: "warm", on });
+      if (skipped) {
+        html += '<div class="fe-fe-dgap">\u2026</div>';
+        skipped = false;
+      }
+      html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === "gone" ? "\u2212" : r.kind === "new" ? "+" : ""}</span><span class="fe-fe-dt">${esc(r.text) || " "}</span></div>`;
     });
+    return `<div class="fe-fe-dhead">${changed ? '<span data-k="gone">\u2212 on disk</span><span data-k="new">+ yours</span>' : "The two copies have the same lines."}</div>${html}`;
   }
-  var LLM_ERROR_TEXT = {
-    server_down: "The local model is not running. Start it with lm in a terminal, then try again.",
-    model_missing: "The model is not available on the server.",
-    ctx_too_large: "This file is too large for the model.",
-    timeout: "The model took too long and was stopped.",
-    invalid_args: "Invalid request.",
-    cancelled: "Cancelled.",
-    host_no_lm: "The lm CLI was not found on this machine.",
-    unavailable: "Local AI is not set up. Settings, AI shows how.",
-    disconnected: "The AI host disconnected unexpectedly.",
-    gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model.",
-    gpt_unavailable: "GPT did not answer. Check codex login in a terminal, or pick another model."
-  };
-
-  // src/ask-history.ts
-  function turnMeta(t, truncated = false) {
-    if (t.model === "stopped") return "Stopped";
-    const n = (v) => v.toLocaleString("en-US");
-    return [
-      t.model,
-      t.tokensIn ? `in ${n(t.tokensIn)}` : "",
-      t.tokensOut ? `out ${n(t.tokensOut)}` : "",
-      t.ms ? `${(t.ms / 1e3).toFixed(1)}s` : "",
-      truncated ? "shortened to fit" : "",
-      t.stopped ? "stopped" : ""
-    ].filter(Boolean).join(" \xB7 ");
-  }
-  function endedTurn(base2, text, end) {
-    if (end.t === "done") return { ...base2, a: text, model: end.model || base2.model, ms: end.ms ?? 0, tokensIn: end.tokens_in || void 0, tokensOut: end.tokens_out || void 0 };
-    if (text.trim()) return { ...base2, a: text, ms: Date.now() - base2.at, stopped: true };
-    return { ...base2, a: "", ms: 0, error: end.code || "unknown" };
-  }
-  var historyPref = jsonPref("bfb-ask-history-v1", {}, (v) => !!v && typeof v === "object");
-  var CHATS_PER_SUBJECT = 20;
-  var SUBJECTS = 100;
-  var ANSWER_MAX = 2e4;
-  function read() {
-    return historyPref.get();
-  }
-  function allChats() {
-    return Object.entries(read()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
-  }
-  function chatsUnder(folder, depth = 4) {
-    return allChats().filter(({ subject }) => isWithin(subject, folder, depth));
-  }
-  function chatsFor(subject) {
-    return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
-  }
-  function addTurn(subject, chatId, turn) {
-    const store2 = read();
-    const list3 = store2[subject] ?? [];
-    let chat = list3.find((c) => c.id === chatId);
-    if (!chat) {
-      chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
-      list3.push(chat);
+  var MAX_CELLS = 4e6;
+  function lineDiff(disk, mine) {
+    const a = disk.split("\n"), b = mine.split("\n");
+    let head = 0;
+    while (head < a.length && head < b.length && a[head] === b[head]) head++;
+    let tail = 0;
+    while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+    const ma = a.slice(head, a.length - tail), mb = b.slice(head, b.length - tail);
+    const out = [];
+    for (let i4 = 0; i4 < head; i4++) out.push({ kind: "same", text: a[i4] });
+    let i3 = 0, j = 0;
+    const emit = (kind, text) => out.push({ kind, text });
+    if (ma.length * mb.length > MAX_CELLS) {
+      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
+      for (; j < mb.length; j++) emit("new", mb[j]);
+    } else {
+      const w = mb.length + 1;
+      const lcs = new Uint32Array((ma.length + 1) * w);
+      for (let x2 = ma.length - 1; x2 >= 0; x2--) for (let y = mb.length - 1; y >= 0; y--)
+        lcs[x2 * w + y] = ma[x2] === mb[y] ? lcs[(x2 + 1) * w + y + 1] + 1 : Math.max(lcs[(x2 + 1) * w + y], lcs[x2 * w + y + 1]);
+      while (i3 < ma.length && j < mb.length) {
+        if (ma[i3] === mb[j]) {
+          emit("same", mb[j]);
+          i3++;
+          j++;
+        } else if (lcs[(i3 + 1) * w + j] >= lcs[i3 * w + j + 1]) {
+          emit("gone", ma[i3]);
+          i3++;
+        } else {
+          emit("new", mb[j]);
+          j++;
+        }
+      }
+      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
+      for (; j < mb.length; j++) emit("new", mb[j]);
     }
-    if (chat.turns.some((t) => t.at === turn.at && t.q === turn.q)) return chat;
-    chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
-    chat.at = turn.at;
-    store2[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
-    const subjects = Object.keys(store2);
-    if (subjects.length > SUBJECTS) {
-      const last = (k) => Math.max(...store2[k].map((c) => c.at));
-      subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
-        delete store2[k];
-      });
-    }
-    historyPref.set(store2);
-    return chat;
-  }
-  function deleteChat(subject, chatId) {
-    const store2 = read();
-    store2[subject] = (store2[subject] ?? []).filter((c) => c.id !== chatId);
-    if (!store2[subject].length) delete store2[subject];
-    historyPref.set(store2);
-  }
-  function withHistory(turns, question, maxChars = 4e3) {
-    if (!turns.length) return question;
-    const parts2 = [];
-    let used = 0;
-    for (const t of turns.slice(-4).reverse()) {
-      const block = `Q: ${t.q}
-A: ${t.a}`;
-      if (used + block.length > maxChars) break;
-      parts2.unshift(block);
-      used += block.length;
-    }
-    return parts2.length ? `Earlier in this chat:
-${parts2.join("\n\n")}
-
-Now: ${question}` : question;
-  }
-  function chatMarkdown(subject, turns, title = turns[0]?.q ?? "Chat") {
-    const name2 = subject.split("/").filter(Boolean).pop() ?? subject;
-    const head = `# ${title.replace(/\s+/g, " ").trim().slice(0, 120)}
-
-_Asked about [${name2}](file://${encodeURI(subject)})${turns[0] ? `, ${whenText(turns[0].at)}` : ""}_
-`;
-    const body = turns.map((t) => {
-      const answer = t.error ? `_No answer: ${t.error}_` : splitThinking(t.a).answer.trim();
-      return `## ${t.via ? `Second opinion: ${t.via}` : t.q.replace(/\s+/g, " ").trim()}
-
-${answer}
-
-<sub>${t.model}${t.stopped ? " \xB7 stopped" : ""}</sub>`;
-    }).join("\n\n");
-    return `${head}
-${body}
-`;
+    for (let k = 0; k < tail; k++) out.push({ kind: "same", text: a[a.length - tail + k] });
+    return out;
   }
 
   // src/nav.ts
@@ -5588,6 +5396,50 @@ ${body}
   }
   function markPlace(hash) {
     history.replaceState(null, "", hash);
+  }
+
+  // src/morph-view.ts
+  var blocksOf = (root2) => {
+    let at = root2;
+    while (at.children.length === 1 && at.children[0].matches(".fe-md")) at = at.children[0];
+    return at;
+  };
+  var sourceKey = (block) => block.outerHTML.replace(/^(<[^>]*?) data-sl="[^"]*"/, "$1");
+  function morphInto(view) {
+    const sourceOf = /* @__PURE__ */ new WeakMap();
+    return (html) => {
+      const next = document.createElement("template");
+      next.innerHTML = html;
+      const fresh = [...blocksOf(next.content).children];
+      if (!view.children.length) {
+        const keys3 = fresh.map(sourceKey);
+        view.innerHTML = html;
+        [...blocksOf(view).children].forEach((c, i3) => sourceOf.set(c, keys3[i3] ?? ""));
+        return;
+      }
+      const into = blocksOf(view);
+      const olds = [...into.children];
+      const keys2 = fresh.map(sourceKey);
+      let a = 0;
+      while (a < olds.length && a < fresh.length && sourceOf.get(olds[a]) === keys2[a]) a++;
+      let oe = olds.length, fe = fresh.length;
+      while (oe > a && fe > a && sourceOf.get(olds[oe - 1]) === keys2[fe - 1]) {
+        oe--;
+        fe--;
+      }
+      const renumber = (kept, from) => {
+        const sl = from.getAttribute("data-sl");
+        if (sl !== null) kept.setAttribute("data-sl", sl);
+      };
+      for (let i3 = 0; i3 < a; i3++) renumber(olds[i3], fresh[i3]);
+      for (let i3 = 0; i3 < olds.length - oe; i3++) renumber(olds[oe + i3], fresh[fe + i3]);
+      const after = olds[oe] ?? null;
+      for (let i3 = a; i3 < oe; i3++) olds[i3].remove();
+      for (let i3 = a; i3 < fe; i3++) {
+        sourceOf.set(fresh[i3], keys2[i3]);
+        into.insertBefore(fresh[i3], after);
+      }
+    };
   }
 
   // node_modules/yaml/browser/dist/nodes/identity.js
@@ -11854,9 +11706,9 @@ ${end.comment}` : end.comment;
         }
       }
       if (c === '"') return str();
-      const lit = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(s.slice(i3, i3 + 64));
-      if (!lit) fail();
-      i3 += lit[0].length;
+      const lit2 = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(s.slice(i3, i3 + 64));
+      if (!lit2) fail();
+      i3 += lit2[0].length;
     };
     const str = () => {
       i3++;
@@ -12102,10 +11954,8 @@ ${end.comment}` : end.comment;
   function copyContents(e, say) {
     fetchFileText(e.href).then((text) => sniffBinary(text) ? say(`${e.name} is not a text file`) : copyToClipboard(text).then((ok) => say(ok ? `Copied the contents of ${e.name}` : "Copy failed"))).catch(() => say(`Could not read ${e.name}`));
   }
-  var askWhenReady = null;
   function askAbout(e) {
-    askWhenReady = e;
-    openPreview(e);
+    deps.askAbout?.(e);
   }
   function keepPreviewedAsTab() {
     const path = previewedPath();
@@ -12129,13 +11979,6 @@ ${end.comment}` : end.comment;
   var dsvRows = [];
   var dsvNum = /* @__PURE__ */ new Set();
   var dsvSort = null;
-  var aiCancel = null;
-  var aiSeq = 0;
-  var aiOn = false;
-  var aiBarPref = flagPref("bfb-ql-ai-bar-v1", true);
-  var aiNonePref = textPref("bfb-ql-ai-none-v1", "", "tab");
-  var aiMissing = () => Date.now() - Number(aiNonePref.get() || 0) < 6e4;
-  var aiRun = null;
   function initPreview(d) {
     deps = d;
     layout = getPreviewLayout();
@@ -12147,7 +11990,7 @@ ${end.comment}` : end.comment;
     <div id="fe-ql-dialog" class="panel">
       <div id="fe-ql-hdr" class="bar">
         <span id="fe-ql-icon"></span>
-        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
+        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open in a new tab"></a>
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" class="btn" title="Copy the file" disabled>
           ${GLYPH.copySmall}
@@ -12159,7 +12002,7 @@ ${end.comment}` : end.comment;
         <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
-        <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file (a)" aria-pressed="false" hidden>${UI_ICON.ai}</button>
+        <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file in the sidebar (a)" hidden>${UI_ICON.ai}</button>
         ${SIZE_BTN("fe-ql-size")}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           ${GLYPH.dock}
@@ -12168,23 +12011,6 @@ ${end.comment}` : end.comment;
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
-      <div id="fe-ql-ai" hidden>
-        <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
-        <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
-        <button class="btn" id="fe-ql-ai-recheck" data-variant="outline" title="Check the model again" hidden>Retry</button>
-      </div>
-      <div id="fe-ql-ai-out" hidden>
-        <div id="fe-ql-ai-out-q"></div>
-        <div id="fe-ql-ai-out-body"></div>
-        <div id="fe-ql-ai-out-foot">
-          <span id="fe-ql-ai-out-meta"></span>
-          <button class="btn" id="fe-ql-ai-stop" data-size="sm" data-variant="outline" title="Stop this answer (Esc)" hidden>Stop</button>
-          <button class="btn" id="fe-ql-ai-retry" data-size="sm" data-variant="outline" title="Ask this again" hidden>Retry</button>
-        </div>
-      </div>
       <div id="fe-ql-body"></div>
     </div>`;
     document.getElementById("fe").appendChild(overlay);
@@ -12197,10 +12023,11 @@ ${end.comment}` : end.comment;
     document.getElementById("fe-ql-save").addEventListener("click", () => {
       const p = previewedPath();
       if (!p) return;
-      const now = toggleSaved(p, p.split("/").pop() || p);
-      syncSaveBtn();
-      deps.savedChanged?.();
-      deps.toast?.(now ? "Saved" : "Removed from Saved");
+      toggleSavedWithUndo(p, p.split("/").pop() || p, deps.toast ?? (() => {
+      }), () => {
+        syncSaveBtn();
+        deps.savedChanged?.();
+      });
     });
     document.getElementById("fe-ql-rename").addEventListener("click", (e) => {
       if (!currentEntry) {
@@ -12272,52 +12099,7 @@ ${end.comment}` : end.comment;
         if (!ok) deps.toast?.("Copy failed");
       });
     });
-    const aiQ = document.getElementById("fe-ql-ai-q");
-    document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
-      b.dataset.title = b.title;
-    });
-    document.getElementById("fe-ql-ai-btn").addEventListener("click", () => {
-      if (aiBarPref.get()) {
-        aiBarPref.set(false);
-        syncAiBar();
-      } else askInPreview();
-    });
-    document.getElementById("fe-ql-ai-stop").addEventListener("click", () => aiCancel?.());
-    document.getElementById("fe-ql-ai-retry").addEventListener("click", () => {
-      if (aiRun) runAi(aiRun.intent, aiRun.question);
-    });
-    document.getElementById("fe-ql-ai-recheck").addEventListener("click", () => {
-      if (currentEntry) setupAi(currentEntry, aiExt);
-    });
-    document.getElementById("fe-ql-ai-sum").addEventListener("click", () => runAi("summarize"));
-    document.getElementById("fe-ql-ai-exp").addEventListener("click", function() {
-      runAi(this.dataset.intent || "explain-code");
-    });
-    const askAi = () => {
-      const q = aiQ.value.trim();
-      if (!q) {
-        aiQ.focus();
-        return;
-      }
-      runAi("qa", q);
-      aiQ.value = "";
-    };
-    document.getElementById("fe-ql-ai-ask").addEventListener("click", askAi);
-    aiQ.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") askAi();
-      else if (e.key === "Escape") {
-        if (aiCancel) {
-          e.stopPropagation();
-          aiCancel();
-        } else if (aiQ.value) {
-          e.stopPropagation();
-          aiQ.value = "";
-        } else {
-          e.stopPropagation();
-          closePreview();
-        }
-      }
-    });
+    document.getElementById("fe-ql-ai-btn").addEventListener("click", askInPreview);
     document.getElementById("fe-ql-body").addEventListener("click", (e) => {
       const th = e.target.closest(".fe-ql-table th");
       if (!th || !dsvHeader.length) return;
@@ -12370,8 +12152,16 @@ ${end.comment}` : end.comment;
   function closePreview() {
     if (galleryHost && overlay.style.display !== "none") return;
     if (edit) {
+      const clash = document.getElementById("fe-ed-conflict");
+      if (clash) {
+        clash.classList.add("flash");
+        setTimeout(() => clash.classList.remove("flash"), 700);
+        deps.toast?.("Choose one first.");
+        return;
+      }
       if (edit.timer) clearTimeout(edit.timer);
       if (edit.dirty) void saveNote();
+      leaveNote(edit);
       edit = null;
     }
     overlay.style.display = "none";
@@ -12384,227 +12174,27 @@ ${end.comment}` : end.comment;
     dsvRows = [];
     dsvSort = null;
     document.getElementById("fe-ql-body").innerHTML = "";
-    resetAiUi();
-  }
-  function resetAiUi() {
-    aiCancel?.();
-    aiCancel = null;
-    aiSeq++;
-    aiOn = false;
-    aiRun = null;
-    syncAiBar();
-    document.getElementById("fe-ql-ai-out").hidden = true;
-    document.getElementById("fe-ql-ai-out-q").textContent = "";
-    document.getElementById("fe-ql-ai-out-body").innerHTML = "";
-    document.getElementById("fe-ql-ai-out-meta").textContent = "";
-    setAiBusy(false);
-    document.getElementById("fe-ql-ai-q").value = "";
-  }
-  function syncAiBar() {
-    const open = aiOn && aiBarPref.get();
-    document.getElementById("fe-ql-ai").hidden = !open;
-    const btn = document.getElementById("fe-ql-ai-btn");
-    btn.hidden = !aiOn;
-    btn.classList.toggle("on", open);
-    btn.setAttribute("aria-pressed", String(open));
-    btn.title = open ? "Hide the AI bar" : "Ask about this file (a)";
   }
   function askInPreview() {
-    if (!aiOn) return false;
-    aiBarPref.set(true);
-    syncAiBar();
-    document.getElementById("fe-ql-ai-q").focus();
+    if (!currentEntry || !canAsk(currentEntry)) return false;
+    if (layout.mode !== "side" && !galleryHost) document.getElementById("fe-ql-dock")?.click();
+    deps.askAbout?.(currentEntry);
     return true;
   }
-  function setAiBusy(busy2) {
-    document.getElementById("fe-ql-ai-stop").hidden = !busy2;
-    document.getElementById("fe-ql-ai-retry").hidden = busy2 || !aiRun || document.getElementById("fe-ql-ai-out").hidden;
-  }
-  var aiExt = "";
-  function setupAi(e, ext2) {
-    if (aiMissing()) return;
-    aiExt = ext2;
-    const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
-    const image = ext2 === "image";
-    const exp = document.getElementById("fe-ql-ai-exp");
-    exp.textContent = tabular || image ? "Describe" : "Explain";
-    exp.dataset.intent = image ? "describe-image" : tabular ? "describe-data" : "explain-code";
-    exp.dataset.title = image ? "What the image shows, read by the local vision model; it never leaves this Mac" : tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
-    const chip = document.getElementById("fe-ql-ai-chip");
-    const chipTxt = document.getElementById("fe-ql-ai-chip-txt");
-    const recheck = document.getElementById("fe-ql-ai-recheck");
-    const q = document.getElementById("fe-ql-ai-q");
-    const paint = (state, why = "") => {
-      aiChecking = state === "checking";
-      chip.className = state === "checking" ? "" : state;
-      chipTxt.textContent = state === "ready" ? "AI \xB7 ready" : state === "cold" ? "AI \xB7 cold start" : state === "down" ? why : "AI \xB7 checking";
-      const on = state !== "down";
-      document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
-        b.disabled = !on;
-        b.title = on ? b.dataset.title ?? "" : why;
-      });
-      q.disabled = !on;
-      q.placeholder = on ? "Ask about this file" : "Ask is off until the model runs";
-      recheck.hidden = state !== "down";
-    };
-    if (aiHeld?.e !== e) aiHeld = null;
-    if (aiHeld?.e !== e) aiChat = { href: "", id: "" };
-    paint("checking");
-    aiOn = true;
-    syncAiBar();
-    restoreAiAnswer(e);
-    llmAvailability().then((av) => {
-      if (currentEntry !== e || !isPreviewOpen()) return;
-      const asked = askWhenReady === e;
-      if (asked) askWhenReady = null;
-      const held3 = aiHeld?.e === e ? aiHeld : null;
-      aiHeld = null;
-      if (av.kind === "unavailable") {
-        aiChecking = false;
-        aiNonePref.set(String(Date.now()));
-        aiOn = false;
-        syncAiBar();
-        if (asked) deps.toast?.("Ask needs the lm toolkit, which is not installed");
-        return;
-      }
-      aiNonePref.set("");
-      paint(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
-      if (asked && av.kind === "ready") document.getElementById("fe-ql-ai-q").focus();
-      if (held3 && av.kind === "ready") runAi(held3.intent, held3.question);
-    });
-  }
-  var aiChecking = false;
-  var aiHeld = null;
-  var aiChat = { href: "", id: "" };
-  var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe", "explain-code": "Explain", "describe-data": "Describe", "describe-image": "Describe" };
-  var IMAGE_ASKED = { summarize: "Summarize what this image shows in a few lines.", "describe-image": "Describe this image in detail, with any text in it verbatim." };
-  var pathOf = (e) => decodeURIComponent(new URL(e.href, location.href).pathname);
-  function restoreAiAnswer(e) {
-    let last = null;
-    try {
-      for (const c of chatsFor(pathOf(e))) {
-        const ok = c.turns.filter((x2) => !x2.error && !x2.via && x2.a);
-        const t = ok[ok.length - 1];
-        if (c.id.startsWith("pv-") && t) {
-          last = { turn: t };
-          break;
-        }
-      }
-    } catch {
-    }
-    if (!last) return;
-    const { turn } = last;
-    const exp = document.getElementById("fe-ql-ai-exp");
-    const byLabel = { Summarize: "summarize", Explain: "explain-code", Describe: exp.dataset.intent || "describe-data" };
-    aiRun = turn.intent ? { intent: turn.intent } : byLabel[turn.q] ? { intent: byLabel[turn.q] } : { intent: "qa", question: turn.q };
-    document.getElementById("fe-ql-ai-out").hidden = false;
-    document.getElementById("fe-ql-ai-out-q").textContent = turn.q;
-    document.getElementById("fe-ql-ai-out-body").innerHTML = renderMarkdown(closeOpenFence(splitThinking(turn.a).answer));
-    document.getElementById("fe-ql-ai-out-meta").textContent = turnMeta(turn);
-    setAiBusy(false);
-  }
-  function runAi(intent, question) {
-    if (aiChecking) {
-      if (currentEntry) aiHeld = { e: currentEntry, intent, question };
-      return;
-    }
-    if (currentText === null && !currentImage || !currentEntry) return;
-    const entry = currentEntry;
-    const run = { intent, question };
-    aiRun = run;
-    const asked = question || AI_ASKED[intent] || intent;
-    const image = currentImage;
-    if (image) {
-      question = question || IMAGE_ASKED[intent] || IMAGE_ASKED["describe-image"];
-      intent = "qa";
-    }
-    if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: "pv-" + Date.now().toString(36) };
-    aiCancel?.();
-    const seq2 = ++aiSeq;
-    const startedAt = Date.now();
-    const body = document.getElementById("fe-ql-ai-out-body");
-    const meta = document.getElementById("fe-ql-ai-out-meta");
-    document.getElementById("fe-ql-ai-out").hidden = false;
-    document.getElementById("fe-ql-ai-out-q").textContent = asked;
-    body.textContent = "";
-    meta.textContent = "Thinking\u2026";
-    let full = "";
-    let frame = 0;
-    let over = false;
-    const model = deps.aiModel?.();
-    const paint = () => {
-      body.innerHTML = renderMarkdown(closeOpenFence(splitThinking(full).answer));
-    };
-    const file = (extra) => {
-      const turn = {
-        q: asked,
-        a: full,
-        model: model || "default",
-        ms: Date.now() - startedAt,
-        at: startedAt,
-        ...run.intent !== "qa" ? { intent: run.intent } : {},
-        ...extra
-      };
-      try {
-        addTurn(pathOf(entry), aiChat.id, turn);
-      } catch {
-      }
-      return turn;
-    };
-    setAiBusy(true);
-    const stopQuery = llmQuery(
-      { ctx: image ? "" : currentText ?? "", ctxName: entry.name, intent, question, model, files: image ? [image] : void 0 },
-      {
-        onStep: (t) => {
-          if (seq2 === aiSeq && !over) meta.textContent = t + "\u2026";
-        },
-        onChunk: (t) => {
-          if (seq2 !== aiSeq || over) return;
-          full += t;
-          meta.textContent = "";
-          frame ||= requestAnimationFrame(() => {
-            frame = 0;
-            if (!over && seq2 === aiSeq) paint();
-          });
-        },
-        onDone: (info) => {
-          if (seq2 !== aiSeq || over) return;
-          over = true;
-          cancelAnimationFrame(frame);
-          aiCancel = null;
-          paint();
-          meta.textContent = turnMeta(file({ model: info.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut }), info.truncated);
-          setAiBusy(false);
-        },
-        onError: (code, message) => {
-          if (seq2 !== aiSeq || over) return;
-          over = true;
-          cancelAnimationFrame(frame);
-          aiCancel = null;
-          setAiBusy(false);
-          if (code === "cancelled") return;
-          body.textContent = LLM_ERROR_TEXT[code] ?? message;
-          meta.textContent = "";
-        }
-      }
-    );
-    if (!over) aiCancel = () => {
-      if (over) return;
-      over = true;
-      cancelAnimationFrame(frame);
-      stopQuery();
-      aiCancel = null;
-      if (full.trim()) {
-        paint();
-        meta.textContent = turnMeta(file({ stopped: true }));
-      } else {
-        body.textContent = "Stopped before an answer came.";
-        meta.textContent = "";
-      }
-      setAiBusy(false);
-    };
-  }
   var edit = null;
+  function leaveNote(st) {
+    st.stopWatch?.();
+    st.autoName = false;
+    if (st.base === "" && !st.dirty && !st.head && /^untitled-/.test(st.rel.split("/").pop()) && !st.ta?.value.trim()) {
+      void notes.delete(st.root, st.rel).then((r) => notes.purge(st.root, r.trashed)).then(() => st.onSaved?.(st.rel)).catch(() => {
+      });
+    }
+  }
+  window.addEventListener("beforeunload", (e) => {
+    if (!edit?.dirty) return;
+    void saveNote();
+    e.preventDefault();
+  });
   function editingRel() {
     return edit ? edit.rel : null;
   }
@@ -12629,10 +12219,14 @@ ${end.comment}` : end.comment;
       if (edit.timer) clearTimeout(edit.timer);
       edit.dirty = false;
     }
+    document.getElementById("fe-ed-conflict")?.remove();
     closePreview();
   }
   function openNote(root2, doc, onSaved, actions) {
     if (edit && edit.dirty) void saveNote();
+    if (edit) leaveNote(edit);
+    document.getElementById("fe-ed-conflict")?.remove();
+    document.getElementById("fe-ed-diff")?.remove();
     currentEntry = null;
     reqSeq++;
     const { head, body: noteBody } = splitNote(doc.text);
@@ -12642,7 +12236,6 @@ ${end.comment}` : end.comment;
     const nameEl = document.getElementById("fe-ql-name");
     nameEl.href = fileHref(root2.replace(/\/$/, "") + "/" + doc.rel);
     document.getElementById("fe-ql-open").href = nameEl.href;
-    resetAiUi();
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.style.display = "";
     copyBtn.disabled = false;
@@ -12660,7 +12253,7 @@ ${end.comment}` : end.comment;
       <button class="btn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
       <button class="btn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
       <button class="btn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
-      <button class="btn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="btn" data-act="heading" title="Heading, deeper each press (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
       <button class="btn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
       <button class="btn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
       <button class="btn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
@@ -12669,7 +12262,7 @@ ${end.comment}` : end.comment;
       <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
       <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
       <span class="bar-sep" aria-hidden="true"></span>
-      <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      <button class="btn" data-act="versions" title="Every save, from git history">${UI_ICON.versions}<span>Versions</span></button>
       ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
       <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
       <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
@@ -12684,6 +12277,7 @@ ${end.comment}` : end.comment;
     ta.value = noteBody;
     edit.ta = ta;
     const buf = attachBuffer(ta, `note:${root2}/${doc.rel}`);
+    edit.autoName = doc.text === "" && /^untitled-/.test(doc.rel.split("/").pop());
     const apply = (r) => {
       buf.snap();
       ta.value = r.text;
@@ -12771,7 +12365,7 @@ ${end.comment}` : end.comment;
       hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
       try {
         const v = await notes.version(root2, edit?.rel ?? doc.rel, sha);
-        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
+        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Use this text; today's stays in versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
         document.getElementById("fe-hist-use").addEventListener("click", () => {
           buf.snap();
           ta.value = splitNote(v.text).body;
@@ -12831,8 +12425,9 @@ ${end.comment}` : end.comment;
       [...this.files ?? []].forEach((f) => void addImage(f));
       this.value = "";
     });
+    const drawInto = morphInto(view);
     const renderView = () => {
-      view.innerHTML = renderMarkdown(ta.value, nameEl.href);
+      drawInto(renderMarkdown(ta.value, nameEl.href));
     };
     renderView();
     const showClash = () => {
@@ -12876,6 +12471,10 @@ ${end.comment}` : end.comment;
       edit.timer = setTimeout(() => void saveNote(), 1500);
     });
     ta.addEventListener("keydown", (e) => {
+      if (e.isComposing) {
+        e.stopPropagation();
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
       const stop = () => {
@@ -12973,6 +12572,100 @@ ${end.comment}` : end.comment;
     ta.setSelectionRange(0, 0);
     ta.focus();
     ta.scrollTop = 0;
+    st.stopWatch = watch(async () => {
+      if (edit !== st) return;
+      try {
+        if ((await notes.fileStat(st.root, st.rel)).mtime === st.mtime || edit !== st || st.saving) return;
+        const now = await notes.read(st.root, st.rel);
+        if (edit !== st || st.saving || now.mtime === st.mtime) return;
+        if (now.text === st.base) {
+          st.mtime = now.mtime;
+          return;
+        }
+        if (st.dirty) {
+          showNoteClash(st, "Changed on disk.");
+          return;
+        }
+        const parts2 = splitNote(now.text), was = sel(), change2 = diffText(ta.value, parts2.body), top = ta.scrollTop;
+        buf.snap();
+        ta.value = parts2.body;
+        ta.setSelectionRange(mapCaret(was.start, change2), mapCaret(was.end, change2));
+        ta.scrollTop = top;
+        buf.snap();
+        st.head = parts2.head;
+        st.text = now.text;
+        st.base = now.text;
+        st.mtime = now.mtime;
+        currentText = now.text;
+        renderView();
+        st.redrawMeta?.();
+        editHeader("saved");
+      } catch (err) {
+        if (err.code === "notes_missing" && !st.saving) showNoteClash(st, "Moved or deleted. Your text is only here.", true);
+      }
+    }, { pause: () => st.saving });
+  }
+  function showNoteClash(st, why, gone = false) {
+    if (edit !== st) return;
+    editHeader(gone ? "not on disk" : "changed on disk, not saved");
+    document.getElementById("fe-ed-conflict")?.remove();
+    document.getElementById("fe-ql-body").insertAdjacentHTML(
+      "afterbegin",
+      `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">${esc(why)} ` + (gone ? `<button id="fe-ed-resave" class="btn" data-size="sm" data-variant="outline" title="Write your text back as this note">${UI_ICON.check}<span>Save again</span></button> <button id="fe-ed-drop" class="btn" data-size="sm" data-variant="outline" title="Close and lose the text on screen">${UI_ICON.trash}<span>Discard</span></button>` : `<button id="fe-ed-compare" class="btn" data-size="sm" data-variant="outline" title="Show what differs from your text">${UI_ICON.versions}<span>Compare</span></button> <button id="fe-ed-reload" class="btn" data-size="sm" data-variant="outline" title="Replace your text with the disk copy">${UI_ICON.rotate}<span>Reload</span></button> <button id="fe-ed-force" class="btn" data-size="sm" data-variant="outline" title="Save yours; the disk copy is backed up">${UI_ICON.check}<span>Keep mine</span></button>`) + "</div>"
+    );
+    const on = (id, run) => document.getElementById(id)?.addEventListener("click", run);
+    const clear = () => {
+      document.getElementById("fe-ed-conflict")?.remove();
+      document.getElementById("fe-ed-diff")?.remove();
+    };
+    on("fe-ed-resave", () => {
+      clear();
+      void notes.write(st.root, st.rel, stampUpdated(st.text)).then((r) => {
+        st.mtime = r.mtime;
+        st.dirty = false;
+        editHeader("saved");
+        st.onSaved?.(st.rel);
+      }).catch((err) => showNoteClash(st, errorText(err, "Saving"), true));
+    });
+    on("fe-ed-drop", () => {
+      clear();
+      discardEditor();
+    });
+    on("fe-ed-reload", () => {
+      clear();
+      void notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
+    });
+    on("fe-ed-force", () => {
+      void notes.read(st.root, st.rel).then((d) => notes.fileWrite(st.root, st.rel, stampUpdated(st.text), d.mtime)).then((r) => {
+        clear();
+        st.mtime = r.mtime;
+        st.dirty = false;
+        editHeader("saved");
+        st.onSaved?.(st.rel);
+      }).catch((err) => editHeader(errorText(err, "Saving")));
+    });
+    on("fe-ed-compare", () => {
+      const open = document.getElementById("fe-ed-diff");
+      if (open) {
+        open.remove();
+        return;
+      }
+      void notes.read(st.root, st.rel).then((d) => {
+        if (document.getElementById("fe-ed-conflict")) document.getElementById("fe-ed-conflict").insertAdjacentHTML("afterend", `<div id="fe-ed-diff">${lineDiffHtml(d.text, st.text)}</div>`);
+      }).catch((err) => editHeader(errorText(err, "Reading the file on disk")));
+    });
+  }
+  function rescueNote(st, text) {
+    const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/\D/g, "").slice(0, 14);
+    const rel = st.rel.replace(/\.md$/, "") + `-rescued-${stamp}.md`;
+    notes.create(st.root, rel, text).then(() => {
+      deps.toast?.(`Could not save it, so your text is in ${rel}`);
+      st.onSaved?.(rel);
+    }).catch(() => {
+      void navigator.clipboard.writeText(text).catch(() => {
+      });
+      deps.toast?.("Could not save the note. Your text is on the clipboard.");
+    });
   }
   async function saveNote(st = edit) {
     if (!st || st.saving) return;
@@ -13008,11 +12701,12 @@ ${end.comment}` : end.comment;
       st.dirty = st.version !== version;
       st.base = text;
       const want = slugForTitle(noteTitle(st.rel, st.text));
-      if (/^untitled-/.test(st.rel.split("/").pop()) && !/^untitled/.test(want)) {
+      if ((/^untitled-/.test(st.rel.split("/").pop()) || st.autoName) && !/^untitled/.test(want)) {
         const to = st.rel.replace(/[^/]+$/, want);
-        try {
+        if (to !== st.rel) try {
           await notes.rename(st.root, st.rel, to);
           st.rel = to;
+          st.autoName = true;
         } catch {
         }
       }
@@ -13024,28 +12718,15 @@ ${end.comment}` : end.comment;
     } catch (err) {
       const e = err;
       if (edit === st) {
-        editHeader(e.code === "notes_conflict" ? "changed on disk, not saved" : errorText(e, "Saving"));
         if (e.code === "notes_conflict") {
-          const body = document.getElementById("fe-ql-body");
-          if (!document.getElementById("fe-ed-conflict")) {
-            body.insertAdjacentHTML(
-              "afterbegin",
-              `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`
-            );
-            document.getElementById("fe-ed-reload").addEventListener("click", () => {
-              notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
-            });
-            document.getElementById("fe-ed-force").addEventListener("click", () => {
-              st.mtime = 0;
-              notes.read(st.root, st.rel).then((d) => {
-                st.mtime = d.mtime;
-                document.getElementById("fe-ed-conflict")?.remove();
-                void saveNote();
-              });
-            });
-          }
+          if (!document.getElementById("fe-ed-conflict")) showNoteClash(st, "Changed on disk.");
+        } else if (e.code === "notes_missing") showNoteClash(st, "Moved or deleted. Your text is only here.", true);
+        else {
+          editHeader(errorText(e, "Saving"));
+          if (st.timer) clearTimeout(st.timer);
+          st.timer = setTimeout(() => void saveNote(st), 4e3);
         }
-      } else deps.saveError?.(errorText(e, "Saving the note"));
+      } else rescueNote(st, text);
     } finally {
       st.saving = false;
       if (wrote && st.dirty) void saveNote(st);
@@ -13056,7 +12737,9 @@ ${end.comment}` : end.comment;
     if (edit) {
       if (edit.timer) clearTimeout(edit.timer);
       if (edit.dirty) void saveNote();
+      leaveNote(edit);
       edit = null;
+      document.getElementById("fe-ed-conflict")?.remove();
     }
     document.getElementById("fe-ql-body").classList.remove("fe-editing");
     closePropsMenu();
@@ -13081,14 +12764,13 @@ ${end.comment}` : end.comment;
     dsvSort = null;
     currentText = null;
     currentImage = null;
-    resetAiUi();
+    document.getElementById("fe-ql-ai-btn").hidden = !canAsk(e);
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.disabled = true;
     if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
       copyBtn.style.display = "none";
       if (IMG_EXTS.has(ext2)) {
         currentImage = decodeURIComponent(new URL(e.href, location.href).pathname);
-        setupAi(e, "image");
         body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
         mountImageTools(body.querySelector(".fe-ql-imgwrap"), {
           href: e.href,
@@ -13108,7 +12790,6 @@ ${end.comment}` : end.comment;
       return;
     }
     copyBtn.style.display = "";
-    setupAi(e, ext2);
     if (e.rawBytes > FETCH_WARN_BYTES) {
       body.innerHTML = `
       <div class="fe-ql-center">
@@ -13144,10 +12825,7 @@ ${end.comment}` : end.comment;
     const body = document.getElementById("fe-ql-body");
     const note2 = unrenderableNote(text);
     if (note2) {
-      if (sniffBinary(text)) {
-        aiOn = false;
-        syncAiBar();
-      }
+      if (sniffBinary(text)) document.getElementById("fe-ql-ai-btn").hidden = true;
       body.innerHTML = `<div class="fe-ql-center">${note2}</div>`;
       return;
     }
@@ -13698,11 +13376,22 @@ ${t}`)) say("Note title saved");
         if (k === "saved") {
           const on = e.target.checked;
           const label = field("label").value.trim() || baseOf2(path);
-          saveSaved(on ? upsertPlace(getSaved(), { path, label }) : removePlace(getSaved(), path));
-          field("label").disabled = !on;
-          app.refreshSaved();
-          paintBtn();
-          say(on ? "Saved" : "Removed from Saved");
+          const check = e.target;
+          const refresh = () => {
+            const kept = getSaved().some((p) => samePlace(p.path, path));
+            check.checked = kept;
+            field("label").disabled = !kept;
+            app.refreshSaved();
+            paintBtn();
+          };
+          if (on) {
+            saveSaved(upsertPlace(getSaved(), { path, label }));
+            refresh();
+            say("Saved");
+          } else {
+            removeSavedWithUndo(path, app.toast, refresh);
+            say("");
+          }
         } else if (k === "pinned") {
           const on = e.target.checked;
           if (await writeNote((t2) => applyChange(t2, { pinned: on }))) say(on ? "Pinned in Notes" : "Unpinned");
@@ -13804,6 +13493,40 @@ ${t}`)) say("Note title saved");
   }
   function markDocView(root2, id) {
     root2.dataset.docview = id;
+  }
+
+  // src/ask-yes-no.ts
+  function askYesNo(message, yes, no = "Cancel") {
+    return new Promise((resolve) => {
+      const root2 = document.createElement("div");
+      root2.className = "fe-dlg fe-yesno";
+      root2.innerHTML = `<div class="fe-dlg-bg scrim"></div>
+      <div class="panel fe-yesno-box" role="alertdialog" aria-label="${esc(message)}" tabindex="-1">
+        <p>${esc(message)}</p>
+        <div class="fe-yesno-acts">
+          <button type="button" class="btn" data-a="no">${esc(no)}</button>
+          <button type="button" class="btn" data-variant="solid" data-tone="danger" data-a="yes">${esc(yes)}</button>
+        </div>
+      </div>`;
+      (document.getElementById("fe") ?? document.body).append(root2);
+      let answer2 = false;
+      const layer = openLayer(root2, {
+        kind: "dialog",
+        place: "none",
+        backdrop: root2.querySelector(".fe-dlg-bg"),
+        focus: root2.querySelector('[data-a="no"]'),
+        onClose: () => {
+          root2.remove();
+          resolve(answer2);
+        }
+      });
+      root2.addEventListener("click", (e) => {
+        const a = e.target.closest("[data-a]")?.dataset.a;
+        if (!a) return;
+        answer2 = a === "yes";
+        layer.close("pick");
+      });
+    });
   }
 
   // src/dp-io.ts
@@ -15683,9 +15406,15 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     return ms.length ? `<div class="fe-dv-strip" data-media-set>${ms.map((m) => mediaHtml(m)).join("")}</div>` : "";
   }
   var mediaIn = (scope) => [...scope.querySelectorAll(".fe-dv-media")];
+  function choiceName(code, label) {
+    const lead = label.slice(0, code.length).toLowerCase() === code.toLowerCase() ? label.slice(code.length) : "";
+    return /^[.):]\s+\S/.test(lead) ? lead.replace(/^[.):]\s+/, "") : label;
+  }
   var toMedia = (f) => {
     const marks = f.dataset.marks ? marksOf(JSON.parse(f.dataset.marks)) : [];
-    return { src: f.dataset.src, name: f.dataset.name, kind: f.dataset.kind, ...marks.length ? { marks } : {} };
+    const opt = f.closest("[data-media-choice]");
+    const cat = opt ? { code: opt.dataset.mediaChoice, label: choiceName(opt.dataset.mediaChoice, opt.dataset.mediaName ?? ""), rec: "mediaRec" in opt.dataset } : void 0;
+    return { src: f.dataset.src, name: f.dataset.name, kind: f.dataset.kind, ...marks.length ? { marks } : {}, ...cat ? { cat } : {} };
   };
   var smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   function toggleZoom(f) {
@@ -15712,7 +15441,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     root2.className = "fe-dlg fe-dv-view";
     root2.innerHTML = `<div class="fe-dlg-bg scrim"></div>
     <div class="panel fe-dv-view-box" role="dialog" aria-label="${esc(label)}" tabindex="-1">
-      <header class="bar fe-dv-view-head"><b class="fe-dv-view-title">${esc(title)}</b><span class="fe-dv-view-tools"></span>${actBtn("close", UI_ICON.close, "Close (Esc)")}</header>
+      <header class="bar fe-dv-view-head"><span class="fe-dv-view-titles"><b class="fe-dv-view-title">${esc(title)}</b><span class="fe-dv-view-sub" hidden></span></span><span class="fe-dv-view-tools"></span>${actBtn("close", UI_ICON.close, "Close (Esc)")}</header>
       <div class="fe-dv-view-body"></div>
     </div>`;
     (document.getElementById("fe") ?? document.body).append(root2);
@@ -15733,9 +15462,39 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     root2.querySelector('[data-media="close"]').addEventListener("click", () => layer.close("api"));
     return layer;
   }
+  function railHtml(set2) {
+    const groups = [];
+    set2.forEach((m, i3) => {
+      const last = groups[groups.length - 1];
+      if (last && last.cat?.code === m.cat?.code) last.at.push(i3);
+      else groups.push({ cat: m.cat, at: [i3] });
+    });
+    const thumb2 = (i3) => {
+      const m = set2[i3];
+      return `<button type="button" class="fe-dv-thumb" data-at="${i3}" title="${esc(m.name)}" aria-label="${esc(`${m.cat ? `${m.cat.label}: ` : ""}${m.name}`)}">${m.kind === "img" ? `<img src="${esc(m.src)}" alt="" loading="lazy" draggable="false">` : `<span class="fe-dv-thumb-mock">${esc(m.name)}</span>`}</button>`;
+    };
+    return groups.map((g) => `<section class="fe-dv-rail-grp"${g.cat ? ` data-code="${esc(g.cat.code)}"` : ""}>
+      ${g.cat ? `<header class="fe-dv-rail-head" title="${esc(g.cat.label)}"><span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${esc(g.cat.label)}</span></header>` : ""}
+      <div class="fe-dv-rail-thumbs">${g.at.map(thumb2).join("")}</div>
+    </section>`).join("");
+  }
   function openFocus(set2, at, notify) {
     viewer?.layer.close("replaced");
     const { root: root2, body, head } = shell("", "Large view");
+    const rail = document.createElement("nav");
+    if (set2.length > 1) {
+      const row2 = document.createElement("div");
+      row2.className = "fe-dv-view-row";
+      rail.className = "fe-dv-rail";
+      rail.setAttribute("aria-label", "Everything in this set");
+      rail.innerHTML = railHtml(set2);
+      body.replaceWith(row2);
+      row2.append(rail, body);
+    }
+    const titleEl = head.querySelector(".fe-dv-view-title");
+    const subEl = head.querySelector(".fe-dv-view-sub");
+    let tools = null;
+    let left;
     const anyMarks = set2.some((m) => m.marks);
     head.querySelector(".fe-dv-view-tools").innerHTML = (anyMarks ? actBtn("marks", UI_ICON.eye, "Show or hide the marks", ' aria-pressed="true"') : "") + (set2.length > 1 ? actBtn("prev", UI_ICON.prev, "Previous (\u2190)") + actBtn("next", UI_ICON.next, "Next (\u2192)") : "");
     const marksBtn = head.querySelector('[data-media="marks"]');
@@ -15744,17 +15503,34 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     let i3 = at;
     const draw = () => {
       const m = set2[i3];
-      head.querySelector(".fe-dv-view-title").textContent = set2.length > 1 ? `${m.name} \xB7 ${i3 + 1} of ${set2.length}` : m.name;
+      const place = set2.length > 1 ? `${i3 + 1} of ${set2.length}` : "";
+      if (m.cat) {
+        const same = set2.filter((x2) => x2.cat?.code === m.cat.code);
+        titleEl.innerHTML = `<span class="badge" data-size="sm" data-tone="quiet">${esc(m.cat.code)}</span> <span class="fe-dv-view-name">${esc(m.cat.label)}</span>${m.cat.rec ? ' <span class="badge fe-dp-rec" data-size="sm" data-tone="quiet">Recommended</span>' : ""}`;
+        titleEl.title = m.cat.label;
+        subEl.textContent = [m.name, same.length > 1 ? `${same.indexOf(m) + 1} of ${same.length} in this choice` : "", place].filter(Boolean).join(" \xB7 ");
+        subEl.hidden = false;
+      } else titleEl.textContent = place ? `${m.name} \xB7 ${place}` : m.name;
+      rail.querySelectorAll(".fe-dv-thumb").forEach((t) => {
+        const on = t.dataset.at === String(i3);
+        if (on) {
+          t.setAttribute("aria-current", "true");
+          t.scrollIntoView({ block: "nearest" });
+        } else t.removeAttribute("aria-current");
+      });
       body.dataset.kind = m.kind;
       if (marksBtn) marksBtn.hidden = !m.marks;
+      if (tools) left = tools.state();
+      tools = null;
       if (m.kind === "html") body.innerHTML = `<iframe class="fe-dv-view-frame" sandbox="allow-scripts" src="${esc(m.src)}" title="${esc(m.name)}"></iframe>`;
       else {
         body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
-        mountImageTools(body.firstElementChild, {
+        tools = mountImageTools(body.firstElementChild, {
           href: m.src,
           name: m.name,
           path: decodeURIComponent(new URL(m.src, location.href).pathname),
           notify,
+          start: left,
           // Outside the extension (the web build of a page) there is no app to open it in.
           openNative: (p) => typeof chrome === "undefined" || !chrome.runtime?.id ? Promise.resolve(false) : new Promise((res) => chrome.runtime.sendMessage(
             { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
@@ -15772,6 +15548,16 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     };
     head.querySelector('[data-media="prev"]')?.addEventListener("click", () => step2(-1));
     head.querySelector('[data-media="next"]')?.addEventListener("click", () => step2(1));
+    rail.addEventListener("click", (e) => {
+      const t = e.target.closest(".fe-dv-thumb");
+      if (t) {
+        i3 = Number(t.dataset.at);
+        draw();
+      }
+    });
+    root2.addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    }, { passive: false });
     marksBtn?.addEventListener("click", () => {
       const off = root2.classList.toggle("marks-off");
       marksBtn.setAttribute("aria-pressed", String(!off));
@@ -15938,9 +15724,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   </div>` : "";
   function optionHtml(d, o, n, base2, none2 = false) {
     const imgs = mediaList(o.images, base2);
-    return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none2 ? " none" : ""}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} \xB7 ${o.label}`)}" title="Answer code ${esc(o.code)}">
+    return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none2 ? " none" : ""}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} \xB7 ${o.label}`)}" data-media-choice="${esc(o.code)}" data-media-name="${esc(o.label)}"${o.rec ? " data-media-rec" : ""} title="Answer code ${esc(o.code)}">
       <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
-      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map((m) => mediaHtml(m, true)).join("")}</span>` : ""}
+      ${imgs.length ? `<span class="fe-dp-tile-img" style="--rest:${Math.min(3, Math.max(1, imgs.length - 1))}">${imgs.map((m) => mediaHtml(m, true)).join("")}</span>` : ""}
       <span class="fe-dp-opt-row">
         <kbd class="fe-dp-num">${n}</kbd>
         <span class="fe-dp-opt-tx"><span class="fe-dp-opt-lbl">${esc(o.label)}</span>${o.why ? `<span class="fe-dp-why">${esc(o.why)}</span>` : ""}</span>
@@ -16048,7 +15834,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const folded = /* @__PURE__ */ new Set(["never", "archived"]);
     const archived = () => new Set(archivedPref.get());
     box.innerHTML = `<div class="bar fe-lens-tools" data-inset hidden>
-      <label class="fe-lens-box"><input id="fe-dpl-q" class="tb" data-size="lg" data-lead="search" type="search" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches a page's title, name, project and topic. Esc clears."></label>
+      <label class="fe-lens-box"><input id="fe-dpl-q" class="tb" data-size="lg" data-lead="search" type="search" placeholder="Filter" spellcheck="false" autocomplete="off" title="Title, name, project and topic. Esc clears."></label>
     </div><div class="fe-dpl-rows"></div>`;
     const top = box.querySelector(".fe-lens-tools"), rowsBox = box.querySelector(".fe-dpl-rows");
     const input = box.querySelector("#fe-dpl-q");
@@ -16061,7 +15847,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const reach = r.reach && REACH[r.reach];
       const reachHtml = reach ? `<span class="fe-dpl-reach" data-reach="${r.reach}" title="${esc(reach.tip)}">${esc(reach.label)}</span>` : "";
       const lost = r.state === "answered" && r.told === "undelivered";
-      const toldHtml = lost ? `<span class="fe-dpl-told" data-told="undelivered" title="The answer was saved, but the agent that asked could not be told. It sees it next time it reads its pages.">agent not told</span>` : "";
+      const toldHtml = lost ? `<span class="fe-dpl-told" data-told="undelivered" title="Saved, but the agent was not told">agent not told</span>` : "";
       const sub = [toldHtml, reachHtml, origin && esc(origin)].filter(Boolean).join(" \xB7 ");
       return `<button type="button" class="row fe-dpl-row${unseen ? " unseen" : ""}"${lost ? ' data-told="undelivered"' : ""} data-path="${esc(r.path)}" data-slug="${esc(r.slug)}"${r.reach ? ` data-reach="${r.reach}"` : ""} title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}${reach ? ` \xB7 ${esc(reach.tip)}` : ""}">
         <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
@@ -16247,9 +16033,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   var DOWN = /* @__PURE__ */ new Set(["unavailable", "dp_unavailable"]);
   var codeOf2 = (e) => e?.code ?? "";
   var answerBarHtml = () => `<span class="fe-dp-bar-end">
-  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Show the answer as it will be sent (p)">Answer</button>
+  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">Answer</button>
   <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
-  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send the answer to the agent that asked (s or \u2318\u21A9)">Submit</button></span>`;
+  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or \u2318\u21A9)">Submit</button></span>`;
   var answerPanelHtml = () => `
   <section class="card fe-dp-answer" id="fe-dp-answer" hidden aria-label="The answer as it will be sent">
     <p class="notice" id="fe-dp-answer-note" hidden></p>
@@ -16392,7 +16178,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         return;
       }
       const replace = !!sent;
-      if (replace && !confirm("Replace the answer you already sent? The agent is told again.")) return;
+      if (replace && !await askYesNo("Replace the answer you already sent? The agent is told again.", "Replace")) return;
       busy2 = true;
       paintButtons();
       try {
@@ -16431,6 +16217,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
 
   // src/dp-page.ts
+  var itemsWord = (n) => `${n} ${n === 1 ? "item" : "items"}`;
   function parseDpConfig(text) {
     let c;
     try {
@@ -16481,7 +16268,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       <span class="fe-dp-progress" id="fe-dp-progress" aria-live="polite"></span>
       ${cfg.notes !== false ? '<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">Notes</button>' : ""}
       <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>Marks</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Show only the cards you changed or noted (f)">Flagged only</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">Flagged only</button>
       <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">Reset</button>
       <span class="fe-dp-bar-gap"></span>${answerBarHtml()}
     </div>
@@ -16570,8 +16357,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         { state: "changed", n: n("changed"), label: "changed" },
         { state: "noted", n: n("noted"), label: "noted" },
         { state: "drafted", n: n(null), label: "as drafted" }
-      ], "", `${p.items} items`);
-      box.querySelector("#fe-dp-progress").textContent = p.asDrafted ? `${p.items} items \xB7 all as drafted` : `${p.items} items \xB7 ${p.flagged} flagged`;
+      ], "", itemsWord(p.items));
+      box.querySelector("#fe-dp-progress").textContent = p.asDrafted ? `${itemsWord(p.items)} \xB7 all as drafted` : `${itemsWord(p.items)} \xB7 ${p.flagged} flagged`;
     };
     const paint = () => {
       for (const c of cards2()) {
@@ -16593,15 +16380,15 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (end) end.value = state.endNotes;
       box.querySelector("#fe-dp-notes")?.setAttribute("aria-pressed", String(notesOn.get()));
       tally2();
-      answer?.changed();
+      answer2?.changed();
     };
     const save = () => {
       saved.set(state);
       editedAt.set(Date.now());
       tally2();
-      answer?.changed();
+      answer2?.changed();
     };
-    let answer = null;
+    let answer2 = null;
     const shut = new Set(folded.get());
     for (const g of box.querySelectorAll(".fe-dp-grp")) {
       if (shut.has(g.dataset.grp)) g.open = false;
@@ -16706,14 +16493,14 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     };
     box.querySelector("#fe-dp-notes")?.addEventListener("click", () => allNotes(!notesOn.get()));
     box.querySelector("#fe-dp-flagged").addEventListener("click", () => flaggedOnly(!box.classList.contains("flagged-only")));
-    box.querySelector("#fe-dp-reset").addEventListener("click", () => {
-      if (!confirm("Put every answer back as drafted? Your picks and notes on this page are cleared.")) return;
+    box.querySelector("#fe-dp-reset").addEventListener("click", async () => {
+      if (!await askYesNo("Put every answer back as drafted? Your picks and notes on this page are cleared.", "Clear my answers")) return;
       state = draftedState(cfg);
       saved.set(null);
       editedAt.set(Date.now());
       paint();
     });
-    answer = wireAnswer(cfg, box, slug, base2, {
+    answer2 = wireAnswer(cfg, box, slug, base2, {
       state: () => state,
       // The sent answer refills the form; it is not an edit, so the edit time stays.
       replace: (s) => {
@@ -16758,9 +16545,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     }, () => live2() && notesAllowed);
     bind("dp-flagged", () => flaggedOnly(!box.classList.contains("flagged-only")), live2);
     bind("dp-theme", () => runCommand("theme"), live2);
-    bind("dp-panel", () => answer?.togglePanel(), live2);
-    bind("dp-copy", () => void answer?.copy(), live2);
-    bind("dp-submit", () => void answer?.submit(), live2);
+    bind("dp-panel", () => answer2?.togglePanel(), live2);
+    bind("dp-copy", () => void answer2?.copy(), live2);
+    bind("dp-submit", () => void answer2?.submit(), live2);
     const typingNote = () => !!document.activeElement?.closest("#fe-dp textarea");
     bind("dp-esc", () => {
       if (unzoomAll(box)) return;
@@ -17660,6 +17447,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
+.btn[data-variant="solid"][data-tone="danger"],.btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"][data-tone="danger"]:hover{background:var(--tone-danger);color:var(--tx-on-ac)}
 .btn.kb{color:var(--tx);background:var(--hover)}
 .btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
 .btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
@@ -17759,6 +17547,14 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
 .rz[data-axis="xy"]:hover,.rz[data-axis="xy"].drag,.rz[data-axis="xy"]:focus-visible{background:linear-gradient(var(--ac),var(--ac)) right bottom/100% 2px no-repeat,linear-gradient(var(--ac),var(--ac)) right bottom/2px 100% no-repeat}
 body.fe-resizing{user-select:none}
 table.fe-col-edge,table.fe-col-edge *{cursor:col-resize}
+#fe-page:focus{outline:none}
+.fe-tab-menu{max-height:calc(100vh - var(--sp-9));overflow-y:auto}
+.fe-yesno-box{position:relative;z-index:1;width:min(420px,calc(100vw - var(--sp-9)));padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-5);outline:none}
+.fe-yesno-box p{margin:0;color:var(--tx)}
+.fe-yesno-acts{display:flex;justify-content:flex-end;gap:var(--sp-4)}
+#fe-ed-conflict.flash{outline:2px solid var(--nc-red)}
+#fe-ed-diff{max-height:40%;overflow:auto;padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--bd);background:var(--s1);font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5}
+.fe-col-line{box-shadow:inset -2px 0 0 var(--ac)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -17887,7 +17683,11 @@ body{opacity:1!important}
 .fe-home-card-h{min-height:var(--ctl-md);padding:0 var(--sp-5)}
 .fe-home-card[data-tone="calm"] .fe-home-card-h{color:var(--tone-ok)}
 .fe-home-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
-#fe.fe-home-mode #fe-toolbar,#fe.fe-home-mode #fe-sg-panel,#fe.fe-home-mode #fe-filter-bar,#fe.fe-home-mode #fe-scroll,#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
+/* Every part of the listing sits in #fe-listing, which adds no box of its own. A page
+   that replaces the listing joins this one list; main-surface.ts reads the result. */
+#fe-listing{display:contents}
+#fe:is(.fe-home-mode,.fe-file-page,.fe-dp-pending,.fe-dp-page) #fe-listing{display:none}
+#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
 #fe-home-page{flex:1;min-height:0;overflow:auto;padding:var(--sp-9)}
 #fe-home-page[hidden]{display:none}
 .fe-hp{max-width:100rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-6)}
@@ -18466,7 +18266,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-ico{display:flex;flex-shrink:0;position:relative}
 .fe-tab.pinned .fe-tab-ico::after{content:'';position:absolute;top:-3px;right:-3px;width:5px;height:5px;border-radius:50%;background:var(--ac)}
 .fe-tab-menu{position:fixed}
-#fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none}
 /* Buttons that do not fit wrap to a second row; clipping would hide Find, Contents and Comments. */
 #fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
 /* Contents and Comments float over the page as a translucent card, shown and
@@ -18476,6 +18275,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
+/* A floating rail takes room from the page rather than covering the ends of its lines. */
+#fe-fp:has(#fe-toc-rail.peek:not([hidden])) #fe-page{padding-right:272px}
+#fe-fp:has(#fe-toc-rail.peek[data-tab="cm"]:not([hidden])) #fe-page{padding-right:352px}
 .fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-6);flex:none;cursor:grab}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:var(--sp-1) 0 var(--sp-6)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
@@ -18656,7 +18458,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1);transition:background var(--t-flash) var(--ease)}
+#fe-fe-banner{position:absolute;top:0;left:0;right:0;z-index:var(--z-sticky);border-bottom:1px solid var(--bd);background:var(--s1);transition:background var(--t-flash) var(--ease)}
 #fe-fe-banner.flash{background:var(--on)}
 /* The lines that differ between the file on disk and the text being edited. */
 #fe-fe-diff{flex:none;max-height:40%;overflow:auto;border-bottom:1px solid var(--bd);background:var(--s1);padding:var(--sp-3) var(--sp-5);font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5}
@@ -18683,6 +18485,9 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 #fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
   background:transparent;color:transparent;caret-color:var(--ac)}
 #fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
+/* The Wrap button: long lines run on, and the column scrolls sideways to reach them. */
+#fe[data-wrap="off"] #fe-fe-src{width:max-content;min-width:100%}
+#fe[data-wrap="off"] :is(#fe-fe-paint,#fe-fe-ta){white-space:pre;overflow-wrap:normal}
 /* Large files: no wrapping, so every row is one line tall and only a window
    of rows is painted (#fe-fe-win, moved down to where the viewport is). */
 .fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
@@ -18690,7 +18495,10 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:var(--z-sticky);display:flex;align-items:center;gap:var(--sp-1);padding:var(--sp-2);
   border-radius:var(--r-full)}
-#fe-fe-state{display:inline-flex;align-items:center;gap:var(--sp-2);padding:0 var(--sp-4) 0 var(--sp-4);font-size:var(--fs-md);color:var(--mt);
+#fe-fe-pill{transition:opacity var(--t-fast) var(--ease)}
+#fe-fe-pill.under:not(:hover,:focus-within){opacity:.12}
+/* One width for every word it says, so the pill holds still while saving. */
+#fe-fe-state{display:inline-flex;align-items:center;justify-content:flex-end;gap:var(--sp-2);min-width:88px;padding:0 var(--sp-4) 0 var(--sp-4);font-size:var(--fs-md);color:var(--mt);white-space:nowrap;
   transition:color var(--t-fast) var(--ease)}
 #fe-fe-state.saved{color:var(--green)}
 #fe-fe-state.failed{color:var(--nc-red)}
@@ -18792,26 +18600,8 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 .fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:rgb(var(--paper))}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
-#fe-ql-ai{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);
-  border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
-#fe-ql-ai-chip{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--dm);
-  margin-right:var(--sp-2);white-space:nowrap}
-#fe-ql-ai-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--dm);flex-shrink:0}
-#fe-ql-ai-chip.ready .dot{background:var(--green)}
-#fe-ql-ai-chip.cold .dot{background:var(--gold)}
-#fe-ql-ai-chip.down .dot{background:var(--danger)}
-#fe-ql-ai-chip.down{white-space:normal;line-height:1.4}
-#fe-ql-ai-q{flex:1;min-width:140px}
 
-#fe-ql-ai-q:disabled{opacity:.45}
 
-#fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
-#fe-ql-ai-out-body{padding:var(--sp-4) var(--sp-6) var(--sp-2);font-size:var(--fs-md);line-height:1.6;white-space:pre-wrap}
-#fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
-#fe-ql-ai-out-q{padding:var(--sp-4) var(--sp-6) 0;font-size:var(--fs-sm);font-weight:600;color:var(--mt)}
-#fe-ql-ai-out-q:empty{display:none}
-#fe-ql-ai-out-foot{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-1) var(--sp-6) var(--sp-4)}
-#fe-ql-ai-out-meta{flex:1;min-width:0;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:var(--sp-4)}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
 .fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
@@ -19531,7 +19321,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 /* A decision page takes the listing's place; Files brings the listing back. While the
    config is read, the listing stays out of sight so it never flashes first. */
-#fe.fe-dp-pending #fe-toolbar,#fe.fe-dp-pending #fe-scroll,#fe.fe-dp-page #fe-toolbar,#fe.fe-dp-page #fe-sg-panel,#fe.fe-dp-page #fe-filter-bar,#fe.fe-dp-page #fe-scroll{display:none}
 #fe-dp{--dp-pad-y:var(--sp-8);flex:1;min-height:0;overflow:auto;padding:var(--dp-pad-y) var(--sp-9)}
 #fe-dp[hidden]{display:none}
 /* One column of cards; from 720 wide a rail of every item sits beside it and stays in view, wider from 1100. */
@@ -19632,7 +19421,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-rec{flex:none}
 .fe-dv-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-3)}
 .fe-dv-strip>.fe-dv-media.zoomed,.fe-dp-opts.gallery>.fe-dp-opt.zoomed{grid-column:1 / -1}
-.fe-dp-tile-img{display:flex;flex-direction:column;gap:var(--sp-2)}
+/* An option's first picture leads and the rest sit small beneath it, so one option never runs to several screens. */
+.fe-dp-tile-img{display:grid;grid-template-columns:repeat(var(--rest,1),minmax(0,1fr));gap:var(--sp-2)}
+.fe-dp-tile-img>:first-child,.fe-dp-tile-img>.zoomed{grid-column:1 / -1}
 .fe-dv-media{position:relative;margin:0;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
 .fe-dv-media img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain;cursor:zoom-in}
 .fe-dv-strip>.fe-dv-media img{aspect-ratio:auto;max-height:calc(var(--sp-9) * 8)}
@@ -19645,9 +19436,37 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-large-box>*{flex:1;min-height:0}
 .fe-dv-view-box{position:relative;z-index:1;width:calc(100vw - var(--sp-9) * 2);height:calc(100vh - var(--sp-9) * 2);display:flex;flex-direction:column;outline:none}
 .fe-dv-view-head{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border-bottom:1px solid var(--bd)}
-.fe-dv-view-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--tx)}
+.fe-dv-view-titles{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-1)}
+.fe-dv-view-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--tx)}
+.fe-dv-view-title:has(.fe-dv-view-name){display:flex;align-items:baseline;gap:var(--sp-2);white-space:normal}
+.fe-dv-view-title>.badge{flex:none}
+.fe-dv-view-name{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.fe-dv-view-sub{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-dv-view-tools{display:flex;gap:var(--sp-1)}
-.fe-dv-view-body{flex:1;min-height:0;display:flex;flex-direction:column}
+.fe-dv-view-body{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.fe-dv-view-row{flex:1;min-height:0;display:flex}
+/* The set's rail: two small copies a row under each choice's name, so a whole set fits to skim. */
+.fe-dv-rail{flex:none;width:calc(var(--sp-9) * 6.5);box-sizing:border-box;overflow-y:auto;display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-3);border-right:1px solid var(--bd);background:var(--s1)}
+.fe-dv-rail-grp{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-dv-rail-head{display:flex;align-items:baseline;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--mt)}
+.fe-dv-rail-name{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.fe-dv-rail-grp:has([aria-current]) .fe-dv-rail-head{color:var(--tx)}
+.fe-dv-rail-thumbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
+.fe-dv-thumb{display:block;padding:0;aspect-ratio:16 / 10;overflow:hidden;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-xs);cursor:pointer}
+.fe-dv-thumb:hover{border-color:var(--bd2)}
+.fe-dv-thumb[aria-current]{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.fe-dv-thumb img{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
+.fe-dv-thumb-mock{display:block;padding:var(--sp-1);font-size:var(--fs-xs);color:var(--mt);text-align:left;overflow-wrap:anywhere}
+.fe-ql-imgstage.can-pan{cursor:grab}
+.fe-ql-imgstage.panning{cursor:grabbing;user-select:none}
+@media (max-width:720px){
+  .fe-dv-view-row{flex-direction:column-reverse}
+  .fe-dv-rail{width:auto;max-height:calc(var(--sp-9) * 3);flex-direction:row;overflow:auto hidden;border-right:0;border-top:1px solid var(--bd)}
+  .fe-dv-rail-grp{flex:none}
+  .fe-dv-rail-name{max-width:calc(var(--sp-9) * 4)}
+  .fe-dv-rail-thumbs{display:flex}
+  .fe-dv-thumb{flex:none;width:calc(var(--sp-9) * 2)}
+}
 .fe-dv-view-frame{flex:1;width:100%;border:0;background:rgb(var(--paper))}
 .fe-dv-compare{flex-direction:row}
 .fe-dv-cmp-pane+.fe-dv-cmp-pane{border-left:1px solid var(--bd)}
@@ -19680,7 +19499,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-end{display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-6)}
 #fe-dp.flagged-only .fe-dp-card:not([data-flag]),#fe-dp.flagged-only .fe-dp-grp:not(:has(.fe-dp-card[data-flag])){display:none}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
-#fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
+#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
 #fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
 /* Reduced motion, in one place: the motion tokens go to zero and anything left still settles at once. */
 @media (prefers-reduced-motion:reduce){
@@ -20633,7 +20452,7 @@ button.chip:disabled{opacity:.45;cursor:default}
           crumbLayer?.place();
           return;
         }
-        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first"></div><div class="fe-dd-items">${entries.map(
           (en) => `<a href="${esc(en.href)}" class="row fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join("")}</div>`;
         crumbLayer?.place();
@@ -21050,89 +20869,11 @@ button.chip:disabled{opacity:.45;cursor:default}
     return { start: ws, end: we, block: false };
   }
 
-  // src/watch.ts
-  var EVERY_MS = 2e3;
-  var STALE_TICKS = 3;
-  var subs = /* @__PURE__ */ new Set();
-  var timer = 0;
-  function tick() {
-    if (document.visibilityState !== "visible") return;
-    for (const s of subs) {
-      if (s.running && ++s.running <= STALE_TICKS) continue;
-      let paused;
-      try {
-        paused = !!s.pause?.();
-      } catch {
-        paused = true;
-      }
-      if (paused) {
-        s.running = 0;
-        continue;
-      }
-      const run = s.running = 1;
-      Promise.resolve().then(s.check).catch(() => {
-      }).finally(() => {
-        if (s.running === run) s.running = 0;
-      });
-    }
-  }
-  function watch(check, o = {}) {
-    const s = { check, pause: o.pause, running: 0 };
-    subs.add(s);
-    if (!timer) timer = window.setInterval(tick, EVERY_MS);
-    return () => {
-      subs.delete(s);
-      if (!subs.size) {
-        clearInterval(timer);
-        timer = 0;
-      }
-    };
-  }
-
-  // src/line-diff.ts
-  var MAX_CELLS = 4e6;
-  function lineDiff(disk, mine) {
-    const a = disk.split("\n"), b = mine.split("\n");
-    let head = 0;
-    while (head < a.length && head < b.length && a[head] === b[head]) head++;
-    let tail = 0;
-    while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
-    const ma = a.slice(head, a.length - tail), mb = b.slice(head, b.length - tail);
-    const out = [];
-    for (let i4 = 0; i4 < head; i4++) out.push({ kind: "same", text: a[i4] });
-    let i3 = 0, j = 0;
-    const emit = (kind, text) => out.push({ kind, text });
-    if (ma.length * mb.length > MAX_CELLS) {
-      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
-      for (; j < mb.length; j++) emit("new", mb[j]);
-    } else {
-      const w = mb.length + 1;
-      const lcs = new Uint32Array((ma.length + 1) * w);
-      for (let x2 = ma.length - 1; x2 >= 0; x2--) for (let y = mb.length - 1; y >= 0; y--)
-        lcs[x2 * w + y] = ma[x2] === mb[y] ? lcs[(x2 + 1) * w + y + 1] + 1 : Math.max(lcs[(x2 + 1) * w + y], lcs[x2 * w + y + 1]);
-      while (i3 < ma.length && j < mb.length) {
-        if (ma[i3] === mb[j]) {
-          emit("same", mb[j]);
-          i3++;
-          j++;
-        } else if (lcs[(i3 + 1) * w + j] >= lcs[i3 * w + j + 1]) {
-          emit("gone", ma[i3]);
-          i3++;
-        } else {
-          emit("new", mb[j]);
-          j++;
-        }
-      }
-      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
-      for (; j < mb.length; j++) emit("new", mb[j]);
-    }
-    for (let k = 0; k < tail; k++) out.push({ kind: "same", text: a[a.length - tail + k] });
-    return out;
-  }
-
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
+  var RENDER_MS = 150;
+  var RETRY_MS = 4e3;
   var modePref = textPref("bfb-edit-mode-v1");
   var MODES = [
     { id: "raw", label: "Raw", hint: "The text alone" },
@@ -21165,7 +20906,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   async function openFileEditor(box, host) {
     let doc;
     try {
-      doc = await notes.fileRead(host.root, host.rel);
+      doc = host.doc ?? await notes.fileRead(host.root, host.rel);
     } catch (err) {
       const why = errorText(err, "Opening it for editing");
       if (host.cannotEdit) host.cannotEdit(why);
@@ -21208,7 +20949,14 @@ button.chip:disabled{opacity:.45;cursor:default}
     const lhPx = Math.round(parseFloat(getComputedStyle(ta).fontSize) * 1.7);
     paintEl.style.lineHeight = ta.style.lineHeight = lhPx + "px";
     const tw = big ? windowedText(ta, doc.text, TA_LINES) : wholeText(ta, doc.text);
-    const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
+    const revealCaret = () => requestAnimationFrame(() => {
+      markLine();
+      rowEl(curRow)?.scrollIntoView({ block: "nearest" });
+    });
+    const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set, caret: big ? void 0 : (at) => {
+      tw.select(at, at);
+      revealCaret();
+    } });
     let base2 = doc.text;
     let saving = false;
     let failed2 = "";
@@ -21411,18 +21159,20 @@ and ${diags.length - 12} more` : "");
     let renderTimer = 0;
     const renderView = () => {
       if (!view || !fmt || mode === "raw" || shown === tw.text()) return;
-      if (big && shown) {
-        clearTimeout(renderTimer);
-        renderTimer = window.setTimeout(drawView, BIG_RENDER_MS);
+      if (!shown) {
+        drawView();
         return;
       }
-      drawView();
+      clearTimeout(renderTimer);
+      renderTimer = window.setTimeout(drawView, big ? BIG_RENDER_MS : RENDER_MS);
+    };
+    const morphView = view ? morphInto(view) : () => {
     };
     const drawView = () => {
       const t = tw.text();
       if (!view || !fmt || mode === "raw" || shown === t) return;
       const top = view.scrollTop;
-      view.innerHTML = fmt.rich(t, host.href);
+      morphView(fmt.rich(t, host.href));
       view.scrollTop = top;
       shown = t;
     };
@@ -21448,9 +21198,19 @@ and ${diags.length - 12} more` : "");
       const ratio = sc.scrollTop / Math.max(1, sc.scrollHeight - sc.clientHeight);
       view.scrollTop = ratio * (view.scrollHeight - view.clientHeight);
     }, true);
-    const write = async (expect) => {
+    let inflight = null;
+    let saveAgain = false;
+    let retryTimer = 0;
+    let gone = false;
+    const write = (expect) => {
+      const p = writeNow(expect);
+      inflight = p;
+      return p;
+    };
+    const writeNow = async (expect) => {
       saving = true;
       paint();
+      clearTimeout(retryTimer);
       let retryAt = 0;
       try {
         const text = tw.text();
@@ -21469,19 +21229,37 @@ and ${diags.length - 12} more` : "");
             doc = now;
             retryAt = now.mtime;
           } else showConflict();
+        } else if (e.code === "notes_missing") {
+          failed2 = "The file is no longer there.";
+          showGone();
         } else {
           failed2 = errorText(e, "Saving");
           host.status(failed2);
+          retryTimer = window.setTimeout(() => {
+            if (isDirty()) save(false);
+          }, RETRY_MS);
         }
       } finally {
         saving = false;
         paint();
       }
-      if (retryAt) await write(retryAt);
+      if (retryAt) return write(retryAt);
+      if (saveAgain) {
+        saveAgain = false;
+        save();
+      } else if (isDirty() && !failed2 && banner.hidden) later();
     };
     const save = (asked = true) => {
       clearTimeout(timer3);
-      if (saving || !isDirty()) return;
+      if (saving) {
+        if (asked) saveAgain = true;
+        return;
+      }
+      if (!isDirty()) return;
+      if (gone) {
+        if (asked) askToChoose();
+        return;
+      }
       if (!banner.hidden) {
         if (asked) askToChoose();
         return;
@@ -21489,7 +21267,7 @@ and ${diags.length - 12} more` : "");
       void write(doc.mtime);
     };
     const askToChoose = () => {
-      const msg = "Not saved: the file changed on disk. Choose Load from disk, Keep mine or Compare.";
+      const msg = "Not saved: choose Reload, Compare or Keep mine.";
       (host.notify ?? host.status)(msg);
       banner.classList.add("flash");
       setTimeout(() => banner.classList.remove("flash"), 700);
@@ -21498,12 +21276,19 @@ and ${diags.length - 12} more` : "");
       clearTimeout(timer3);
       timer3 = window.setTimeout(() => save(false), AUTOSAVE_MS);
     };
+    function showGone() {
+      gone = true;
+      banner.hidden = false;
+      banner.innerHTML = `<span>File moved or deleted. Your text is only here.</span>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="copy-all" title="Copy all the text">${UI_ICON.copyImage}<span>Copy</span></button>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="recheck" title="Look for the file again">${UI_ICON.rotate}<span>Try again</span></button>`;
+    }
     function showConflict() {
       banner.hidden = false;
-      banner.innerHTML = `<span>${esc(host.rel.split("/").pop())} changed on disk since you opened it.</span>
-      <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
-      <button class="btn" data-act="compare" title="Show the lines that differ between the file on disk and your text">Compare</button>
-      <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
+      banner.innerHTML = `<span>Changed on disk.</span>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="reload" title="Drop your changes, load the file">${UI_ICON.rotate}<span>Reload</span></button>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="compare" title="Show what differs from your text">${UI_ICON.versions}<span>Compare</span></button>
+      <button class="btn" data-size="sm" data-variant="outline" data-act="overwrite" title="Save yours; the newer file is backed up">${UI_ICON.check}<span>Keep mine</span></button>`;
     }
     const showDiff = async () => {
       if (!diffBox.hidden) {
@@ -21517,25 +21302,7 @@ and ${diags.length - 12} more` : "");
         host.status(errorText(err, "Reading the file on disk"));
         return;
       }
-      const rows = lineDiff(disk, tw.text());
-      const changed = rows.filter((r) => r.kind !== "same");
-      const keep = /* @__PURE__ */ new Set();
-      rows.forEach((r, i3) => {
-        if (r.kind !== "same") for (let k = Math.max(0, i3 - 2); k <= Math.min(rows.length - 1, i3 + 2); k++) keep.add(k);
-      });
-      let html = "", skipped = false;
-      rows.forEach((r, i3) => {
-        if (!keep.has(i3)) {
-          skipped = true;
-          return;
-        }
-        if (skipped) {
-          html += '<div class="fe-fe-dgap">\u2026</div>';
-          skipped = false;
-        }
-        html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === "gone" ? "\u2212" : r.kind === "new" ? "+" : ""}</span><span class="fe-fe-dt">${esc(r.text) || " "}</span></div>`;
-      });
-      diffBox.innerHTML = `<div class="fe-fe-dhead">${changed.length ? `<span data-k="gone">\u2212 on disk</span><span data-k="new">+ yours</span>` : "The two copies have the same lines."}</div>${html}`;
+      diffBox.innerHTML = lineDiffHtml(disk, tw.text());
       diffBox.hidden = false;
     };
     const external = async () => {
@@ -21549,21 +21316,34 @@ and ${diags.length - 12} more` : "");
         }
         if (!isDirty()) {
           doc = now;
-          base2 = now.text;
-          buf.snap();
-          tw.set(now.text);
+          takeFromDisk(now.text);
           buf.snap();
           check();
-          paintSource();
           paint();
         } else showConflict();
-      } catch {
+      } catch (err) {
+        if (err.code === "notes_missing") {
+          if (!gone) showGone();
+        }
       }
     };
+    function takeFromDisk(next) {
+      const was = tw.selection(), change = diffText(tw.text(), next), vp = viewport(), top = vp.scrollTop;
+      base2 = next;
+      buf.snap();
+      tw.set(next);
+      tw.select(mapCaret(was.start, change), mapCaret(was.end, change));
+      paintSource();
+      vp.scrollTop = top;
+    }
     const close = async () => {
       clearTimeout(timer3);
-      if (isDirty() && !saving && banner.hidden) await write(doc.mtime);
-      if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
+      clearTimeout(retryTimer);
+      if (saving && inflight) await inflight;
+      if (isDirty() && banner.hidden) await write(doc.mtime);
+      if (isDirty() && !await (host.confirm ?? ((m) => Promise.resolve(confirm(m))))("Your last changes are not saved. Leave anyway?", "Leave without saving")) return;
+      window.removeEventListener("beforeunload", onUnload);
+      window.removeEventListener("keydown", strayKey, true);
       stopWatch();
       clearTimeout(checkTimer);
       clearTimeout(renderTimer);
@@ -21614,27 +21394,63 @@ and ${diags.length - 12} more` : "");
       else if (act === "reload") {
         const now = await notes.fileRead(host.root, host.rel);
         doc = now;
-        base2 = now.text;
-        buf.snap();
-        tw.set(now.text);
+        takeFromDisk(now.text);
         banner.hidden = true;
         diffBox.hidden = true;
-        paintSource();
         paint();
         host.typed?.(now.text);
+      } else if (act === "copy-all") {
+        await navigator.clipboard.writeText(tw.text());
+        host.status("Copied all of the text");
+      } else if (act === "recheck") {
+        try {
+          const now = await notes.fileStat(host.root, host.rel);
+          doc = { ...doc, mtime: now.mtime };
+          gone = false;
+          failed2 = "";
+          banner.hidden = true;
+          save(false);
+        } catch {
+          host.status("Still not there");
+        }
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
         void write(now.mtime);
       }
     });
+    const keepCaretClear = () => {
+      const row2 = rowEl(curRow), vp = viewport();
+      if (!row2) return;
+      const gap = vp.getBoundingClientRect().bottom - row2.getBoundingClientRect().bottom;
+      if (gap < lhPx) vp.scrollTop += lhPx - gap;
+    };
+    const pill2 = box.querySelector("#fe-fe-pill");
+    const clearPill = () => {
+      const words = rowEl(curRow)?.querySelector(".fe-fe-code");
+      let under = false;
+      if (words && mode !== "rich") {
+        const r = document.createRange();
+        r.selectNodeContents(words);
+        const a = r.getBoundingClientRect(), b = pill2.getBoundingClientRect();
+        under = a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+      }
+      pill2.classList.toggle("under", under);
+    };
+    box.addEventListener("scroll", clearPill, true);
     ta.addEventListener("input", () => {
       paintSource();
       paint();
       later();
       checkLater();
+      if (!big) keepCaretClear();
+      markLine();
+      clearPill();
     });
     const onSelection = () => {
-      if (document.activeElement === ta) markLine();
+      if (document.activeElement === ta) {
+        markLine();
+        clearPill();
+      }
     };
     document.addEventListener("selectionchange", onSelection);
     for (const ev of ["selectionchange", "mouseup", "keyup", "focus"]) ta.addEventListener(ev, markLine);
@@ -21659,7 +21475,11 @@ and ${diags.length - 12} more` : "");
       markLine();
     });
     box.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p" && fmt) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        e.stopPropagation();
+        save();
+      } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p" && fmt) {
         e.preventDefault();
         nextMode();
       } else if (e.key === "Escape" && mode === "rich") {
@@ -21709,9 +21529,33 @@ and ${diags.length - 12} more` : "");
       if (!ta.value.startsWith(autoMarker.prefix, autoMarker.lineStart) || ta.selectionStart < autoMarker.lineStart + autoMarker.prefix.length || !/^[-*+\d.)[\] xX]*$/.test(typed)) autoMarker = null;
     });
     ta.addEventListener("keydown", (e) => {
+      if (e.isComposing) {
+        e.stopPropagation();
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.shiftKey && e.key.toLowerCase() === "p") return;
-      if (mod && e.key.toLowerCase() === "s") {
+      const k = e.key.toLowerCase();
+      if (mod && e.shiftKey && k === "p") return;
+      if (mod && !e.shiftKey && k === "k") return;
+      if (mod && !e.shiftKey && (k === "b" || k === "i" || k === "e") && listy) {
+        e.preventDefault();
+        applyEdit(wrapSelection(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, k === "b" ? "**" : k === "i" ? "_" : "`"));
+      } else if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        const s = { start: ta.selectionStart, end: ta.selectionEnd };
+        applyEdit(e.shiftKey ? duplicateLines(ta.value, s) : moveLines(ta.value, s, e.key === "ArrowDown" ? 1 : -1));
+      } else if (!big && !mod && !e.altKey && (e.key === "PageDown" || e.key === "PageUp")) {
+        e.preventDefault();
+        const vp = viewport(), dir = e.key === "PageDown" ? 1 : -1;
+        const y = rowEl(curRow)?.getBoundingClientRect().top ?? vp.getBoundingClientRect().top;
+        vp.scrollTop += dir * vp.clientHeight * 0.9;
+        const rows = [...paintEl.children];
+        let line2 = rows.findIndex((r) => r.getBoundingClientRect().bottom > y);
+        if (line2 < 0) line2 = rows.length - 1;
+        const at = lineStart(ta.value, line2);
+        ta.setSelectionRange(e.shiftKey ? ta.selectionStart : at, at);
+        markLine();
+      } else if (mod && k === "s") {
         e.preventDefault();
         save();
       } else if (mod && e.key.toLowerCase() === "z") e.preventDefault();
@@ -21738,20 +21582,45 @@ and ${diags.length - 12} more` : "");
       e.stopPropagation();
     });
     const stopWatch = watch(external, { pause: () => saving });
-    window.addEventListener("beforeunload", (e) => {
+    const onUnload = (e) => {
       if (box.isConnected && isDirty()) e.preventDefault();
-    });
+    };
+    window.addEventListener("beforeunload", onUnload);
+    function strayKey(e) {
+      const on = document.activeElement;
+      const lost = !on || on === document.body || on === document.documentElement || !!on.closest?.("#fe-fe-pill, #fe-status, #fe-ed-meta");
+      if (!lost || e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1 || mode === "rich" || [...document.querySelectorAll('[role="dialog"], .fe-dlg')].some((d) => d.checkVisibility())) return;
+      e.stopPropagation();
+      ta.focus({ preventScroll: true });
+    }
+    window.addEventListener("keydown", strayKey, true);
     diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);
     paintSource();
     paint();
     if (fmt) setMode(mode);
-    ta.focus();
+    ta.focus({ preventScroll: true });
+    const startAt = Math.min(host.startAt?.(doc.text) ?? 0, tw.text().length);
+    tw.select(startAt, startAt);
+    if (big) {
+      if (startAt) selectSpan(startAt, startAt);
+    } else if (startAt) {
+      markLine();
+      rowEl(curRow)?.scrollIntoView({ block: "start" });
+    }
     return {
       dirty: isDirty,
       close: () => void close(),
-      select: (start, end) => {
-        const at = carrier(base2, tw.text());
-        selectSpan(at(start), at(end));
+      select: (start) => {
+        const pos = carrier(base2, tw.text())(start);
+        if (mode === "rich") setMode("split");
+        const was = document.activeElement;
+        if (big) selectSpan(pos, pos);
+        else {
+          tw.select(pos, pos);
+          markLine();
+          rowEl(curRow)?.scrollIntoView({ block: "center" });
+        }
+        if (was && was !== ta) was.focus?.({ preventScroll: true });
       },
       marks: markComments
     };
@@ -22041,9 +21910,10 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
       if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
       r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
-      threads = r.threads;
+      threads = r.threads.filter((t) => t.comments.some((c) => !c.deleted));
       failed2 = "";
       loaded = true;
+      restoreTyped();
     };
     const load = async () => {
       const root2 = o.root();
@@ -22230,7 +22100,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
     </form>` : "";
     const noneHtml = () => threads.length ? emptyHtml("filtered", "Nothing here", { icon: UI_ICON.comment, actions: [{ a: "show-all", label: "Show all", title: "Show every thread, open and done" }] }) : emptyHtml("empty", "No comments yet", { icon: UI_ICON.comment, hintHtml: "Select some text,<br>then press <kbd>c</kbd>" });
-    const wanted2 = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
+    const wanted2 = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : true;
     const paint = () => {
       const ae = document.activeElement;
       const focus = ae && o.box.contains(ae) && ae.dataset.for ? { id: ae.dataset.for, s: ae.selectionStart, e: ae.selectionEnd } : null;
@@ -22357,6 +22227,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       const t = threads.find((x2) => x2.id === id);
       if (t && t.place.offset !== null) o.picked?.({ offset: t.place.offset, length: t.place.length });
+      if (o.editing?.()) o.box.querySelector(".fe-cm-th.on textarea[data-for]")?.focus({ preventScroll: true });
     };
     const selected = () => {
       const sel = window.getSelection();
@@ -22367,6 +22238,34 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       return span ? { span, range } : null;
     };
     let held3 = null;
+    const typedKey = `bfb-cm-typed:${o.path}`;
+    let restored = false;
+    const restoreTyped = () => {
+      if (restored) return;
+      restored = true;
+      try {
+        const was = JSON.parse(sessionStorage.getItem(typedKey) ?? "null");
+        sessionStorage.removeItem(typedKey);
+        if (!was) return;
+        was.typed.forEach(([k, v]) => typed.set(k, v));
+        was.parked.forEach(([k, v]) => parked.set(k, v));
+        if (was.draft) {
+          draft = was.draft;
+          o.reveal();
+        }
+      } catch {
+      }
+    };
+    window.addEventListener("pagehide", () => {
+      o.box.querySelectorAll("textarea[data-for]").forEach((ta) => {
+        if (ta.value) typed.set(ta.dataset.for, ta.value);
+      });
+      if (!typed.size && !parked.size && !draft) return;
+      try {
+        sessionStorage.setItem(typedKey, JSON.stringify({ typed: [...typed], parked: [...parked], draft }));
+      } catch {
+      }
+    });
     const startDraft = async (span, attach) => {
       if (!o.root()) {
         if (!await o.allow()) return;
@@ -22773,7 +22672,10 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
           return;
         }
         if (a === "del") {
-          void write([{ op: "delete", thread: active, comment: v }], "Delete");
+          const thread = active;
+          void askYesNo("Delete this comment? This cannot be undone.", "Delete").then((yes) => {
+            if (yes) void write([{ op: "delete", thread, comment: v }], "Delete");
+          });
           return;
         }
         if (a === "edit") {
@@ -22956,7 +22858,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       if (a === "clear") {
         if (!active && !draft) return false;
-        draft = null;
+        if (draft) cancelDraft(true);
         active = "";
         paint();
         redraw();
@@ -23972,10 +23874,10 @@ ${d.message}` : d.message;
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code">${GLYPH.wrap}Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)">${GLYPH.raw}Raw</button>
         <button id="fe-fp-copy" class="btn" title="Copy the file">${GLYPH.copyPage}Copy</button>
-        <button id="fe-fp-export" class="btn" title="Export as a Google Doc, Word document, PDF or web page" aria-haspopup="menu" hidden>${UI_ICON.export}Export</button>
-        <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
+        <button id="fe-fp-export" class="btn" title="Google Doc, Word, PDF or web page" aria-haspopup="menu" hidden>${UI_ICON.export}Export</button>
+        <span id="fe-ff" title="Find (/) \xB7 Enter next \xB7 \u21E7Enter previous">
           ${GLYPH.find}
-          <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
+          <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find (/) \xB7 Enter next \xB7 \u21E7Enter previous">
           <span id="fe-ff-n" aria-live="polite"></span>
           <button id="fe-ff-prev" class="btn" data-icon data-size="xs" title="Previous match (Shift+Enter)" disabled>${GLYPH.prev}</button>
           <button id="fe-ff-next" class="btn" data-icon data-size="xs" title="Next match (Enter)" disabled>${GLYPH.next}</button>
@@ -23997,10 +23899,28 @@ ${d.message}` : d.message;
   }
   var TOC_ROOMY = 1e3;
   var RAIL_ROOM = { toc: 240 + 16 + 16, cm: 320 + 16 + 16 };
+  function readingOffset(page, text) {
+    if (page.scrollTop < 8) return 0;
+    const top = page.getBoundingClientRect().top;
+    const blocks = page.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,.fe-cl");
+    for (let i3 = 0; i3 < blocks.length && i3 < 2e4; i3++) {
+      const r = blocks[i3].getBoundingClientRect();
+      if (r.bottom <= top) continue;
+      const words = (blocks[i3].textContent ?? "").replace(/^\d+(?=\D)/, "").trim().split(/\s+/);
+      for (const n of [6, 3, 1]) {
+        const at = text.indexOf(words.slice(0, n).join(" "));
+        if (words[0] && at >= 0) return at;
+      }
+      return 0;
+    }
+    return 0;
+  }
   function mountFileContent(opts) {
     const { ext: ext2, rawPath, href } = opts;
     let text = opts.text;
     const page = document.getElementById("fe-page");
+    page.tabIndex = -1;
+    page.focus({ preventScroll: true });
     const toc = document.getElementById("fe-toc");
     const rail = document.getElementById("fe-toc-rail");
     const tocBtn = document.getElementById("fe-fp-toc");
@@ -24203,8 +24123,17 @@ ${d.message}` : d.message;
     const editBox = document.getElementById("fe-fe");
     const editBtn = document.getElementById("fe-fp-edit");
     const toast = makeToast(document.getElementById("fe-toast"));
+    let statusTimer = 0;
     const status = (t) => {
-      document.getElementById("fe-status-text").textContent = t;
+      const el2 = document.getElementById("fe-status-text");
+      el2.textContent = t;
+      clearTimeout(statusTimer);
+      statusTimer = window.setTimeout(() => {
+        if (el2.textContent === t) {
+          el2.textContent = "";
+          paintMeta();
+        }
+      }, 8e3);
     };
     const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? "";
     let root2 = editableRoot(rawPath, opts.editableFolders, home);
@@ -24262,6 +24191,17 @@ ${d.message}` : d.message;
       if (!root2 && !await askToAllow()) return;
       if (!root2) return;
       editBtn.classList.add("busy");
+      let doc;
+      try {
+        doc = await notes.fileRead(root2, rawPath.slice(root2.length + 1));
+      } catch (err) {
+        const why = errorText(err, "Opening it for editing");
+        status(why);
+        noteAtButton(why);
+        editBtn.classList.remove("busy");
+        return;
+      }
+      const readingAt = readingOffset(page, doc.text);
       const sideWas = sidebarShown();
       if (sideWas) setSidebarShown(false);
       const sideBack = () => {
@@ -24281,6 +24221,9 @@ ${d.message}` : d.message;
         rel: rawPath.slice(root2.length + 1),
         ext: ext2,
         href,
+        doc,
+        startAt: () => readingAt,
+        confirm: askYesNo,
         status,
         notify: (msg) => toast(msg, 5e3),
         typed: (t) => paintMeta(t),
@@ -24398,6 +24341,12 @@ ${d.message}` : d.message;
       comment: (a) => !editor && !raw && !!comments?.act(a),
       commentable: () => !editor && !raw && !!comments,
       commentHeld: () => !editor && !raw && !!comments?.held(),
+      peeking: () => tight && peek && !rail.hidden && !comments?.held(),
+      closePeek: () => {
+        peek = false;
+        asked = false;
+        paint();
+      },
       editing: () => !!editor,
       unsaved: () => !!editor?.dirty(),
       setText(fresh) {
@@ -24767,7 +24716,8 @@ ${d.message}` : d.message;
         return;
       }
       commit(insertTab(state, last.tab, last.index));
-      toast(`Reopened ${last.tab.label}`);
+      const back = state.list.find((t) => t.path === last.tab.path);
+      if (back) goTab(back.id);
     }
     const fileUrl = (p) => fileHref(p);
     function hrefFor(t) {
@@ -24843,11 +24793,8 @@ ${d.message}` : d.message;
       const act = item2.dataset.act;
       if (act === "copy") void copyToClipboard(t.path).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
       else if (act === "phone") void copyPhoneLink(t.path, toast);
-      else if (act === "save") {
-        const now = toggleSaved(t.path, t.label);
-        host.onSavedChange?.();
-        toast(now ? "Saved" : "Removed from Saved");
-      } else if (act === "term") host.openInTerminal?.(t.kind === "file" ? t.path.replace(/\/[^/]*$/, "") || "/" : t.path);
+      else if (act === "save") toggleSavedWithUndo(t.path, t.label, toast, () => host.onSavedChange?.());
+      else if (act === "term") host.openInTerminal?.(t.kind === "file" ? t.path.replace(/\/[^/]*$/, "") || "/" : t.path);
       else if (act === "pin") commit(togglePin(state, t.id));
       else if (act === "close") closeById(t.id);
       else if (act === "others") closeMany(closeOthers(state, t.id));
@@ -24879,7 +24826,7 @@ ${d.message}` : d.message;
 ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label, keep)}
-      <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">${UI_ICON.more}</button>
+      <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Path, save, pin, close others">${UI_ICON.more}</button>
       ${t.pinned ? "" : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
     }
@@ -25426,7 +25373,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Open on my phone", "This Mac\u2019s folders on your tailnet only", sw("fe-st-phone", "Put bfb on your tailnet")) + row("Link", "", `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn("fe-st-phone-copy", UI_ICON.copy, "Copy the link")}`) + note("", "fe-st-phone-hint")
         ) + card2(
           "Your data",
-          row("Export", "Saves a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)
+          row("Export", "Saves a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" title="Save settings and Saved as .json">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
         ) }
       ]
     };
@@ -25612,7 +25559,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   function renderTile(e, ctx, idx = -1, hit) {
     const tipData = buildTipData(e, ctx);
     const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
-    const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
+    const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" data-src="${esc(e.href)}" decoding="async" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
     return `<a href="${esc(e.href)}" class="fe-tile${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
             data-name="${esc(e.name.toLowerCase())}"
             data-idx="${idx}"
@@ -25624,12 +25571,6 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     ${e.isParent ? "" : `<span class="fe-tile-meta"><span class="fe-tile-tp">${fmtType(e)}</span><span class="fe-tile-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</span><span class="fe-tile-tags">${tagChips(e, ctx)}${commentBadge(e, ctx)}</span></span>`}
     ${itemActions(e, ctx.rawPath)}
   </a>`;
-  }
-  function renderRows(entries, ctx, start = 0) {
-    return entries.map((e, i3) => renderRow(e, ctx, start + i3)).join("");
-  }
-  function renderTiles(entries, ctx, start = 0) {
-    return entries.map((e, i3) => renderTile(e, ctx, start + i3)).join("");
   }
   var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
   function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set(), hits = /* @__PURE__ */ new Map()) {
@@ -25650,7 +25591,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ${icon2}<span class="fe-sl fe-pl-label">${esc(name2)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
-      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="This save holds two versions after a merge. Choose which to keep.">Two versions</button>` : ""}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="Two versions after a merge. Choose one.">Two versions</button>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
       ${web ? "" : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy link" aria-label="Copy link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
@@ -25747,7 +25688,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ${withId(UI_ICON.appearance, "fe-sun")}
       ${withId(line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>'), "fe-moon")}
     </button>
-    <button id="fe-help-btn" class="btn" data-icon title="Help (press ?), what's here and how to use it">
+    <button id="fe-help-btn" class="btn" data-icon title="Help (?)">
       ${PI.help}
     </button>
     <button id="fe-settings-btn" class="btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
@@ -25781,7 +25722,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div class="bar fe-lens-tools" data-inset>
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
-          <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
+          <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Names and tags; #work for tags only">
           <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
         </label>
       </div>
@@ -25826,8 +25767,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
     <div id="fe-main">
       <div id="fe-tabbar">
-        <a id="fe-tab-home" class="fe-tab-home" hidden title="Home (g h): what waits on you, your chats and every repo's directions" aria-label="Home"><span class="fe-tab-ico">${line(LINE_ICON.home, 16)}</span></a>
-        <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+        <a id="fe-tab-home" class="fe-tab-home" hidden title="Home (g h)" aria-label="Home"><span class="fe-tab-ico">${line(LINE_ICON.home, 16)}</span></a>
+        <div id="fe-tabs" title="Tabs here: t keep, w close, p pin"></div>
         <div id="fe-tabs-end">
           <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
           <button id="fe-open-pick" class="btn" data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
@@ -25835,6 +25776,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
       </div>
       ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div><div id="fe-home-page" hidden></div>'}
+      <div id="fe-listing">
       <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
@@ -25852,7 +25794,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 14)}
           </button>
           <span class="bar-sep" aria-hidden="true"></span>
-          <div id="fe-density-wrap" title="Detail: drag left for fewer, bigger items, right for smaller items with more facts (- and =)">
+          <div id="fe-density-wrap" title="Detail: left bigger, right more facts (- =)">
             <span class="fe-density-end" aria-hidden="true">${line('<rect width="16" height="16" x="4" y="4" rx="2"/>', 13)}</span>
             ${sliderHtml("fe-density", [1, 2, 3, 4, 5], "", "Detail", DENSITY_NAMES)}
             <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
@@ -25878,7 +25820,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
-            <input id="fe-filter-q" class="tb" data-lead="search" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+            <input id="fe-filter-q" class="tb" data-lead="search" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; .* for a pattern"/>
             <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono aria-pressed="false" title="Treat the pattern as a regular expression">.*</button></span>
           </label>
           <span class="fe-panel-lbl">Type</span>
@@ -25892,7 +25834,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text</span>
           <label class="fe-in-box fe-in-text">
-            <input id="fe-find-text" class="tb" data-lead="search" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <input id="fe-find-text" class="tb" data-lead="search" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Searches text files under 2 MB. Enter runs."/>
             <span class="fe-in-chips">
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
@@ -25906,29 +25848,30 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-find-cancel" class="btn" data-variant="outline" hidden title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
-          <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
+          <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view">${line(STAR, 13)}Save view</button>
         </div>
       </div>
 
       <div id="fe-gal" hidden><div class="fe-gal-card" hidden></div></div>
-      <div id="fe-gal-rz" title="Drag to resize the preview and the strip \xB7 double-click to reset" role="separator" aria-orientation="horizontal" aria-label="Resize the gallery" tabindex="0" hidden></div>
+      <div id="fe-gal-rz" title="Drag to resize \xB7 double-click to reset" role="separator" aria-orientation="horizontal" aria-label="Resize the gallery" tabindex="0" hidden></div>
       <div id="fe-scroll">
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name \xB7 again flips \xB7 drag the edge to resize">Name <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
-              <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
-              <th class="c-tg" data-ck="tg" title="Tags of saved files and folders \xB7 drag the edge to resize">Tags<span class="fe-col-rz" title="Drag to resize this column"></span></th>
-              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name \xB7 again flips">Name <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize \xB7 double-click to reset"></span></th>
+              <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize \xB7 double-click to reset"></span></th>
+              <th class="c-tg" data-ck="tg" title="Tags of saved items \xB7 drag to resize">Tags<span class="fe-col-rz" title="Drag to resize \xB7 double-click to reset"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize \xB7 double-click to reset"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date \xB7 again flips">Modified <span class="si">\u2195</span></th>
               <th class="c-match" title="Number of content matches">Matches</th>
             </tr>
           </thead>
-          <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
+          <tbody id="fe-tbody"></tbody>
         </table>
-        <div id="fe-tiles">${renderTiles(ALL_ENTRIES, ctx0)}</div>
+        <div id="fe-tiles"></div>
         <div id="fe-tree"></div>
         <div id="fe-empty" hidden></div>
+      </div>
       </div>
 
       <div id="fe-statusbar" class="bar">
@@ -26432,6 +26375,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         paintWindow();
       });
     }, { passive: true });
+    const pictureNear = new IntersectionObserver((items) => items.forEach((it) => {
+      if (!it.isIntersecting) return;
+      pictureNear.unobserve(it.target);
+      const img = it.target;
+      img.src = img.dataset.src;
+      img.removeAttribute("data-src");
+    }), { root: el("fe-scroll"), rootMargin: "300px" });
     const leadPref = textPref("bfb-lead:" + rawPath, "", "tab");
     let leadRestored = false;
     let lastSetKey = "";
@@ -26482,6 +26432,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (win) measureWindow();
       else tbody.innerHTML = rowParts.join("");
       tiles.innerHTML = tileParts.join("");
+      tiles.querySelectorAll("img[data-src]").forEach((img) => pictureNear.observe(img));
       fe.classList.toggle("fe-has-find-hits", !!ls.contentHits);
       if (fe.dataset.view === "tree") {
         ls.visible = [];
@@ -26785,7 +26736,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       applyWidths();
     }
     els(".fe-col-rz").forEach((handle) => {
-      handle.title = "Drag to resize this column \xB7 double-click to reset";
+      handle.title = "Drag to resize \xB7 double-click to reset";
       const th = handle.closest("th");
       const key = th.dataset.ck;
       let maxW = Infinity;
@@ -26851,6 +26802,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       el("fe-filter-btn").classList.toggle("on", open);
       el("fe-filter-btn").setAttribute("aria-expanded", String(open));
       if (open) el("fe-filter-q").focus();
+    });
+    filterBar.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      el("fe-filter-btn").click();
+      document.activeElement?.blur();
     });
     el("fe-filter-q").addEventListener("input", function() {
       stopFind();
@@ -27065,6 +27022,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     window.addEventListener("hashchange", applyFindFromHash);
     const deepBtn = el("fe-deep-btn");
     const searchEl = el("fe-search");
+    searchEl.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "Enter") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const first = ls.visible.findIndex((_, i3) => sel.selectable(i3));
+      if (first < 0) return;
+      searchEl.blur();
+      sel.setSel(first);
+      if (e.key === "Enter") go(ls.visible[first].href);
+    });
     function startDeepCrawl() {
       deepReader?.close();
       const seq2 = ++ls.deepSeq;
@@ -27209,11 +27176,26 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
   }
 
+  // src/main-surface.ts
+  var askedFor = null;
+  var answer = false;
+  function listingShown() {
+    const fe = document.getElementById("fe"), listing = document.getElementById("fe-listing");
+    if (!fe || !listing) return false;
+    if (fe.className !== askedFor) {
+      askedFor = fe.className;
+      answer = getComputedStyle(listing).display !== "none";
+    }
+    return answer;
+  }
+
   // src/listing-input.ts
   function initListingInput(app, listing) {
     const { fe, toast, rawPath } = app;
     const { ls, sel } = listing;
     const scroll = el("fe-scroll");
+    const onHome = () => fe.classList.contains("fe-home-mode");
+    const onListing = () => listingShown();
     const copyText = (val, btn) => {
       void copyWithCheck(btn, val).then((ok) => toast(ok ? `Copied: ${val}` : "Copy failed"));
     };
@@ -27234,11 +27216,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       fe.classList.toggle("fe-selecting", on);
       if (!on && ls.selIdx >= 0) sel.setSel(ls.selIdx);
       selCount();
-    }, () => !app.fileMode);
+    }, onListing);
     bind("select-shown", () => {
       sel.selectAll();
       selCount();
-    }, () => !app.fileMode);
+    }, onListing);
     const entryAt = (e) => {
       const holder = e.target.closest("[data-idx]");
       return holder ? ls.visible[parseInt(holder.dataset.idx)] ?? null : null;
@@ -27428,17 +27410,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else if (item2.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
       else if (item2.dataset.act === "rename") renameRow(en);
       else if (item2.dataset.act?.startsWith("ow:")) runOpenWith(item2.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
-      else if (item2.dataset.act === "save") {
-        const now = toggleSaved(fp, en.name);
-        app.refreshSaved();
-        toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`);
-      } else if (item2.dataset.act === "cp-paths") sel.copySelection();
+      else if (item2.dataset.act === "save") toggleSavedWithUndo(fp, en.name, toast, () => app.refreshSaved());
+      else if (item2.dataset.act === "cp-paths") sel.copySelection();
       else if (item2.dataset.act === "cp-names") {
         const names = [...ls.selSet].sort((a, b) => a - b).map((i3) => ls.visible[i3].name).join("\n");
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
       }
     });
-    const onListing = () => !app.fileMode;
     const lead = () => ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
     const leadRow = () => scroll.querySelector(`[data-idx="${ls.selIdx}"]`);
     const shown = () => ls.visible.map((_, i3) => i3).filter((i3) => sel.selectable(i3) || ls.visible[i3].isParent);
@@ -27486,9 +27464,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const en = lead();
       if (en) copyText(fullPath(rawPath, en), rowBtn(en, "fe-act-cp"));
     }, () => onListing() && !!lead());
-    bind("up", () => app.goUp());
-    bind("move", (key) => sel.moveSel(key === "\u2191" ? -1 : 1), onListing);
-    bind("pv-step", (key) => sel.previewStep(key === "\u2191" || key === "\u2190" ? -1 : 1), () => isPreviewOpen());
+    bind("up", () => app.goUp(), () => !onHome());
+    bind("move", (key) => {
+      const on = document.activeElement;
+      if (on?.closest("#fe-scroll")) on.blur();
+      sel.moveSel(key === "\u2191" || key === "k" ? -1 : 1);
+    }, onListing);
+    bind("pv-step", (key) => sel.previewStep(key === "\u2191" || key === "\u2190" || key === "k" ? -1 : 1), () => isPreviewOpen());
     bind("open", () => {
       const en = lead();
       if (en) go(en.href);
@@ -27599,7 +27581,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const scroll = document.getElementById("fe-scroll");
     if (!stage || !grip || !scroll) return;
     const card5 = stage.querySelector(".fe-gal-card");
-    const on = () => fe.dataset.view === "gallery" && !app.fileMode;
+    const on = () => fe.dataset.view === "gallery" && listingShown();
     const setStrip = (h) => {
       const room = (document.getElementById("fe-main")?.clientHeight ?? 600) - 160;
       const v = Math.round(Math.max(MIN_STRIP, Math.min(room, h)));
@@ -27660,7 +27642,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         card5.hidden = true;
       }
     };
-    new MutationObserver(sync).observe(fe, { attributes: true, attributeFilter: ["data-view"] });
+    new MutationObserver(sync).observe(fe, { attributes: true, attributeFilter: ["data-view", "class"] });
     document.addEventListener("bfb-lead", show);
     sync();
     document.addEventListener("keydown", (e) => {
@@ -28104,14 +28086,28 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("fp-cm-due", () => app.filePage?.comment("due"), commentable);
     bind("fp-cm-attach", () => app.filePage?.comment("attach"), commentable);
     bind("fp-copy", click("fe-fp-copy"), () => !!app.filePage && !app.filePage.editing());
+    const reading = () => !!app.filePage && !app.filePage.editing();
+    const page = () => document.getElementById("fe-page");
+    bind("fp-line", (key) => page()?.scrollBy({ top: key === "k" ? -60 : 60 }), reading);
+    bind("fp-ends", (key) => {
+      const p = page();
+      if (p) p.scrollTop = key === "\u21E7G" ? p.scrollHeight : 0;
+    }, reading);
     bind("fp-cm-step", (key) => app.filePage?.comment(key === "\u2325\u2191" ? "prev" : "next"), commentable);
-    bind("fp-cm-clear", () => app.filePage?.comment("clear"), () => !!app.filePage?.commentHeld() && !ae()?.closest("#fe-cm"));
+    bind(
+      "fp-cm-clear",
+      () => {
+        if (app.filePage?.commentHeld()) app.filePage.comment("clear");
+        else app.filePage?.closePeek();
+      },
+      () => !!app.filePage?.commentHeld() && !ae()?.closest("#fe-cm") || !!app.filePage?.peeking()
+    );
     bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode && !app.filePage?.editing());
     bind("to-path", () => {
       focusFirst("#fe-bc", "a.fe-crumb:last-of-type, .fe-crumb.cur, a");
       flash(document.activeElement);
     });
-    bind("deep", click("fe-deep-btn"), () => !app.fileMode);
+    bind("deep", click("fe-deep-btn"), listingShown);
     bind("sidebar", click("fe-side-toggle"));
     bind("theme", click("fe-theme-btn"));
     bind("path", () => {
@@ -28120,7 +28116,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else click("fe-open-path")();
     });
     bind("open-pick", click("fe-open-pick"));
-    bind("save", click("fe-bm-btn"), () => !!document.getElementById("fe-bm-btn"));
+    bind("save", click("fe-bm-btn"), () => !!document.getElementById("fe-bm-btn") && !app.fe.classList.contains("fe-home-mode"));
     bind("terminal", click("fe-term-btn"));
     bind("terminal-copy", click("fe-term-btn", { shiftKey: true }));
     const moveHere = (dir) => {
@@ -28134,7 +28130,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const LENSES = [["lens-home", "home"], ["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
     for (const [id, lens] of LENSES) bind(id, () => {
       if (!sidebarShown()) runCommand("sidebar");
-      app.showLens?.(lens);
+      const railBtn = document.getElementById(`fe-rail-${lens}`);
+      if (railBtn) railBtn.click();
+      else app.showLens?.(lens);
       setTimeout(() => {
         const box = document.getElementById(`fe-lens-${lens}`);
         (box?.querySelector('input[type="search"], textarea, .fe-tl-input') ?? box?.querySelector(".fe-si, .fe-si-link"))?.focus();
@@ -28669,6 +28667,37 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   // src/sidebar.ts
   var hiddenHistory = jsonPref("bfb-trash-hidden-v1", [], (v) => Array.isArray(v));
   var lensPref = textPref("bfb-lens-v1", "notes");
+  function keepLensScroll(lens) {
+    const box = document.getElementById("fe-lenses");
+    if (!box) return;
+    const KEY = "bfb-lens-scroll";
+    const read2 = () => {
+      try {
+        return JSON.parse(sessionStorage.getItem(KEY) ?? "{}");
+      } catch {
+        return {};
+      }
+    };
+    window.addEventListener("pagehide", () => {
+      try {
+        sessionStorage.setItem(KEY, JSON.stringify({ ...read2(), [lens()]: box.scrollTop }));
+      } catch {
+      }
+    });
+    const want = read2()[lens()];
+    if (!want) return;
+    let frames = 60;
+    const stop = () => {
+      frames = 0;
+    };
+    for (const ev of ["wheel", "keydown", "pointerdown", "touchstart"]) box.addEventListener(ev, stop, { once: true, passive: true });
+    const place = () => {
+      if (frames-- <= 0) return;
+      box.scrollTop = want;
+      requestAnimationFrame(place);
+    };
+    place();
+  }
   function initLenses(app) {
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
@@ -28773,6 +28802,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     lensPref.onChange(() => show(lensPref.get(), void 0, true));
     show(lensPref.get(), void 0, true);
+    keepLensScroll(() => lensPref.get());
   }
   function initSidebar(app) {
     const { rawPath, settings, toast } = app;
@@ -28950,14 +28980,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         else onCancel?.();
         refreshSaved();
       };
+      const holder = target.closest("[data-path],[data-rel]");
+      const rowKey = holder?.dataset.path ? `[data-path="${CSS.escape(holder.dataset.path)}"]` : holder?.dataset.rel ? `[data-rel="${CSS.escape(holder.dataset.rel)}"]` : "";
+      const backToRow = () => setTimeout(() => {
+        const on = document.activeElement;
+        if (rowKey && (!on || on === document.body)) document.querySelector(`#fe-lenses ${rowKey} .fe-si-link, #fe-lenses ${rowKey}.fe-si-link`)?.focus({ preventScroll: true });
+      }, 60);
       target.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           finish(true);
+          backToRow();
         } else if (e.key === "Escape") {
           e.preventDefault();
           target.textContent = orig;
           finish(false);
+          backToRow();
         }
         e.stopPropagation();
       });
@@ -28982,9 +29020,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           e.preventDefault();
-          saveSaved(removePlace(getSaved(), btn.dataset.path));
-          refreshSaved();
-          toast("Removed from Saved");
+          removeSavedWithUndo(btn.dataset.path, toast, refreshSaved);
         });
       });
       els(".fe-pl-label", svList).forEach((lbl) => {
@@ -29103,11 +29139,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     el("fe-sv-add").addEventListener("click", () => addCurrentFolder(true));
     el("fe-bm-btn").addEventListener("click", () => {
-      if (getSaved().some((p) => samePlace(p.path, rawPath))) {
-        saveSaved(removePlace(getSaved(), rawPath));
-        refreshSaved();
-        toast("Removed from Saved");
-      } else addCurrentFolder(false);
+      if (getSaved().some((p) => samePlace(p.path, rawPath))) removeSavedWithUndo(rawPath, toast, refreshSaved);
+      else addCurrentFolder(false);
     });
     attachSavedEvents();
     syncStar();
@@ -29575,8 +29608,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         }).catch((err) => toast(errorText(err, "Renaming the note")));
       }, back);
     }
-    function deleteNote(root2, rel) {
-      if (editingRel() === rel) discardEditor();
+    async function deleteNote(root2, rel) {
+      if (editingRel() === rel) {
+        await saveEditor().catch(() => {
+        });
+        rel = editingRel() ?? rel;
+        discardEditor();
+      }
       notes.delete(root2, rel).then((r) => {
         refreshNotes();
         toast("Moved to .trash", 6e3, { label: "Undo", run: () => {
@@ -29633,7 +29671,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           document.addEventListener("pointerup", () => setTimeout(start, 0), { once: true, capture: true });
           setTimeout(start, 800);
         },
-        del: (r) => deleteNote(root2, r)
+        del: (r) => void deleteNote(root2, r)
       };
       notes.read(root2, rel).then((doc) => openNote(root2, doc, refreshNotes, actions)).catch((err) => toast(errorText(err, "Opening the note")));
     }
@@ -29892,9 +29930,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const { where: where2, why, clashes, backup } = savedWhere();
       svWhere.hidden = where2 === "unknown";
       svWhere.dataset.state = where2;
-      const two = clashes ? ` ${clashes} ${clashes === 1 ? "save holds" : "saves hold"} two versions after a merge: choose which to keep.` : "";
-      const back = backup ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Put back the rows this browser had before Saved moved to the folder, beside what is there now">Bring back my earlier rows</button>' : "";
-      svWhere.innerHTML = where2 === "folder" ? `Kept in your notes folder.${two}${back}` : where2 === "unreachable" ? `Showing the last copy: the notes folder did not answer${why ? ` (${esc(why)})` : ""}` : `Kept only in this browser. ${esc(why)}${why.includes("moved back") ? ' <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on">Move Saved to the notes folder</button>' : ""}`;
+      const two = clashes ? ` \xB7 ${clashes} to settle` : "";
+      const back = backup ? ` <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-back" title="Rows from before the move, beside today's">${UI_ICON.versions}<span>Restore rows</span></button>` : "";
+      svWhere.innerHTML = where2 === "folder" ? `In your notes folder${two}${back}` : where2 === "unreachable" ? `<span title="${esc(why)}">Last copy: folder not answering</span>` : `<span title="${esc(why)}">Only in this browser</span>${why.includes("moved back") ? ` <button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-sv-where-on" title="Keep Saved in the notes folder">${UI_ICON.notes}<span>Move to Notes</span></button>` : ""}`;
       document.getElementById("fe-sv-where-on")?.addEventListener("click", () => void enableSavedFolder());
       document.getElementById("fe-sv-where-back")?.addEventListener("click", () => void restoreBackup());
     };
@@ -29925,6 +29963,430 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         }
       });
     }
+  }
+
+  // src/llm.ts
+  function openProxyPort() {
+    try {
+      return chrome.runtime.connect({ name: "bfb-llm" });
+    } catch {
+      return null;
+    }
+  }
+  function llmAvailability() {
+    return new Promise((resolve) => {
+      let done = false;
+      const settle2 = (res) => {
+        if (done) return;
+        done = true;
+        resolve(res);
+      };
+      const port = openProxyPort();
+      if (!port) {
+        settle2({ kind: "unavailable", reason: "extension messaging unavailable" });
+        return;
+      }
+      const timer3 = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle2({ kind: "unavailable", reason: "status check timed out" });
+      }, 5e3);
+      port.onMessage.addListener((msg) => {
+        if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
+        clearTimeout(timer3);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        if (msg.t === "status" && msg.data?.server === "up") {
+          settle2({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
+        } else if (msg.t === "status") {
+          settle2({ kind: "down", status: msg.data });
+        } else {
+          settle2({ kind: "unavailable", reason: msg.message || "lm host not found" });
+        }
+      });
+      port.onDisconnect.addListener(() => {
+        clearTimeout(timer3);
+        settle2({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
+      });
+      port.postMessage({ op: "status" });
+    });
+  }
+  function defaultTier(tiers, def) {
+    const bare = (x2) => x2.replace(/:latest$/, "");
+    const d = bare(def);
+    if (!d) return -1;
+    const byName = tiers.findIndex((t) => bare(t.alias) === d);
+    return byName >= 0 ? byName : tiers.findIndex((t) => bare(t.model) === d);
+  }
+  var REMOTE = /^(gemini|gpt):/;
+  var isRemote = (value) => REMOTE.test(value);
+  var bareModel = (value) => value.replace(REMOTE, "");
+  function llmModels() {
+    return new Promise((resolve) => {
+      let done = false;
+      const settle2 = (r) => {
+        if (!done) {
+          done = true;
+          resolve(r);
+        }
+      };
+      const port = openProxyPort();
+      if (!port) {
+        settle2({ tiers: [], gemini: [], gpt: [] });
+        return;
+      }
+      const timer3 = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle2({ tiers: [], gemini: [], gpt: [] });
+      }, 2e4);
+      port.onMessage.addListener((msg) => {
+        if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
+        clearTimeout(timer3);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle2(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
+      });
+      port.onDisconnect.addListener(() => {
+        clearTimeout(timer3);
+        settle2({ tiers: [], gemini: [], gpt: [] });
+      });
+      port.postMessage({ op: "models" });
+    });
+  }
+  function llmQuery(opts, cb, job) {
+    const port = openProxyPort();
+    if (!port) {
+      cb.onError("unavailable", "AI host not installed");
+      return () => {
+      };
+    }
+    const stop = follow(port, cb, job?.id);
+    port.postMessage({
+      op: "query",
+      ctx: opts.ctx,
+      ctxName: opts.ctxName,
+      intent: opts.intent,
+      question: opts.question,
+      timeout: opts.timeout ?? 120,
+      model: opts.model,
+      files: opts.files,
+      ...job ? { job } : {}
+    });
+    return stop;
+  }
+  function llmAttach(id, cb) {
+    const port = openProxyPort();
+    if (!port) {
+      cb.onGone();
+      return () => {
+      };
+    }
+    const stop = follow(port, cb, id, cb);
+    port.postMessage({ op: "attach", id });
+    return stop;
+  }
+  function llmRunning() {
+    return oneFrame({ op: "running" }, "running", (m) => m.jobs ?? [], []);
+  }
+  function llmOrphans() {
+    return oneFrame({ op: "orphans" }, "orphans", (m) => m.list ?? [], []);
+  }
+  function oneFrame(msg, t, read2, empty) {
+    return new Promise((resolve) => {
+      const port = openProxyPort();
+      if (!port) {
+        resolve(empty);
+        return;
+      }
+      const timer3 = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        resolve(empty);
+      }, 3e3);
+      port.onMessage.addListener((m) => {
+        if (m?.t !== t) return;
+        clearTimeout(timer3);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        resolve(read2(m));
+      });
+      port.onDisconnect.addListener(() => {
+        clearTimeout(timer3);
+        resolve(empty);
+      });
+      port.postMessage(msg);
+    });
+  }
+  function follow(port, cb, jobId, attach) {
+    let finished = false;
+    let gotFrame = false;
+    const finish = () => {
+      finished = true;
+      try {
+        port.disconnect();
+      } catch {
+      }
+    };
+    port.onMessage.addListener((msg) => {
+      if (finished || !msg) return;
+      if (msg.t === "replay") {
+        gotFrame = true;
+        attach?.onReplay(msg.text ?? "", msg.steps ?? []);
+      } else if (msg.t === "gone") {
+        finish();
+        attach?.onGone();
+      } else if (msg.t === "chunk") {
+        gotFrame = true;
+        cb.onChunk(msg.text ?? "");
+      } else if (msg.t === "step") {
+        gotFrame = true;
+        cb.onStep?.(msg.text ?? "");
+      } else if (msg.t === "done") {
+        finish();
+        cb.onDone({ model: msg.model ?? "", ms: msg.ms ?? 0, truncated: !!msg.truncated, tokensIn: msg.tokens_in || void 0, tokensOut: msg.tokens_out || void 0 });
+      } else if (msg.t === "error") {
+        finish();
+        cb.onError(msg.code ?? "unknown", msg.message ?? "");
+      } else if (msg.t === "native-gone") {
+        finish();
+        cb.onError(gotFrame ? "disconnected" : "unavailable", msg.message ?? "");
+      }
+    });
+    port.onDisconnect.addListener(() => {
+      if (!finished) {
+        finished = true;
+        cb.onError("disconnected", "AI host disconnected");
+      }
+    });
+    return () => {
+      if (jobId && !finished) try {
+        port.postMessage({ op: "cancel", id: jobId });
+      } catch {
+      }
+      finish();
+    };
+  }
+  function llmWarm(on) {
+    return new Promise((resolve) => {
+      let done = false;
+      const settle2 = (r) => {
+        if (!done) {
+          done = true;
+          resolve(r);
+        }
+      };
+      const port = openProxyPort();
+      if (!port) {
+        settle2({ ok: false, message: "AI host not installed" });
+        return;
+      }
+      const timer3 = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle2({ ok: false, message: "timed out" });
+      }, 3e4);
+      port.onMessage.addListener((msg) => {
+        if (msg?.t !== "warm" && msg?.t !== "error" && msg?.t !== "native-gone") return;
+        clearTimeout(timer3);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle2(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
+      });
+      port.onDisconnect.addListener(() => {
+        clearTimeout(timer3);
+        settle2({ ok: false, message: chrome.runtime.lastError?.message });
+      });
+      port.postMessage({ op: "warm", on });
+    });
+  }
+  var LLM_ERROR_TEXT = {
+    server_down: "The local model is not running. Start it with lm in a terminal, then try again.",
+    model_missing: "The model is not available on the server.",
+    ctx_too_large: "This file is too large for the model.",
+    timeout: "The model took too long and was stopped.",
+    invalid_args: "Invalid request.",
+    cancelled: "Cancelled.",
+    host_no_lm: "The lm CLI was not found on this machine.",
+    unavailable: "Local AI is not set up. Settings, AI shows how.",
+    disconnected: "The AI host disconnected unexpectedly.",
+    gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model.",
+    gpt_unavailable: "GPT did not answer. Check codex login in a terminal, or pick another model."
+  };
+
+  // src/ask-quote.ts
+  var QUOTE_MAX = 4e3;
+  function quoteMarkdown(text, from) {
+    let body = text.trim();
+    const cut = body.length > QUOTE_MAX;
+    if (cut) body = body.slice(0, QUOTE_MAX).trimEnd() + " \u2026";
+    const lines = [`From ${from}${cut ? " (shortened)" : ""}:`, "", ...body.split("\n")];
+    return lines.map((l) => l ? `> ${l}` : ">").join("\n") + "\n\n";
+  }
+  var nameOf2 = (path) => path.split("/").filter(Boolean).pop() || "/";
+  function quoteTargets(here, tabPaths, recent, chatsFor2, max = 8) {
+    const out = [{ ...here, label: "This chat", here: true }];
+    const seen = /* @__PURE__ */ new Set([here.subject]);
+    const add = (subject, chat, label) => {
+      if (!chat || seen.has(subject) || out.length >= max) return;
+      seen.add(subject);
+      out.push({ subject, chatId: chat.id, title: chat.title, label, here: false });
+    };
+    for (const p of tabPaths) add(p, chatsFor2(p)[0], `${nameOf2(p)} \xB7 open tab`);
+    for (const r of recent) add(r.subject, r.chat, nameOf2(r.subject));
+    return out;
+  }
+  var handoffPref = jsonPref("bfb-ask-quote-v1", null, (v) => v === null || typeof v === "object" && typeof v.text === "string");
+  var HANDOFF_TTL = 2 * 6e4;
+  function sendQuote(h) {
+    handoffPref.set(h);
+  }
+  function takeQuote(subject, now = Date.now()) {
+    const h = handoffPref.get();
+    if (!h || h.subject !== subject) return null;
+    handoffPref.set(null);
+    return now - h.at <= HANDOFF_TTL ? h : null;
+  }
+  var LANE_DEFAULT = /\(((Gemini|Codex) )?default\)$/;
+  var bareLabel = (label) => label.replace(/ \(((Gemini|Codex) )?default\)$/, "");
+  function resolveMention(text, opts) {
+    const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
+    if (!m) return null;
+    const want = m[1].toLowerCase();
+    const lane = (name2) => opts.filter((o) => o.value.startsWith(name2 + ":"));
+    const remote = [...lane("gemini"), ...lane("gpt")];
+    const laneDefault = (name2) => lane(name2).find((o) => LANE_DEFAULT.test(o.label)) ?? lane(name2)[0];
+    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? remote.find((o) => o.value.slice(o.value.indexOf(":") + 1).toLowerCase() === want) ?? (want === "gemini" || want === "gpt" ? laneDefault(want) : void 0);
+    return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
+  }
+  function secondOpinion(question, answer2) {
+    return `Another model answered the question "${question}" as below. Check that answer against the context: say plainly what is wrong or missing, then give a better answer.
+
+Their answer:
+${answer2}`;
+  }
+  var isImageName = (name2) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name2);
+  function closeOpenFence(text) {
+    const fences = text.match(/^\s*```/gm)?.length ?? 0;
+    return fences % 2 ? text + "\n```" : text;
+  }
+  function splitThinking(text) {
+    const m = /^\s*<think>([\s\S]*?)(<\/think>|$)/.exec(text);
+    if (!m) return { thinking: "", answer: text, open: false };
+    return { thinking: m[1].trim(), answer: text.slice(m[0].length).replace(/^\s+/, ""), open: !m[2] };
+  }
+
+  // src/ask-history.ts
+  function turnMeta(t, truncated = false) {
+    if (t.model === "stopped") return "Stopped";
+    const n = (v) => v.toLocaleString("en-US");
+    return [
+      t.model,
+      t.tokensIn ? `in ${n(t.tokensIn)}` : "",
+      t.tokensOut ? `out ${n(t.tokensOut)}` : "",
+      t.ms ? `${(t.ms / 1e3).toFixed(1)}s` : "",
+      truncated ? "shortened to fit" : "",
+      t.stopped ? "stopped" : ""
+    ].filter(Boolean).join(" \xB7 ");
+  }
+  function endedTurn(base2, text, end) {
+    if (end.t === "done") return { ...base2, a: text, model: end.model || base2.model, ms: end.ms ?? 0, tokensIn: end.tokens_in || void 0, tokensOut: end.tokens_out || void 0 };
+    if (text.trim()) return { ...base2, a: text, ms: Date.now() - base2.at, stopped: true };
+    return { ...base2, a: "", ms: 0, error: end.code || "unknown" };
+  }
+  var historyPref = jsonPref("bfb-ask-history-v1", {}, (v) => !!v && typeof v === "object");
+  var CHATS_PER_SUBJECT = 20;
+  var SUBJECTS = 100;
+  var ANSWER_MAX = 2e4;
+  function read() {
+    return historyPref.get();
+  }
+  function allChats() {
+    return Object.entries(read()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+  }
+  function chatsUnder(folder, depth = 4) {
+    return allChats().filter(({ subject }) => isWithin(subject, folder, depth));
+  }
+  function chatsFor(subject) {
+    return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
+  }
+  function addTurn(subject, chatId, turn) {
+    const store2 = read();
+    const list3 = store2[subject] ?? [];
+    let chat = list3.find((c) => c.id === chatId);
+    if (!chat) {
+      chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
+      list3.push(chat);
+    }
+    if (chat.turns.some((t) => t.at === turn.at && t.q === turn.q)) return chat;
+    chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
+    chat.at = turn.at;
+    store2[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    const subjects = Object.keys(store2);
+    if (subjects.length > SUBJECTS) {
+      const last = (k) => Math.max(...store2[k].map((c) => c.at));
+      subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
+        delete store2[k];
+      });
+    }
+    historyPref.set(store2);
+    return chat;
+  }
+  function deleteChat(subject, chatId) {
+    const store2 = read();
+    store2[subject] = (store2[subject] ?? []).filter((c) => c.id !== chatId);
+    if (!store2[subject].length) delete store2[subject];
+    historyPref.set(store2);
+  }
+  function withHistory(turns, question, maxChars = 4e3) {
+    if (!turns.length) return question;
+    const parts2 = [];
+    let used = 0;
+    for (const t of turns.slice(-4).reverse()) {
+      const block = `Q: ${t.q}
+A: ${t.a}`;
+      if (used + block.length > maxChars) break;
+      parts2.unshift(block);
+      used += block.length;
+    }
+    return parts2.length ? `Earlier in this chat:
+${parts2.join("\n\n")}
+
+Now: ${question}` : question;
+  }
+  function chatMarkdown(subject, turns, title = turns[0]?.q ?? "Chat") {
+    const name2 = subject.split("/").filter(Boolean).pop() ?? subject;
+    const head = `# ${title.replace(/\s+/g, " ").trim().slice(0, 120)}
+
+_Asked about [${name2}](file://${encodeURI(subject)})${turns[0] ? `, ${whenText(turns[0].at)}` : ""}_
+`;
+    const body = turns.map((t) => {
+      const answer2 = t.error ? `_No answer: ${t.error}_` : splitThinking(t.a).answer.trim();
+      return `## ${t.via ? `Second opinion: ${t.via}` : t.q.replace(/\s+/g, " ").trim()}
+
+${answer2}
+
+<sub>${t.model}${t.stopped ? " \xB7 stopped" : ""}</sub>`;
+    }).join("\n\n");
+    return `${head}
+${body}
+`;
   }
 
   // src/tool-lenses.ts
@@ -30016,6 +30478,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (e.key === "Enter") {
         e.preventDefault();
         void search();
+      } else if (e.key === "ArrowDown") {
+        const hit = list3.querySelector(".fe-srch-hit");
+        if (hit) {
+          e.preventDefault();
+          hit.focus();
+        }
       } else if (e.key === "Escape") {
         q.value = "";
         remember("");
@@ -30060,10 +30528,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   function initAsk(app) {
     const box = document.getElementById("fe-ask");
     if (!box) return;
-    const subject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
-    const key = app.fileMode ? app.rawPath : app.folderPath;
+    const pageSubject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
+    let subject = pageSubject;
+    const pageKey = app.fileMode ? app.rawPath : app.folderPath;
+    let key = pageKey;
+    let about = null;
     const quick = app.fileMode ? [["summarize", "Summarize"], ["explain", "Explain"]] : [["folder", "What is in here?"]];
-    const what = app.fileMode ? "this file" : "this folder";
+    const pageWhat = app.fileMode ? "this file" : "this folder";
+    let what = pageWhat;
     box.innerHTML = `
     <div class="fe-ask-top">
       <span class="fe-ask-model"><span class="dot"></span>${ddHtml("fe-ask-model", [{ value: "", label: "Default model" }], "Which model answers. Models on this machine stay here; remote ones (Gemini) run on Google's servers.")}</span>
@@ -30082,9 +30554,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <div class="fe-ask-files" id="fe-ask-files" hidden></div>
-        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code, @gemini or @gpt to ask that model"></textarea>
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks \xB7 @gemini asks that model"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
-          <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach files from this folder, or drop a file here" aria-label="Attach files">${UI_ICON.attach}</button>
+          <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach from this folder, or drop a file" aria-label="Attach files">${UI_ICON.attach}</button>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
       </div>
     </div>`;
@@ -30128,7 +30600,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let reason = "";
     const syncUsable = () => {
       const usable = localReady || isCloud();
-      q.disabled = go2.disabled = !usable;
+      q.readOnly = !usable;
+      go2.disabled = !usable && !cancel;
       const why = usable ? "" : reason;
       go2.title = why || (cancel ? "Stop" : "Ask (Enter)");
       q.placeholder = why ? "Ask is off until the model runs" : `Ask about ${what}`;
@@ -30136,6 +30609,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         b.disabled = !usable;
         b.title = why;
       });
+      chipDot.className = isCloud() ? "dot ready" : chipDot.dataset.local ?? "dot";
       cloud.hidden = !isCloud();
       cloudTo.textContent = model().startsWith("gpt:") ? "OpenAI" : "Google";
       statusRow.hidden = !checked || localReady || isCloud();
@@ -30145,15 +30619,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       state.textContent = "Checking the local model\u2026";
       recheck.hidden = true;
       const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
-      const kind = a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind;
+      const runnable = a.kind === "ready" || a.kind === "down";
+      const kind = a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind === "down" ? "cold" : a.kind;
       statusRow.className = `fe-ask-status ${kind}`;
-      recheck.hidden = a.kind === "ready";
-      state.textContent = a.kind === "ready" ? "" : a.kind === "down" ? "Local model is off" : "lm is not installed";
-      statusRow.title = a.kind === "ready" ? "" : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
-      reason = a.kind === "ready" ? "" : a.kind === "down" ? "Local model is off: start it with lm" : "lm is not installed";
-      chipDot.className = `dot ${kind}`;
-      chipDot.title = a.kind === "ready" ? a.cold ? "Loads on the first question" : "Ready" : state.textContent;
-      localReady = a.kind === "ready";
+      recheck.hidden = runnable;
+      state.textContent = runnable ? "" : "lm is not installed";
+      statusRow.title = runnable ? "" : LLM_ERROR_TEXT.unavailable;
+      reason = runnable ? "" : "lm is not installed";
+      chipDot.className = chipDot.dataset.local = `dot ${kind}`;
+      chipDot.title = a.kind === "ready" && !a.cold ? "Ready" : runnable ? "Starts on the first question" : state.textContent;
+      localReady = runnable;
       const saved = askModelPref.get();
       const def = a.kind === "unavailable" ? "" : (a.status.default_model ?? "").replace(/:latest$/, "");
       const opts = [
@@ -30172,6 +30647,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       syncUsable();
     });
     async function context() {
+      if (about) return { ctx: about.image ? "" : await fetchFileText(about.href), name: about.name };
+      const viewed = new URLSearchParams(location.hash.slice(1)).get("view");
+      if (viewed) return { ctx: await fetchFileText(fileHref(app.folderPath.replace(/\/?$/, "/") + viewed)), name: viewed };
       if (app.fileMode) return { ctx: await fetchFileText(location.href.split("#")[0]), name: app.fileName };
       const url = fileHref(app.folderPath.replace(/\/?$/, "/"));
       const rows = (await listDir(url)).filter((e) => !e.isParent).map((e) => `${e.name}${e.isDir ? "/" : ""}	${e.isDir ? "" : e.rawBytes + " bytes"}`);
@@ -30179,6 +30657,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 ${rows.join("\n")}`, name: subject };
     }
     const answers = /* @__PURE__ */ new WeakMap();
+    const turnData = /* @__PURE__ */ new WeakMap();
     const nameOf3 = (p) => p.split("/").filter(Boolean).pop() ?? p;
     const fileChip = (p, remove = false) => `<span class="chip fe-ask-file" data-size="sm" title="${esc(p)}">${isImageName(p) ? UI_ICON.image : UI_ICON.file}<span>${esc(nameOf3(p))}</span>${remove ? `<button type="button" class="btn" data-icon data-size="xs" data-unattach="${esc(p)}" title="Remove" aria-label="Remove ${esc(nameOf3(p))}">${UI_ICON.close}</button>` : ""}</span>`;
     const turnEl = (question, files = [], via = "") => {
@@ -30196,17 +30675,26 @@ ${rows.join("\n")}`, name: subject };
     };
     const paint = (turn, text, done) => {
       const out = turn.querySelector(".fe-ask-a");
-      const { thinking, answer, open } = splitThinking(text);
-      answers.set(turn, answer);
+      const { thinking, answer: answer2, open } = splitThinking(text);
+      answers.set(turn, answer2);
       const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
       const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? "Thinking" : "Thought it through"}</span><span class="fe-ask-think-n">${words} word${words === 1 ? "" : "s"}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : "";
       const was = out.querySelector(".fe-ask-think")?.open;
-      out.innerHTML = think + renderMarkdown(done ? answer : closeOpenFence(answer));
+      let sc = thread;
+      while (sc.parentElement && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
+      const atEnd = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
+      out.innerHTML = think + renderMarkdown(done ? answer2 : closeOpenFence(answer2));
       if (was) out.querySelector(".fe-ask-think").open = true;
+      if (atEnd && !done) sc.scrollTop = sc.scrollHeight;
     };
     const asks = /* @__PURE__ */ new WeakMap();
-    const paintError = (turn, code, message) => {
-      turn.querySelector(".fe-ask-a").innerHTML = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(LLM_ERROR_TEXT[code] ?? (message || "The model did not answer."))}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+    const paintError = (turn, code, message, keep = false) => {
+      const canned = LLM_ERROR_TEXT[code];
+      const why = canned && message && message !== canned ? `${canned} (${message})` : canned ?? (message || "The model did not answer.");
+      const card5 = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(why)}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+      const out = turn.querySelector(".fe-ask-a");
+      if (keep) out.insertAdjacentHTML("beforeend", card5);
+      else out.innerHTML = card5;
       turn.querySelector(".fe-ask-meta").textContent = "";
     };
     const listed2 = () => app.fileMode ? chatsFor(key).map((chat) => ({ subject: key, chat })) : chatsUnder(key);
@@ -30221,6 +30709,7 @@ ${rows.join("\n")}`, name: subject };
       chatId = "";
       turns = [];
       clearThread();
+      clearAttached();
       syncEmpty();
       markFresh(key, true);
       q.focus();
@@ -30233,11 +30722,16 @@ ${rows.join("\n")}`, name: subject };
       for (const t of turns) {
         const el2 = turnEl(t.q, t.files, t.via);
         asks.set(el2, { intent: t.intent ?? "qa", question: t.intent && t.intent !== "qa" ? void 0 : t.q });
-        if (t.error) {
+        turnData.set(el2, t);
+        if (t.error && !t.a) {
           paintError(el2, t.error, "");
           continue;
         }
         paint(el2, t.a, true);
+        if (t.error) {
+          paintError(el2, t.error, "", true);
+          continue;
+        }
         el2.querySelector(".fe-ask-meta").textContent = turnMeta(t);
       }
       syncEmpty();
@@ -30269,7 +30763,7 @@ ${rows.join("\n")}`, name: subject };
       if (go2.disabled && !o.model) return;
       cancel?.();
       const shown = o.shown ?? question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
-      const files = attached.slice();
+      const files = about?.image && !attached.includes(key) ? [key, ...attached] : attached.slice();
       const useModel = o.model ?? model();
       const turn = turnEl(shown, attached, o.via);
       asks.set(turn, { intent, question, ...o });
@@ -30314,6 +30808,7 @@ ${rows.join("\n")}`, name: subject };
       const meta = turn.querySelector(".fe-ask-meta");
       const started = base2.at;
       const save = (t) => {
+        turnData.set(turn, t);
         turns.push(t);
         addTurn(key, chatId, t);
         syncHistN();
@@ -30324,10 +30819,15 @@ ${rows.join("\n")}`, name: subject };
       };
       let full = "";
       let frame = 0;
+      const waiting = window.setInterval(() => {
+        if (!full) meta.textContent = `Thinking\u2026 ${Math.round((Date.now() - started) / 1e3)}s`;
+      }, 1e3);
       go2.classList.add("stop");
       go2.title = "Stop";
       go2.setAttribute("aria-label", "Stop");
       const done = () => {
+        clearInterval(waiting);
+        if (!full) meta.textContent = "";
         cancel = null;
         cancelAnimationFrame(frame);
         go2.classList.remove("stop");
@@ -30358,7 +30858,10 @@ ${rows.join("\n")}`, name: subject };
           },
           // At most one paint per frame, however fast the text arrives.
           onChunk: (t) => {
+            if (!full) meta.textContent = "";
             full += t;
+            const s = getSelection();
+            if (s && !s.isCollapsed && out.contains(s.anchorNode)) return;
             frame ||= requestAnimationFrame(() => {
               frame = 0;
               paint(turn, full, false);
@@ -30379,8 +30882,10 @@ ${rows.join("\n")}`, name: subject };
             over = true;
             done();
             if (code === "cancelled") return;
-            paintError(turn, code, message);
-            save({ ...base2, a: "", ms: 0, error: code });
+            const kept = !!full.trim();
+            if (kept) paint(turn, full, true);
+            paintError(turn, code, message, kept);
+            save({ ...base2, a: full, ms: Date.now() - started, error: code });
           }
         },
         {
@@ -30509,7 +31014,7 @@ ${rows.join("\n")}`, name: subject };
       else quote(text, btn);
     });
     const chatSubject = () => key;
-    const turnOf = (turn) => turns[[...thread.querySelectorAll(".fe-ask-turn")].indexOf(turn)];
+    const turnOf = (turn) => turnData.get(turn);
     const saveToNotes = (md2, title) => {
       const root2 = app.settings.notesRoot;
       if (!root2) {
@@ -30590,14 +31095,15 @@ ${rows.join("\n")}`, name: subject };
       return menu;
     };
     const askOther = (turn, anchor) => {
-      const answer = answers.get(turn) ?? "";
+      const answer2 = answers.get(turn) ?? "";
       const asked = asks.get(turn);
-      if (!answer || !asked) return;
+      if (!answer2 || !asked) return;
       const opts = modelOpts().filter((o) => o.value);
       menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), (i3) => {
         const o = opts[i3];
         const label = bareLabel(o.label);
-        void ask("qa", secondOpinion(asked.question ?? asked.shown ?? "", answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
+        const away = isRemote(o.value) ? `, sent to ${o.value.startsWith("gpt:") ? "OpenAI" : "Google"}` : "";
+        void ask("qa", secondOpinion(asked.question ?? asked.shown ?? "", answer2), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}${away}` });
       });
     };
     const filesBox = el("fe-ask-files");
@@ -30605,6 +31111,12 @@ ${rows.join("\n")}`, name: subject };
       filesBox.hidden = !attached.length;
       filesBox.innerHTML = attached.map((p) => fileChip(p, true)).join("");
     };
+    function clearAttached() {
+      if (attached.length) {
+        attached = [];
+        paintFiles();
+      }
+    }
     const attach = (p) => {
       if (!attached.includes(p)) {
         attached.push(p);
@@ -30666,16 +31178,23 @@ ${rows.join("\n")}`, name: subject };
       const t = e.target;
       const chip = t.closest(".fe-ask-chip");
       if (chip) {
-        void ask(chip.dataset.intent);
+        void ask(chip.dataset.q ? "qa" : chip.dataset.intent, chip.dataset.q);
+        return;
+      }
+      if (t.closest("[data-ask-page]")) {
+        setSubject(null);
         return;
       }
       const row2 = t.closest(".fe-ask-h");
       const at = row2?.dataset.subject ?? key;
       if (row2 && t.closest(".fe-ask-h-del")) {
-        deleteChat(at, row2.dataset.chat);
-        if (row2.dataset.chat === chatId) newChat();
-        paintHist();
-        syncHistN();
+        void askYesNo("Delete this chat? This cannot be undone.", "Delete").then((yes) => {
+          if (!yes) return;
+          deleteChat(at, row2.dataset.chat);
+          if (row2.dataset.chat === chatId) newChat();
+          paintHist();
+          syncHistN();
+        });
         return;
       }
       if (row2 && t.closest(".fe-ask-h-open")) {
@@ -30694,11 +31213,11 @@ ${rows.join("\n")}`, name: subject };
     });
     histBtn.addEventListener("click", () => showHist(hist.hidden));
     go2.addEventListener("click", () => {
+      const text = q.value.trim();
       if (cancel) {
         cancel();
-        return;
+        if (!text) return;
       }
-      const text = q.value.trim();
       if (!text) {
         q.focus();
         return;
@@ -30711,10 +31230,36 @@ ${rows.join("\n")}`, name: subject };
     });
     q.addEventListener("keydown", (e) => {
       e.stopPropagation();
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey && !q.readOnly) {
         e.preventDefault();
-        go2.click();
+        if (q.value.trim()) go2.click();
       }
+    });
+    const draftKey = `bfb-ask-draft:${key}`;
+    q.addEventListener("input", () => {
+      try {
+        sessionStorage.setItem(draftKey, q.value);
+      } catch {
+      }
+    });
+    try {
+      const was = sessionStorage.getItem(draftKey);
+      if (was && !q.value) {
+        q.value = was;
+        grow();
+      }
+    } catch {
+    }
+    go2.addEventListener("click", () => {
+      try {
+        sessionStorage.removeItem(draftKey);
+      } catch {
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden || cancel || !chatId) return;
+      const c = chatsFor(key).find((x2) => x2.id === chatId);
+      if (c && c.turns.length !== turns.length) openChat(c);
     });
     syncHistN();
     const reopen = (id) => {
@@ -30722,6 +31267,31 @@ ${rows.join("\n")}`, name: subject };
       if (!c) return;
       app.showLens?.("ask");
       openChat(c);
+    };
+    const setSubject = (e) => {
+      cancel?.();
+      about = e ? { name: e.name, href: e.href, image: IMG_EXTS.has(getExt(e)) } : null;
+      key = e ? decodeURIComponent(new URL(e.href, location.href).pathname) : pageKey;
+      subject = e ? e.name : pageSubject;
+      what = e ? `this ${about.image ? "image" : "file"}` : pageWhat;
+      box.querySelector(".fe-ask-ctx").title = key;
+      box.querySelector(".fe-ask-ctx").innerHTML = `${e || app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span>${e ? `<button type="button" class="btn" data-icon data-size="xs" data-ask-page title="Back to this page's chat" aria-label="Back to this page's chat">${UI_ICON.close}</button>` : ""}`;
+      const chips = about?.image ? [["", "Describe", "Describe this image in detail, with any text in it verbatim."]] : e ? [["summarize", "Summarize"], ["explain", "Explain"]] : quick;
+      box.querySelector(".fe-ask-empty p").textContent = `Ask anything about ${what}.`;
+      box.querySelector(".fe-ask-quick").innerHTML = chips.map(([k, l, ask2]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}"${ask2 ? ` data-q="${esc(ask2)}"` : ""}>${l}</button>`).join("");
+      chatId = "";
+      turns = [];
+      clearThread();
+      clearAttached();
+      const last = chatsFor(key)[0];
+      if (last) openChat(last);
+      else syncEmpty();
+      syncHistN();
+      syncUsable();
+    };
+    app.askAbout = (e) => {
+      setSubject(e);
+      runCommand("lens-ask");
     };
     addPaletteSource(() => allChats().slice(0, 60).map(({ subject: subject2, chat }) => ({
       title: chat.title,
@@ -31037,7 +31607,7 @@ ${rows.join("\n")}`, name: subject };
             <button type="button" class="fe-rp-g${rule.glyph ? "" : " on"}" data-g="" title="Text badge">${icoCustom(rule.label, rule.color)}</button>
             ${Object.keys(RULE_GLYPHS).map((g) => `<button type="button" class="fe-rp-g${rule.glyph === g ? " on" : ""}" data-g="${g}" title="${g}">${icoCustom("", rule.color, g)}</button>`).join("")}
           </div></div>
-        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" data-mono maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
+        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" data-mono maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, when no picture"></div>
         <div class="fe-rp-sec"><span class="fe-rp-l">Colour</span>
           <div class="fe-rp-sw">${SWATCHES.map((c) => `<button type="button" class="fe-rp-c${c === rule.color ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("")}
           <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
@@ -31691,7 +32261,7 @@ ${rows.join("\n")}`, name: subject };
     const f = { q: "", me: false, due: false, tag: "", here: true, folder };
     box.innerHTML = `<div class="fe-docs-top" hidden>
       <input id="fe-docs-q" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="here" title="Only documents in this folder, up to four levels down">This folder</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
+      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="here" title="This folder only, four levels down">This folder</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
     const top = box.querySelector(".fe-docs-top"), rowsBox = box.querySelector(".fe-docs-rows");
     const input = box.querySelector("#fe-docs-q");
@@ -31987,10 +32557,10 @@ ${rows.join("\n")}`, name: subject };
       <div class="fe-hp-acts" role="toolbar" aria-label="Start something">${ACTIONS.map(actionBtn).join("")}</div>
       <form class="fe-hp-go" role="search" autocomplete="off">
         <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
-        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
+        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; suggestions follow">
         <datalist id="fe-hp-go-list"></datalist>
         <button type="submit" class="btn" data-icon data-variant="ghost" title="Open this path here (\u21B5)" aria-label="Open this path here">${UI_ICON.next}</button>
-        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab" aria-label="Open as a web link">${UI_ICON.link}</button>
+        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open as a web link in a tab" aria-label="Open as a web link">${UI_ICON.link}</button>
         <button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
       </form>
       <p class="fe-hp-go-msg" role="status" hidden></p>
@@ -32157,15 +32727,11 @@ ${rows.join("\n")}`, name: subject };
       else if (act === "edit" && anchor) editSaved(path, anchor);
       else if (act === "props" && anchor) app?.editNoteProps?.(path.slice(notesRoot().length + 1), anchor);
       else if (act === "unsave") {
-        const before = getSaved();
-        saveSaved(removePlace(before, path));
-        app?.refreshSaved();
-        refreshQuick();
-        app?.toast("Removed from Saved", 6e3, { label: "undo", run: () => {
-          saveSaved(before);
+        removeSavedWithUndo(path, app?.toast ?? (() => {
+        }), () => {
           app?.refreshSaved();
           refreshQuick();
-        } });
+        });
       }
     });
     function showInSidebar(lens, path) {
@@ -32509,10 +33075,7 @@ ${rows.join("\n")}`, name: subject };
     }
     if (settings.sidebarWidth) el("fe-side").style.width = settings.sidebarWidth + "px";
     const narrow = matchMedia(FOLD_SIDE_QUERY);
-    if (!settings.showSidebar || narrow.matches) {
-      el("fe-side").style.display = "none";
-      el("fe-side-rz").style.display = "none";
-    }
+    if (!settings.showSidebar || narrow.matches) startSidebarHidden();
     narrow.addEventListener("change", () => {
       const docked = !!document.querySelector("#fe-qlook.side")?.checkVisibility() && settings.dockFoldsSidebar !== false;
       setSidebarShown(!narrow.matches && !docked && settings.showSidebar);
@@ -32582,13 +33145,13 @@ ${rows.join("\n")}`, name: subject };
     };
     initPreview({
       iconRules: () => app.iconRules,
-      aiModel: () => settings.aiModel,
+      askAbout: (e) => app.askAbout?.(e),
       keepTab: (path) => {
         app.strip.open(path, true);
         app.toast("Kept as a tab");
       },
       saveError: (message) => app.toast(message),
-      toast: (message) => app.toast(message),
+      toast: app.toast,
       savedChanged: () => app.refreshSaved(),
       openInTerminal: (p) => app.openInTerminal(p),
       // The renamed file stays selected when its folder reloads.
@@ -32648,8 +33211,8 @@ ${rows.join("\n")}`, name: subject };
     installColumnResize();
     const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
     initListingInput(app, listing);
-    initGallery(app, listing);
     if (!homeMode) void mountFolderView(app);
+    initGallery(app, listing);
     initSettingsUi(app);
     initPhoneSeed();
     initPhoneButtons(rawPath, app.toast);

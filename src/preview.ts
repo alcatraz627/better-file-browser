@@ -5,7 +5,8 @@ import { resizable } from './resize';
 import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, fileHref, whenText } from './utils';
 import { copyWithCheck } from './copy-done';
-import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved, flagPref, textPref } from './storage';
+import { getPreviewLayout, savePreviewLayout, isSaved, toggleSavedWithUndo, flagPref, textPref } from './storage';
+import type { Toast } from './toast';
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
 import { getIcon, IMG_EXTS, PI } from './icons';
@@ -19,19 +20,20 @@ import {
   sniffBinary, unrenderableNote,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
-import { closeOpenFence, splitThinking } from './ask-quote';
 import { hasClash, isoNow } from './notefmt';
 import { notes, NotesError, attachmentRel, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
 import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, type AutoMarker, wrapSelection, tableSnippet, type TextEdit,
+  diffText, mapCaret,
 } from './editor';
-import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
-import { addTurn, chatsFor, turnMeta, type AskTurn } from './ask-history';
+import { watch } from './watch';
+import { lineDiffHtml } from './line-diff';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { errorText } from './errors';
+import { morphInto } from './morph-view';
 import { formatFor, renderFile } from './formats';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
@@ -64,10 +66,10 @@ function fontSpecimen(href: string): string {
 
 interface PreviewDeps {
   iconRules: () => IconRule[] | null;
-  aiModel?:  () => string | undefined;   // chosen -m override, or undefined for default
+  askAbout?: (e: Entry) => void;   // hand a file to the sidebar's Ask
   keepTab?:  (path: string) => void;     // keep the previewed file as a background strip tab
   saveError?: (message: string) => void;
-  toast?: (message: string) => void;
+  toast?: Toast;
   savedChanged?: () => void;               // Saved changed from the preview's own button
   openInTerminal?: (folder: string) => void;
   dockRoom?: (docked: boolean) => void;   // a docked preview is showing (true) or not (false)
@@ -96,12 +98,8 @@ export function copyContents(e: Entry, say: (m: string) => void): void {
     .then(text => sniffBinary(text) ? say(`${e.name} is not a text file`) : copyToClipboard(text).then(ok => say(ok ? `Copied the contents of ${e.name}` : 'Copy failed')))
     .catch(() => say(`Could not read ${e.name}`));
 }
-// Open the preview with the question box focused, as pressing a there does.
-let askWhenReady: Entry | null = null;
-export function askAbout(e: Entry): void {
-  askWhenReady = e;
-  openPreview(e);
-}
+// Ask about a row from its menu, in the sidebar.
+export function askAbout(e: Entry): void { deps.askAbout?.(e); }
 export function keepPreviewedAsTab(): void {
   const path = previewedPath();
   if (path && deps.keepTab) deps.keepTab(path);
@@ -130,18 +128,6 @@ let dsvRows:   string[][] = [];
 let dsvNum:    Set<number> = new Set();
 let dsvSort:   { col: number; dir: 'asc' | 'desc' } | null = null;
 
-// AI bar state: one in-flight query at a time, cancelled on close/rerun
-let aiCancel: (() => void) | null = null;
-let aiSeq = 0;
-// Whether AI is offered for what is open, and whether the bar is showing; the
-// bar folds away from the header button and stays that way.
-let aiOn = false;
-const aiBarPref = flagPref('bfb-ql-ai-bar-v1', true);
-// When the host was last found missing, so a tab without it does not flash the bar on every preview.
-const aiNonePref = textPref('bfb-ql-ai-none-v1', '', 'tab');
-const aiMissing = () => Date.now() - Number(aiNonePref.get() || 0) < 60_000;
-// What the last answer was asked, for Retry.
-let aiRun: { intent: string; question?: string } | null = null;
 
 export function initPreview(d: PreviewDeps): void {
   deps = d;
@@ -154,7 +140,7 @@ export function initPreview(d: PreviewDeps): void {
     <div id="fe-ql-dialog" class="panel">
       <div id="fe-ql-hdr" class="bar">
         <span id="fe-ql-icon"></span>
-        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
+        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open in a new tab"></a>
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" class="btn" title="Copy the file" disabled>
           ${GLYPH.copySmall}
@@ -166,7 +152,7 @@ export function initPreview(d: PreviewDeps): void {
         <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
-        <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file (a)" aria-pressed="false" hidden>${UI_ICON.ai}</button>
+        <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file in the sidebar (a)" hidden>${UI_ICON.ai}</button>
         ${SIZE_BTN('fe-ql-size')}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           ${GLYPH.dock}
@@ -175,23 +161,6 @@ export function initPreview(d: PreviewDeps): void {
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
-      <div id="fe-ql-ai" hidden>
-        <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
-        <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
-        <button class="btn" id="fe-ql-ai-recheck" data-variant="outline" title="Check the model again" hidden>Retry</button>
-      </div>
-      <div id="fe-ql-ai-out" hidden>
-        <div id="fe-ql-ai-out-q"></div>
-        <div id="fe-ql-ai-out-body"></div>
-        <div id="fe-ql-ai-out-foot">
-          <span id="fe-ql-ai-out-meta"></span>
-          <button class="btn" id="fe-ql-ai-stop" data-size="sm" data-variant="outline" title="Stop this answer (Esc)" hidden>Stop</button>
-          <button class="btn" id="fe-ql-ai-retry" data-size="sm" data-variant="outline" title="Ask this again" hidden>Retry</button>
-        </div>
-      </div>
       <div id="fe-ql-body"></div>
     </div>`;
   document.getElementById('fe')!.appendChild(overlay);
@@ -205,10 +174,7 @@ export function initPreview(d: PreviewDeps): void {
   document.getElementById('fe-ql-save')!.addEventListener('click', () => {
     const p = previewedPath();
     if (!p) return;
-    const now = toggleSaved(p, p.split('/').pop() || p);
-    syncSaveBtn();
-    deps.savedChanged?.();
-    deps.toast?.(now ? 'Saved' : 'Removed from Saved');
+    toggleSavedWithUndo(p, p.split('/').pop() || p, deps.toast ?? (() => {}), () => { syncSaveBtn(); deps.savedChanged?.(); });
   });
   document.getElementById('fe-ql-rename')!.addEventListener('click', e => {
     // A note open in the panel renames the way notes do: by its title.
@@ -266,35 +232,7 @@ export function initPreview(d: PreviewDeps): void {
     void copyWithCheck(copyBtn, currentText).then(ok => { if (!ok) deps.toast?.('Copy failed'); });
   });
 
-  const aiQ = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
-  document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.dataset.title = b.title; });
-  document.getElementById('fe-ql-ai-btn')!.addEventListener('click', () => {
-    if (aiBarPref.get()) { aiBarPref.set(false); syncAiBar(); } else askInPreview();
-  });
-  document.getElementById('fe-ql-ai-stop')!.addEventListener('click', () => aiCancel?.());
-  document.getElementById('fe-ql-ai-retry')!.addEventListener('click', () => { if (aiRun) runAi(aiRun.intent, aiRun.question); });
-  document.getElementById('fe-ql-ai-recheck')!.addEventListener('click', () => { if (currentEntry) setupAi(currentEntry, aiExt); });
-  document.getElementById('fe-ql-ai-sum')!.addEventListener('click', () => runAi('summarize'));
-  document.getElementById('fe-ql-ai-exp')!.addEventListener('click', function () {
-    runAi((this as HTMLElement).dataset.intent || 'explain-code');
-  });
-  const askAi = () => {
-    const q = aiQ.value.trim();
-    if (!q) { aiQ.focus(); return; }
-    runAi('qa', q);
-    aiQ.value = '';
-  };
-  document.getElementById('fe-ql-ai-ask')!.addEventListener('click', askAi);
-  aiQ.addEventListener('keydown', e => {
-    if (e.key === 'Enter') askAi();
-    else if (e.key === 'Escape') {
-      // Esc steps back one thing at a time: the answer being written, then the
-      // typed question, then the preview itself.
-      if (aiCancel) { e.stopPropagation(); aiCancel(); }
-      else if (aiQ.value) { e.stopPropagation(); aiQ.value = ''; }
-      else { e.stopPropagation(); closePreview(); }
-    }
-  });
+  document.getElementById('fe-ql-ai-btn')!.addEventListener('click', askInPreview);
 
   // Table header sorting via delegation — the body is re-rendered per click
   document.getElementById('fe-ql-body')!.addEventListener('click', e => {
@@ -365,10 +303,19 @@ function applyLayout(): void {
 export function closePreview(): void {
   if (galleryHost && overlay.style.display !== 'none') return;
   if (edit) {
+    // A note in conflict stays open: closing would throw away the words on screen.
+    const clash = document.getElementById('fe-ed-conflict');
+    if (clash) {
+      clash.classList.add('flash');
+      setTimeout(() => clash.classList.remove('flash'), 700);
+      deps.toast?.('Choose one first.');
+      return;
+    }
     // Leaving the editor flushes a pending autosave; the write completes
     // after the panel is gone and the sidebar refreshes from its callback.
     if (edit.timer) clearTimeout(edit.timer);
     if (edit.dirty) void saveNote();
+    leaveNote(edit);
     edit = null;
   }
   overlay.style.display = 'none';
@@ -379,215 +326,14 @@ export function closePreview(): void {
   currentText  = null;
   dsvHeader = []; dsvRows = []; dsvSort = null;
   document.getElementById('fe-ql-body')!.innerHTML = '';
-  resetAiUi();
 }
 
-function resetAiUi(): void {
-  aiCancel?.();
-  aiCancel = null;
-  aiSeq++;
-  aiOn = false;
-  aiRun = null;
-  syncAiBar();
-  document.getElementById('fe-ql-ai-out')!.hidden = true;
-  document.getElementById('fe-ql-ai-out-q')!.textContent = '';
-  document.getElementById('fe-ql-ai-out-body')!.innerHTML = '';
-  document.getElementById('fe-ql-ai-out-meta')!.textContent = '';
-  setAiBusy(false);
-  (document.getElementById('fe-ql-ai-q') as HTMLInputElement).value = '';
-}
-
-// The bar shows when AI is offered here and the person has not folded it away.
-function syncAiBar(): void {
-  const open = aiOn && aiBarPref.get();
-  document.getElementById('fe-ql-ai')!.hidden = !open;
-  const btn = document.getElementById('fe-ql-ai-btn')!;
-  btn.hidden = !aiOn;
-  btn.classList.toggle('on', open);
-  btn.setAttribute('aria-pressed', String(open));
-  btn.title = open ? 'Hide the AI bar' : 'Ask about this file (a)';
-}
-
-/// Open the AI bar if it was folded away and put the cursor in its question box; false when AI is not offered here.
+// Hands the file in the panel to the sidebar's Ask. A floating panel would cover the sidebar, so it docks first.
 export function askInPreview(): boolean {
-  if (!aiOn) return false;
-  aiBarPref.set(true);
-  syncAiBar();
-  (document.getElementById('fe-ql-ai-q') as HTMLInputElement).focus();
+  if (!currentEntry || !canAsk(currentEntry)) return false;
+  if (layout.mode !== 'side' && !galleryHost) document.getElementById('fe-ql-dock')?.click();
+  deps.askAbout?.(currentEntry);
   return true;
-}
-
-/// The AI bar's Stop while an answer is being written, and Retry once it has ended.
-function setAiBusy(busy: boolean): void {
-  document.getElementById('fe-ql-ai-stop')!.hidden = !busy;
-  document.getElementById('fe-ql-ai-retry')!.hidden = busy || !aiRun || document.getElementById('fe-ql-ai-out')!.hidden;
-}
-
-let aiExt = '';
-
-// Show the AI bar as soon as the preview opens, in a "checking" state, so it
-// does not push the file down when the model answers. "unavailable" (host not
-// installed / lm missing) hides it again and is remembered for a minute, so a
-// machine without the toolkit sees the preview exactly as before.
-function setupAi(e: Entry, ext: string): void {
-  if (aiMissing()) return;
-  aiExt = ext;
-  const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json';
-  const image = ext === 'image';
-  const exp = document.getElementById('fe-ql-ai-exp') as HTMLButtonElement;
-  exp.textContent    = tabular || image ? 'Describe' : 'Explain';
-  exp.dataset.intent = image ? 'describe-image' : tabular ? 'describe-data' : 'explain-code';
-  exp.dataset.title = image ? 'What the image shows, read by the local vision model; it never leaves this Mac'
-    : tabular ? 'Schema + notable observations (local model)'
-    : 'What this does, with safety callouts (local model)';
-  const chip = document.getElementById('fe-ql-ai-chip')!;
-  const chipTxt = document.getElementById('fe-ql-ai-chip-txt')!;
-  const recheck = document.getElementById('fe-ql-ai-recheck')!;
-  const q = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
-  // Why the controls are off is said beside them, since a disabled button shows no hint of its own.
-  const paint = (state: 'checking' | 'ready' | 'cold' | 'down', why = '') => {
-    aiChecking = state === 'checking';
-    chip.className = state === 'checking' ? '' : state;
-    chipTxt.textContent = state === 'ready' ? 'AI · ready' : state === 'cold' ? 'AI · cold start' : state === 'down' ? why : 'AI · checking';
-    // While the check runs the controls stay live, so a click is never lost to it; only a known-down model switches them off.
-    const on = state !== 'down';
-    document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.disabled = !on; b.title = on ? b.dataset.title ?? '' : why; });
-    q.disabled = !on;
-    q.placeholder = on ? 'Ask about this file' : 'Ask is off until the model runs';
-    recheck.hidden = state !== 'down';
-  };
-  if (aiHeld?.e !== e) aiHeld = null;
-  if (aiHeld?.e !== e) aiChat = { href: '', id: '' };   // a fresh opening files its questions as a new chat
-  paint('checking');
-  aiOn = true;
-  syncAiBar();
-  restoreAiAnswer(e);
-  llmAvailability().then((av: LlmAvailability) => {
-    if (currentEntry !== e || !isPreviewOpen()) return;
-    // Ask from a row's menu opens the preview and puts the cursor in the question box once the model answers.
-    const asked = askWhenReady === e;
-    if (asked) askWhenReady = null;
-    const held = aiHeld?.e === e ? aiHeld : null;
-    aiHeld = null;
-    if (av.kind === 'unavailable') {
-      aiChecking = false;
-      aiNonePref.set(String(Date.now())); aiOn = false; syncAiBar();
-      if (asked) deps.toast?.('Ask needs the lm toolkit, which is not installed');
-      return;
-    }
-    aiNonePref.set('');
-    paint(av.kind === 'ready' ? (av.cold ? 'cold' : 'ready') : 'down', LLM_ERROR_TEXT.server_down);
-    if (asked && av.kind === 'ready') (document.getElementById('fe-ql-ai-q') as HTMLInputElement).focus();
-    if (held && av.kind === 'ready') runAi(held.intent, held.question);
-  });
-}
-
-// A click while the model check runs is held, then run once the model is found ready, or dropped when it is down.
-let aiChecking = false;
-let aiHeld: { e: Entry; intent: string; question?: string } | null = null;
-
-// Answers from the preview's AI bar join the file's Ask history, one chat per
-// file per preview, so the Ask lens on that file's page lists them too.
-let aiChat = { href: '', id: '' };
-const AI_ASKED: Record<string, string> = { summarize: 'Summarize', explain: 'Explain', describe: 'Describe', 'explain-code': 'Explain', 'describe-data': 'Describe', 'describe-image': 'Describe' };
-// What the image buttons ask, since an image has no text for the model to summarize.
-const IMAGE_ASKED: Record<string, string> = { summarize: 'Summarize what this image shows in a few lines.', 'describe-image': 'Describe this image in detail, with any text in it verbatim.' };
-const pathOf = (e: Entry) => decodeURIComponent(new URL(e.href, location.href).pathname);
-
-// The newest preview answer about this file comes back when it is opened again.
-function restoreAiAnswer(e: Entry): void {
-  let last: { turn: AskTurn } | null = null;
-  try {
-    for (const c of chatsFor(pathOf(e))) {
-      const ok = c.turns.filter(x => !x.error && !x.via && x.a);
-      const t = ok[ok.length - 1];
-      if (c.id.startsWith('pv-') && t) { last = { turn: t }; break; }
-    }
-  } catch { /* history is a convenience */ }
-  if (!last) return;
-  const { turn } = last;
-  const exp = document.getElementById('fe-ql-ai-exp') as HTMLElement;
-  const byLabel: Record<string, string> = { Summarize: 'summarize', Explain: 'explain-code', Describe: exp.dataset.intent || 'describe-data' };
-  aiRun = turn.intent ? { intent: turn.intent } : byLabel[turn.q] ? { intent: byLabel[turn.q] } : { intent: 'qa', question: turn.q };
-  document.getElementById('fe-ql-ai-out')!.hidden = false;
-  document.getElementById('fe-ql-ai-out-q')!.textContent = turn.q;
-  document.getElementById('fe-ql-ai-out-body')!.innerHTML = renderMarkdown(closeOpenFence(splitThinking(turn.a).answer));
-  document.getElementById('fe-ql-ai-out-meta')!.textContent = turnMeta(turn);
-  setAiBusy(false);
-}
-
-function runAi(intent: string, question?: string): void {
-  if (aiChecking) { if (currentEntry) aiHeld = { e: currentEntry, intent, question }; return; }
-  if ((currentText === null && !currentImage) || !currentEntry) return;   // fetch not done yet
-  const entry = currentEntry;
-  const run = { intent, question };
-  aiRun = run;
-  const asked = question || AI_ASKED[intent] || intent;
-  // An image goes to the host as a file, read by the vision model, with the question.
-  const image = currentImage;
-  if (image) { question = question || IMAGE_ASKED[intent] || IMAGE_ASKED['describe-image']; intent = 'qa'; }
-  if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: 'pv-' + Date.now().toString(36) };
-  aiCancel?.();
-  const seq = ++aiSeq;
-  const startedAt = Date.now();
-  const body = document.getElementById('fe-ql-ai-out-body')!;
-  const meta = document.getElementById('fe-ql-ai-out-meta')!;
-  document.getElementById('fe-ql-ai-out')!.hidden = false;
-  document.getElementById('fe-ql-ai-out-q')!.textContent = asked;
-  body.textContent = '';
-  meta.textContent = 'Thinking…';
-  let full = '';
-  let frame = 0;
-  let over = false;
-  const model = deps.aiModel?.();
-  // The answer is drawn as markdown with any open code fence closed, so a half-written block still reads as code.
-  const paint = () => { body.innerHTML = renderMarkdown(closeOpenFence(splitThinking(full).answer)); };
-  const file = (extra: Partial<AskTurn>) => {
-    const turn: AskTurn = { q: asked, a: full, model: model || 'default', ms: Date.now() - startedAt, at: startedAt,
-      ...(run.intent !== 'qa' ? { intent: run.intent } : {}), ...extra };
-    try { addTurn(pathOf(entry), aiChat.id, turn); } catch { /* history is a convenience; the answer is already shown */ }
-    return turn;
-  };
-  setAiBusy(true);
-  const stopQuery = llmQuery(
-    { ctx: image ? '' : currentText ?? '', ctxName: entry.name, intent, question, model, files: image ? [image] : undefined },
-    {
-      onStep: t => { if (seq === aiSeq && !over) meta.textContent = t + '…'; },
-      onChunk: t => {
-        if (seq !== aiSeq || over) return;
-        full += t;
-        meta.textContent = '';
-        frame ||= requestAnimationFrame(() => { frame = 0; if (!over && seq === aiSeq) paint(); });
-      },
-      onDone: info => {
-        if (seq !== aiSeq || over) return;
-        over = true; cancelAnimationFrame(frame);
-        aiCancel = null;
-        paint();
-        meta.textContent = turnMeta(file({ model: info.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut }), info.truncated);
-        setAiBusy(false);
-      },
-      onError: (code, message) => {
-        if (seq !== aiSeq || over) return;
-        over = true; cancelAnimationFrame(frame);
-        aiCancel = null;
-        setAiBusy(false);
-        if (code === 'cancelled') return;
-        body.textContent = LLM_ERROR_TEXT[code] ?? message;
-        meta.textContent = '';
-      },
-    },
-  );
-  // Stop (the button, or Esc in the question box) keeps what was written, marked as stopped.
-  if (!over) aiCancel = () => {
-    if (over) return;
-    over = true; cancelAnimationFrame(frame);
-    stopQuery();
-    aiCancel = null;
-    if (full.trim()) { paint(); meta.textContent = turnMeta(file({ stopped: true })); }
-    else { body.textContent = 'Stopped before an answer came.'; meta.textContent = ''; }
-    setAiBusy(false);
-  };
 }
 
 // ── Note editor: the same panel, a textarea beside the render ─────────
@@ -597,8 +343,28 @@ interface EditState {
   head: string; base: string; touched: Set<string>; ta?: HTMLTextAreaElement; redrawMeta?: () => void;
   dirty: boolean; saving: boolean; version: number; timer: ReturnType<typeof setTimeout> | null;
   onSaved?: (rel: string) => void; actions?: NoteActions;
+  stopWatch?: () => void;
+  // A note made in this editor keeps following its title until the editor closes,
+  // so a pause halfway through typing the title does not name the file for good.
+  autoName?: boolean;
 }
 let edit: EditState | null = null;
+
+/// Done with a note: stop watching the disk, and a new note nothing was ever written in leaves no file behind.
+function leaveNote(st: EditState): void {
+  st.stopWatch?.();
+  st.autoName = false;
+  if (st.base === '' && !st.dirty && !st.head && /^untitled-/.test(st.rel.split('/').pop()!) && !st.ta?.value.trim()) {
+    void notes.delete(st.root, st.rel).then(r => notes.purge(st.root, r.trashed)).then(() => st.onSaved?.(st.rel)).catch(() => {});
+  }
+}
+
+// Leaving the page with words not yet saved: save them and let the browser ask.
+window.addEventListener('beforeunload', e => {
+  if (!edit?.dirty) return;
+  void saveNote();
+  e.preventDefault();
+});
 
 export function isEditing(): boolean { return !!edit; }
 /// The note the editor holds right now, or null; it follows the first-save rename.
@@ -630,11 +396,15 @@ export function noteAction(name: 'rename' | 'delete'): boolean {
 /// Close the editor without saving: the note is about to be moved away, and an autosave would bring it back.
 export function discardEditor(): void {
   if (edit) { if (edit.timer) clearTimeout(edit.timer); edit.dirty = false; }
+  document.getElementById('fe-ed-conflict')?.remove();
   closePreview();
 }
 
 export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => void, actions?: NoteActions): void {
   if (edit && edit.dirty) void saveNote();
+  if (edit) leaveNote(edit);
+  document.getElementById('fe-ed-conflict')?.remove();
+  document.getElementById('fe-ed-diff')?.remove();
   currentEntry = null; reqSeq++;
   const { head, body: noteBody } = splitNote(doc.text);
   edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
@@ -643,7 +413,6 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
   nameEl.href = fileHref(root.replace(/\/$/, '') + '/' + doc.rel);
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = nameEl.href;
-  resetAiUi();
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.style.display = ''; copyBtn.disabled = false;
   if (overlay.style.display === 'none') rememberFocus();
@@ -661,7 +430,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="btn" data-icon data-act="italic" title="Italic (⌘I)">${UI_ICON.fmtItalic}</button>
       <button class="btn" data-icon data-act="code" title="Code (⌘E)">${UI_ICON.fmtCode}</button>
       <button class="btn" data-icon data-act="strike" title="Strikethrough (⌘⇧X)">${UI_ICON.fmtStrike}</button>
-      <button class="btn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (⌘⇧H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="btn" data-act="heading" title="Heading, deeper each press (⌘⇧H)" data-icon>${UI_ICON.fmtHeading}</button>
       <button class="btn" data-icon data-act="link" title="Link (⌘K)">${UI_ICON.link}</button>
       <button class="btn" data-icon data-act="quote" title="Quote (⌘⇧.)">${UI_ICON.fmtQuote}</button>
       <button class="btn" data-icon data-act="olist" title="Numbered list (⌘⇧7)">${UI_ICON.fmtOlist}</button>
@@ -670,7 +439,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
       <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
       <span class="bar-sep" aria-hidden="true"></span>
-      <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      <button class="btn" data-act="versions" title="Every save, from git history">${UI_ICON.versions}<span>Versions</span></button>
       ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
       <button class="btn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
       <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
@@ -685,6 +454,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   ta.value = noteBody;
   edit.ta = ta;
   const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
+  edit.autoName = doc.text === '' && /^untitled-/.test(doc.rel.split('/').pop()!);
   const apply = (r: TextEdit) => {
     buf.snap();
     ta.value = r.text;
@@ -772,7 +542,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     try {
       const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
       view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span>`
-        + `<button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button>`
+        + `<button class="btn" id="fe-hist-use" title="Use this text; today's stays in versions">Use this version</button>`
         + `<button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
       document.getElementById('fe-hist-use')!.addEventListener('click', () => {
         buf.snap(); ta.value = splitNote(v.text).body; ta.dispatchEvent(new Event('input', { bubbles: true }));
@@ -807,7 +577,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   (document.getElementById('fe-ed-file') as HTMLInputElement).addEventListener('change', function () {
     [...(this.files ?? [])].forEach(f => void addImage(f)); this.value = '';
   });
-  const renderView = () => { view.innerHTML = renderMarkdown(ta.value, nameEl.href); };
+  const drawInto = morphInto(view);
+  const renderView = () => { drawInto(renderMarkdown(ta.value, nameEl.href)); };
   renderView();
   // a note edited in two places: keep one side or both (owner ruling N1)
   const showClash = () => {
@@ -846,6 +617,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     edit.timer = setTimeout(() => void saveNote(), 1500);
   });
   ta.addEventListener('keydown', e => {
+    if (e.isComposing) { e.stopPropagation(); return; }   // these keys belong to the input method
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key.toLowerCase();
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
@@ -903,6 +675,67 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   ta.setSelectionRange(0, 0);
   ta.focus();
   ta.scrollTop = 0;
+  // Another device or program writing the note: a clean editor follows it,
+  // keeping the caret on its words; one holding typed text asks at once.
+  st.stopWatch = watch(async () => {
+    if (edit !== st) return;
+    try {
+      if ((await notes.fileStat(st.root, st.rel)).mtime === st.mtime || edit !== st || st.saving) return;
+      const now = await notes.read(st.root, st.rel);
+      if (edit !== st || st.saving || now.mtime === st.mtime) return;
+      if (now.text === st.base) { st.mtime = now.mtime; return; }
+      if (st.dirty) { showNoteClash(st, 'Changed on disk.'); return; }
+      const parts = splitNote(now.text), was = sel(), change = diffText(ta.value, parts.body), top = ta.scrollTop;
+      buf.snap();
+      ta.value = parts.body;
+      ta.setSelectionRange(mapCaret(was.start, change), mapCaret(was.end, change));
+      ta.scrollTop = top;
+      buf.snap();
+      st.head = parts.head; st.text = now.text; st.base = now.text; st.mtime = now.mtime; currentText = now.text;
+      renderView();
+      st.redrawMeta?.();
+      editHeader('saved');
+    } catch (err) {
+      if ((err as NotesError).code === 'notes_missing' && !st.saving) showNoteClash(st, 'Moved or deleted. Your text is only here.', true);
+    }
+  }, { pause: () => st.saving });
+}
+
+/// The banner for a note that cannot simply be saved: what happened and every way out.
+function showNoteClash(st: EditState, why: string, gone = false): void {
+  if (edit !== st) return;
+  editHeader(gone ? 'not on disk' : 'changed on disk, not saved');
+  document.getElementById('fe-ed-conflict')?.remove();
+  document.getElementById('fe-ql-body')!.insertAdjacentHTML('afterbegin',
+    `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">${esc(why)} `
+    + (gone
+      ? `<button id="fe-ed-resave" class="btn" data-size="sm" data-variant="outline" title="Write your text back as this note">${UI_ICON.check}<span>Save again</span></button> <button id="fe-ed-drop" class="btn" data-size="sm" data-variant="outline" title="Close and lose the text on screen">${UI_ICON.trash}<span>Discard</span></button>`
+      : `<button id="fe-ed-compare" class="btn" data-size="sm" data-variant="outline" title="Show what differs from your text">${UI_ICON.versions}<span>Compare</span></button> <button id="fe-ed-reload" class="btn" data-size="sm" data-variant="outline" title="Replace your text with the disk copy">${UI_ICON.rotate}<span>Reload</span></button> <button id="fe-ed-force" class="btn" data-size="sm" data-variant="outline" title="Save yours; the disk copy is backed up">${UI_ICON.check}<span>Keep mine</span></button>`)
+    + '</div>');
+  const on = (id: string, run: () => void) => document.getElementById(id)?.addEventListener('click', run);
+  const clear = () => { document.getElementById('fe-ed-conflict')?.remove(); document.getElementById('fe-ed-diff')?.remove(); };
+  on('fe-ed-resave', () => { clear(); void notes.write(st.root, st.rel, stampUpdated(st.text)).then(r => { st.mtime = r.mtime; st.dirty = false; editHeader('saved'); st.onSaved?.(st.rel); }).catch(err => showNoteClash(st, errorText(err, 'Saving'), true)); });
+  on('fe-ed-drop', () => { clear(); discardEditor(); });
+  on('fe-ed-reload', () => { clear(); void notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved, st.actions)); });
+  on('fe-ed-force', () => {
+    void notes.read(st.root, st.rel).then(d => notes.fileWrite(st.root, st.rel, stampUpdated(st.text), d.mtime)).then(r => { clear(); st.mtime = r.mtime; st.dirty = false; editHeader('saved'); st.onSaved?.(st.rel); })
+      .catch(err => editHeader(errorText(err, 'Saving')));
+  });
+  on('fe-ed-compare', () => {
+    const open = document.getElementById('fe-ed-diff');
+    if (open) { open.remove(); return; }
+    void notes.read(st.root, st.rel).then(d => {
+      if (document.getElementById('fe-ed-conflict')) document.getElementById('fe-ed-conflict')!.insertAdjacentHTML('afterend', `<div id="fe-ed-diff">${lineDiffHtml(d.text, st.text)}</div>`);
+    }).catch(err => editHeader(errorText(err, 'Reading the file on disk')));
+  });
+}
+
+/// A note that could not be saved after its editor closed: its words go to a new note beside it, never nowhere.
+function rescueNote(st: EditState, text: string): void {
+  const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  const rel = st.rel.replace(/\.md$/, '') + `-rescued-${stamp}.md`;
+  notes.create(st.root, rel, text).then(() => { deps.toast?.(`Could not save it, so your text is in ${rel}`); st.onSaved?.(rel); })
+    .catch(() => { void navigator.clipboard.writeText(text).catch(() => {}); deps.toast?.('Could not save the note. Your text is on the clipboard.'); });
 }
 async function saveNote(st = edit): Promise<void> {
   if (!st || st.saving) return;
@@ -938,31 +771,24 @@ async function saveNote(st = edit): Promise<void> {
     st.mtime = r.mtime; st.dirty = st.version !== version; st.base = text;
     // A note created as "untitled-…" takes its title as file name on first save.
     const want = slugForTitle(noteTitle(st.rel, st.text));
-    if (/^untitled-/.test(st.rel.split('/').pop()!) && !/^untitled/.test(want)) {
+    if ((/^untitled-/.test(st.rel.split('/').pop()!) || st.autoName) && !/^untitled/.test(want)) {
       const to = st.rel.replace(/[^/]+$/, want);
-      try { await notes.rename(st.root, st.rel, to); st.rel = to; } catch { /* keep the old name */ }
+      if (to !== st.rel) try { await notes.rename(st.root, st.rel, to); st.rel = to; st.autoName = true; } catch { /* keep the old name */ }
     }
     if (edit === st) { editHeader(st.dirty ? 'unsaved' : 'saved ' + whenText(Date.now()).replace('Today ', '')); st.redrawMeta?.(); }
     st.onSaved?.(st.rel);
   } catch (err) {
     const e = err as NotesError;
     if (edit === st) {
-      editHeader(e.code === 'notes_conflict' ? 'changed on disk, not saved' : errorText(e, 'Saving'));
-      if (e.code === 'notes_conflict') {
-        const body = document.getElementById('fe-ql-body')!;
-        if (!document.getElementById('fe-ed-conflict')) {
-          body.insertAdjacentHTML('afterbegin',
-            `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
-          document.getElementById('fe-ed-reload')!.addEventListener('click', () => {
-            notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved, st.actions));
-          });
-          document.getElementById('fe-ed-force')!.addEventListener('click', () => {
-            st.mtime = 0 as unknown as number;
-            notes.read(st.root, st.rel).then(d => { st.mtime = d.mtime; document.getElementById('fe-ed-conflict')?.remove(); void saveNote(); });
-          });
-        }
+      if (e.code === 'notes_conflict') { if (!document.getElementById('fe-ed-conflict')) showNoteClash(st, 'Changed on disk.'); }
+      else if (e.code === 'notes_missing') showNoteClash(st, 'Moved or deleted. Your text is only here.', true);
+      else {
+        editHeader(errorText(e, 'Saving'));
+        // A passing failure (a locked file, a busy disk) tries again by itself.
+        if (st.timer) clearTimeout(st.timer);
+        st.timer = setTimeout(() => void saveNote(st), 4000);
       }
-    } else deps.saveError?.(errorText(e, 'Saving the note'));
+    } else rescueNote(st, text);
   } finally {
     st.saving = false;
     if (wrote && st.dirty) void saveNote(st);
@@ -971,7 +797,7 @@ async function saveNote(st = edit): Promise<void> {
 
 export function openPreview(e: Entry): void {
   if (!canPreview(e)) return;
-  if (edit) { if (edit.timer) clearTimeout(edit.timer); if (edit.dirty) void saveNote(); edit = null; }
+  if (edit) { if (edit.timer) clearTimeout(edit.timer); if (edit.dirty) void saveNote(); leaveNote(edit); edit = null; document.getElementById('fe-ed-conflict')?.remove(); }
   document.getElementById('fe-ql-body')!.classList.remove('fe-editing');
   closePropsMenu();
   currentEntry = e;
@@ -995,7 +821,7 @@ export function openPreview(e: Entry): void {
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;
   currentImage = null;
-  resetAiUi();
+  document.getElementById('fe-ql-ai-btn')!.hidden = !canAsk(e);
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.disabled = true;
 
@@ -1003,7 +829,6 @@ export function openPreview(e: Entry): void {
     copyBtn.style.display = 'none';   // binary media: rendered from file://, no text; images still take Ask
     if (IMG_EXTS.has(ext)) {
       currentImage = decodeURIComponent(new URL(e.href, location.href).pathname);
-      setupAi(e, 'image');
       body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
       mountImageTools(body.querySelector<HTMLElement>('.fe-ql-imgwrap')!, {
         href: e.href, name: e.name,
@@ -1022,7 +847,6 @@ export function openPreview(e: Entry): void {
     return;
   }
   copyBtn.style.display = '';
-  setupAi(e, ext);
 
   if (e.rawBytes > FETCH_WARN_BYTES) {
     body.innerHTML = `
@@ -1065,7 +889,7 @@ function render(text: string, ext: string): void {
   const body = document.getElementById('fe-ql-body')!;
   const note = unrenderableNote(text);
   if (note) {
-    if (sniffBinary(text)) { aiOn = false; syncAiBar(); }   // nothing for a model to read
+    if (sniffBinary(text)) document.getElementById('fe-ql-ai-btn')!.hidden = true;   // nothing for a model to read
     body.innerHTML = `<div class="fe-ql-center">${note}</div>`;
     return;
   }

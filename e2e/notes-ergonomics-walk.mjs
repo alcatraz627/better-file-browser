@@ -67,7 +67,7 @@ try {
   await page.click(`${rowSel(second)} .fe-si-link`, { button: 'right' });
   await page.waitForSelector('#fe-nt-ctx', { visible: true, timeout: 3_000 }).catch(() => null);
   const menu = await page.$$eval('#fe-nt-ctx .fe-ctx-item', els => els.map(e => ({ text: e.textContent.trim(), icon: !!e.querySelector('svg') })));
-  check(menu.length === 7 && menu.every(m => m.icon), `right-click shows the note menu with an icon on every item: ${JSON.stringify(menu.map(m => m.text))}`);
+  check(menu.length === 14 && menu.every(m => m.icon), `right-click shows the note menu with an icon on every item: ${JSON.stringify(menu.map(m => m.text))}`);
   await shot(page, 'nt-context-menu');
   await page.click('#fe-nt-ctx [data-act="rename"]');
   await page.waitForSelector('#fe-nt-list .fe-nt-label.editing', { timeout: 3_000 }).catch(() => null);

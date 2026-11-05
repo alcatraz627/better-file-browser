@@ -7,7 +7,7 @@
 import { esc, copyToClipboard, fileHref } from './utils';
 import { copyPhoneLink } from './phone';
 import { icoFile, icoFolder, PI } from './icons';
-import { isSaved, toggleSaved, jsonPref } from './storage';
+import { isSaved, toggleSavedWithUndo, jsonPref, getSaved, saveSaved } from './storage';
 import { UI_ICON } from './control-icons';
 import {
   EMPTY, openTab, closeTab, closeOthers, closeToRight, distinctKeeps, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, restoreClosed, displayLabels, splitLabel, retargetTabs,
@@ -153,7 +153,9 @@ export function mountStrip(host: StripHost): Strip {
     const open = state.list.find(t => t.path === last.tab.path);
     if (open) { goTab(open.id); return; }
     commit(insertTab(state, last.tab, last.index));
-    toast(`Reopened ${last.tab.label}`);
+    // As in Chrome, the reopened tab is where you land.
+    const back = state.list.find(t => t.path === last.tab.path);
+    if (back) goTab(back.id);
   }
   // Encode each segment so a '#' or '?' in a filename is not read as a URL
   // fragment or query and lost.
@@ -235,11 +237,7 @@ export function mountStrip(host: StripHost): Strip {
     const act = item.dataset.act;
     if (act === 'copy') void copyToClipboard(t.path).then(ok => toast(ok ? 'Copied path' : 'Copy failed'));
     else if (act === 'phone') void copyPhoneLink(t.path, toast);
-    else if (act === 'save') {
-      const now = toggleSaved(t.path, t.label);
-      host.onSavedChange?.();
-      toast(now ? 'Saved' : 'Removed from Saved');
-    }
+    else if (act === 'save') toggleSavedWithUndo(t.path, t.label, toast, () => host.onSavedChange?.());
     else if (act === 'term') host.openInTerminal?.(t.kind === 'file' ? t.path.replace(/\/[^/]*$/, '') || '/' : t.path);
     else if (act === 'pin') commit(togglePin(state, t.id));
     else if (act === 'close') closeById(t.id);
@@ -277,7 +275,7 @@ export function mountStrip(host: StripHost): Strip {
     const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins, right-click for more)' : 'middle-click closes'} · drag reorders`;
     return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}"${on ? ' aria-current="page"' : ''} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label, keep)}
-      <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">${UI_ICON.more}</button>
+      <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Path, save, pin, close others">${UI_ICON.more}</button>
       ${t.pinned ? '' : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
   }

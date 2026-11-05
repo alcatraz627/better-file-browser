@@ -236,6 +236,9 @@ try {
 
   page.once('dialog', d => d.accept());
   await page.click('#fe-dp-reset');
+  await page.waitForSelector('.fe-yesno [data-a="yes"]');
+  await page.click('.fe-yesno [data-a="yes"]');
+  await new Promise(r => setTimeout(r, 150));
   const reset = await page.evaluate(() => ({ d1: document.querySelector('.fe-dp-card[data-id="D1"] input:checked')?.value, flags: document.querySelectorAll('.fe-dp-card[data-flag]').length, progress: document.getElementById('fe-dp-progress').textContent, end: document.getElementById('fe-dp-endnotes').value }));
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-dp:not([hidden]) .fe-dp-card', { timeout: 8000 });

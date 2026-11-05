@@ -3,6 +3,7 @@
 // servers, keeps each chat about a file, carries the chat into a follow-up,
 // and lists earlier chats to reopen or delete. Runs over a stand-in lm.
 import assert from 'node:assert/strict';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launch, SHOTS, THEME } from './harness.mjs';
 
@@ -84,11 +85,49 @@ try {
   await page.click('#fe-ask-hist-btn');
   await page.hover('#fe-ask-hist .fe-ask-h');
   await page.click('#fe-ask-hist .fe-ask-h-del');
+  await page.waitForSelector('.fe-yesno [data-a="yes"]');
+  await page.click('.fe-yesno [data-a="yes"]');
+  await new Promise(r => setTimeout(r, 150));
   check(await page.$$eval('#fe-ask-hist .fe-ask-h', r => r.length) === 0 && await page.$eval('#fe-ask-hist-n', n => n.textContent) === '', 'a chat can be deleted');
   // Only the Settings switch keeps a model loaded; asking, the lens and the
   // model list must never warm one by themselves.
   const warms = h.lmCalls().filter(c => c.args[0] === 'warm');
   check(warms.length === 0, `nothing ran lm warm during the walk: ${JSON.stringify(warms.map(c => c.args))}`);
+
+  // A failure partway keeps what was written, on screen and after a reload.
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => !document.getElementById('fe-ask-q')?.readOnly, { timeout: 15000 });
+  await page.type('#fe-ask-q', 'Break midway');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => /took too long/i.test(document.getElementById('fe-ask-thread')?.innerText ?? ''), { timeout: 15000 }).catch(() => null);
+  const broke = await page.$eval('#fe-ask-thread', t => t.innerText);
+  check(/Words written before the failure/.test(broke) && /took too long/i.test(broke), `a failure keeps the words written so far, with the reason: ${JSON.stringify(broke.slice(-120))}`);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-ask-model');
+  await page.waitForFunction(() => /Words written before the failure/.test(document.getElementById('fe-ask-thread')?.innerText ?? ''), { timeout: 6000 }).then(() => check(true, 'those words are still in the chat after a reload'), () => check(false, 'those words are still in the chat after a reload'));
+
+  // A local model that has gone idle starts when asked, so Ask stays on. Gemini is
+  // left first because it never depends on the local server.
+  await page.waitForFunction(() => JSON.parse(document.getElementById('fe-ask-model').dataset.opts || '[]').length > 1, { timeout: 15000 });
+  await pickModel(page, 'small');
+  writeFileSync(h.lmDown, '');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => JSON.parse(document.getElementById('fe-ask-model').dataset.opts || '[]').length > 1, { timeout: 15000 });
+  await new Promise(r => setTimeout(r, 600));
+  check(await page.$eval('#fe-ask-q', x => !x.readOnly), 'an idle local model leaves Ask on');
+  rmSync(h.lmDown);
+
+  // With no toolkit Ask is off, and typing in its box stays there and runs no shortcut.
+  writeFileSync(h.lmGone, '');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => document.getElementById('fe-ask-q')?.readOnly, { timeout: 15000 }).catch(() => null);
+  const offBefore = await page.evaluate(() => ({ url: location.href, tabs: document.querySelectorAll('#fe-tabs .fe-tab').length }));
+  await page.click('#fe-ask-q');
+  await page.keyboard.type('nt@w');
+  await new Promise(r => setTimeout(r, 400));
+  const offAfter = await page.evaluate(() => ({ url: location.href, tabs: document.querySelectorAll('#fe-tabs .fe-tab').length, note: !!document.getElementById('fe-ed-src'), focus: document.activeElement?.id, readOnly: document.getElementById('fe-ask-q')?.readOnly }));
+  check(offAfter.readOnly && offAfter.url === offBefore.url && offAfter.tabs === offBefore.tabs && !offAfter.note && offAfter.focus === 'fe-ask-q', `typing while Ask is off runs no shortcut: ${JSON.stringify(offAfter)}`);
+  rmSync(h.lmGone);
 } finally {
   console.log(results.join('\n'));
   await h.close();
