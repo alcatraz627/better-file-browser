@@ -210,7 +210,7 @@ try {
       await shot(p3, `export-${sel.includes('table') ? 'table' : 'code'}-png`);
       await p3.close();
     }
-    if (f && fmt === 'svg') check(/<foreignObject/.test(readFileSync(f, 'utf8')) && /Alpha/.test(readFileSync(f, 'utf8')), 'the SVG holds the table');
+    if (f && fmt === 'svg') check(!/<foreignObject/.test(readFileSync(f, 'utf8')) && /Alpha/.test(readFileSync(f, 'utf8')), 'the SVG holds the table as plain text');
   }
   await shot(page, 'export-page');
 } finally {

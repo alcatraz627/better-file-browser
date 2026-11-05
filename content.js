@@ -3923,14 +3923,14 @@ ${text}
     if (rows.length < 2) return out;
     const width = rows[0].length;
     for (let c = 0; c < width; c++) {
-      let seen = 0, num = 0;
+      let seen = 0, num2 = 0;
       for (let r = 1; r < Math.min(rows.length, 200); r++) {
         const v = (rows[r][c] ?? "").trim();
         if (!v) continue;
         seen++;
-        if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v.replace(/,/g, ""))) num++;
+        if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v.replace(/,/g, ""))) num2++;
       }
-      if (seen > 0 && num / seen > 0.8) out.add(c);
+      if (seen > 0 && num2 / seen > 0.8) out.add(c);
     }
     return out;
   }
@@ -7675,9 +7675,9 @@ ${indent}${end}`;
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
-    const num = typeof value === "number" ? value : Number(value);
-    if (!isFinite(num))
-      return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
+    const num2 = typeof value === "number" ? value : Number(value);
+    if (!isFinite(num2))
+      return isNaN(num2) ? ".nan" : num2 < 0 ? "-.inf" : ".inf";
     let n = JSON.stringify(value);
     if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^\d/.test(n)) {
       let i3 = n.indexOf(".");
@@ -7709,8 +7709,8 @@ ${indent}${end}`;
     test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
     resolve: (str) => parseFloat(str),
     stringify(node) {
-      const num = Number(node.value);
-      return isFinite(num) ? num.toExponential() : stringifyNumber(node);
+      const num2 = Number(node.value);
+      return isFinite(num2) ? num2.toExponential() : stringifyNumber(node);
     }
   };
   var float = {
@@ -8066,8 +8066,8 @@ ${cn.comment}` : item2.comment;
     test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
     resolve: (str) => parseFloat(str.replace(/_/g, "")),
     stringify(node) {
-      const num = Number(node.value);
-      return isFinite(num) ? num.toExponential() : stringifyNumber(node);
+      const num2 = Number(node.value);
+      return isFinite(num2) ? num2.toExponential() : stringifyNumber(node);
     }
   };
   var float2 = {
@@ -8240,23 +8240,23 @@ ${cn.comment}` : item2.comment;
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
-    const num = (n) => asBigInt ? BigInt(n) : Number(n);
-    const res = parts2.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
-    return sign === "-" ? num(-1) * res : res;
+    const num2 = (n) => asBigInt ? BigInt(n) : Number(n);
+    const res = parts2.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num2(60) + num2(p), num2(0));
+    return sign === "-" ? num2(-1) * res : res;
   }
   function stringifySexagesimal(node) {
     let { value } = node;
-    let num = (n) => n;
+    let num2 = (n) => n;
     if (typeof value === "bigint")
-      num = (n) => BigInt(n);
+      num2 = (n) => BigInt(n);
     else if (isNaN(value) || !isFinite(value))
       return stringifyNumber(node);
     let sign = "";
     if (value < 0) {
       sign = "-";
-      value *= num(-1);
+      value *= num2(-1);
     }
-    const _60 = num(60);
+    const _60 = num2(60);
     const parts2 = [value % _60];
     if (value < 60) {
       parts2.unshift(0);
@@ -23831,70 +23831,115 @@ ${body}
       }).catch((err) => toast(`Export failed: ${err instanceof Error ? err.message : String(err)}`, 5e3));
     });
   }
-  var BLOCK_PROPS = [
-    "display",
-    "box-sizing",
-    "width",
-    "height",
-    "min-width",
-    "margin",
-    "padding",
-    "border-top",
-    "border-right",
-    "border-bottom",
-    "border-left",
-    "border-radius",
-    "border-collapse",
-    "border-spacing",
-    "background-color",
-    "color",
-    "font-family",
-    "font-size",
-    "font-weight",
-    "font-style",
-    "line-height",
-    "letter-spacing",
-    "text-align",
-    "text-transform",
-    "text-decoration",
-    "vertical-align",
-    "white-space",
-    "overflow-wrap",
-    "word-break",
-    "tab-size",
-    "grid-template-columns",
-    "gap",
-    "align-items",
-    "justify-content",
-    "flex-direction",
-    "flex-wrap",
-    "opacity",
-    "list-style",
-    "table-layout",
-    "box-shadow"
-  ];
+  var colourCtx = null;
+  function plainColour(c) {
+    if (!c || c === "transparent") return null;
+    colourCtx ??= Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d", { willReadFrequently: true });
+    colourCtx.clearRect(0, 0, 1, 1);
+    colourCtx.fillStyle = c;
+    colourCtx.fillRect(0, 0, 1, 1);
+    const [r, g, bl, a] = colourCtx.getImageData(0, 0, 1, 1).data;
+    if (!a) return null;
+    return { hex: `#${[r, g, bl].map((n) => n.toString(16).padStart(2, "0")).join("")}`, alpha: Math.round(a / 255 * 100) / 100 };
+  }
+  var fillOf = (c) => `fill="${c.hex}"${c.alpha < 1 ? ` fill-opacity="${c.alpha}"` : ""}`;
+  var num = (n) => String(Math.round(n * 10) / 10);
+  var xmlText = (t) => t.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[ch]);
+  function textLines(node) {
+    const out = [];
+    const range = document.createRange();
+    const data = node.data;
+    for (let i3 = 0; i3 < data.length; i3++) {
+      range.setStart(node, i3);
+      range.setEnd(node, i3 + 1);
+      const r = range.getClientRects()[0];
+      if (!r || !r.width) continue;
+      const last = out[out.length - 1];
+      if (last && Math.abs(last.top - r.top) < r.height / 2) last.text += data[i3];
+      else out.push({ text: data[i3], x: r.left, top: r.top, bottom: r.bottom });
+    }
+    return out;
+  }
   function blockSvg(el2) {
-    const r = el2.getBoundingClientRect();
-    const w = Math.ceil(Math.max(r.width, el2.scrollWidth)), h = Math.ceil(Math.max(r.height, el2.scrollHeight));
-    const c = el2.cloneNode(true);
-    const a = [el2, ...el2.querySelectorAll("*")], b = [c, ...c.querySelectorAll("*")];
-    a.forEach((src, i3) => {
-      const cs = getComputedStyle(src);
-      const sized = i3 === 0 || /^(IMG|SVG|svg)$/.test(src.tagName);
-      b[i3].setAttribute("style", BLOCK_PROPS.filter((p) => sized || p !== "height").map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";"));
-      b[i3].removeAttribute("class");
-    });
-    c.querySelectorAll("pre").forEach((p) => {
-      p.style.paddingLeft = "1em";
-    });
-    c.querySelectorAll("button, .fe-col-rz, .fe-blk-x").forEach((n) => n.remove());
-    c.style.margin = "0";
-    c.style.width = `${w}px`;
-    c.style.overflow = "visible";
-    const back = backdrop(el2);
-    const body = new XMLSerializer().serializeToString(c);
-    const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="${back}"/><foreignObject x="0" y="0" width="${w}" height="${h}">${body.replace(/^<(\w+)/, '<$1 xmlns="http://www.w3.org/1999/xhtml"')}</foreignObject></svg>`;
+    const box = el2.getBoundingClientRect();
+    const w = Math.ceil(Math.max(box.width, el2.scrollWidth)), h = Math.ceil(Math.max(box.height, el2.scrollHeight));
+    const dx = box.left - el2.scrollLeft, dy = box.top - el2.scrollTop;
+    const shapes = [];
+    const draw = (n) => {
+      if (n.nodeType === Node.TEXT_NODE) {
+        if (!n.textContent?.trim()) return;
+        const cs2 = getComputedStyle(n.parentElement);
+        const size = parseFloat(cs2.fontSize);
+        const ink = plainColour(cs2.color);
+        if (!ink) return;
+        const face = cs2.fontFamily.replace(/"/g, "'");
+        const weight = cs2.fontWeight !== "400" ? ` font-weight="${cs2.fontWeight}"` : "";
+        const slant = cs2.fontStyle === "italic" ? ' font-style="italic"' : "";
+        for (const line2 of textLines(n)) {
+          if (!line2.text.trim()) continue;
+          const y = line2.bottom - (line2.bottom - line2.top - size) / 2 - size * 0.2 - dy;
+          shapes.push(`<text x="${num(line2.x - dx)}" y="${num(y)}" font-family="${xmlText(face)}" font-size="${num(size)}"${weight}${slant} ${fillOf(ink)} xml:space="preserve">${xmlText(line2.text)}</text>`);
+        }
+        return;
+      }
+      if (n.nodeType !== Node.ELEMENT_NODE) return;
+      const e = n;
+      if (e.matches("button, .fe-col-rz, .fe-blk-x") || !e.checkVisibility()) return;
+      const cs = getComputedStyle(e);
+      const r = e.getBoundingClientRect();
+      const fill = plainColour(cs.backgroundColor);
+      const radius = parseFloat(cs.borderTopLeftRadius) || 0;
+      if (fill && r.width && r.height) shapes.push(`<rect x="${num(r.left - dx)}" y="${num(r.top - dy)}" width="${num(r.width)}" height="${num(r.height)}"${radius ? ` rx="${num(radius)}"` : ""} ${fillOf(fill)}/>`);
+      const edges = [
+        ["Top", r.left, r.top, r.right, r.top],
+        ["Bottom", r.left, r.bottom, r.right, r.bottom],
+        ["Left", r.left, r.top, r.left, r.bottom],
+        ["Right", r.right, r.top, r.right, r.bottom]
+      ];
+      for (const [side, x1, y1, x2, y2] of edges) {
+        const width = parseFloat(cs.getPropertyValue(`border-${side.toLowerCase()}-width`));
+        const ink = width && cs.getPropertyValue(`border-${side.toLowerCase()}-style`) !== "none" ? plainColour(cs.getPropertyValue(`border-${side.toLowerCase()}-color`)) : null;
+        if (ink) shapes.push(`<line x1="${num(x1 - dx)}" y1="${num(y1 - dy)}" x2="${num(x2 - dx)}" y2="${num(y2 - dy)}" stroke="${ink.hex}"${ink.alpha < 1 ? ` stroke-opacity="${ink.alpha}"` : ""} stroke-width="${num(width)}"/>`);
+      }
+      e.childNodes.forEach(draw);
+    };
+    draw(el2);
+    const back = plainColour(backdrop(el2)) ?? { hex: "#ffffff", alpha: 1 };
+    const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${back.hex}"/>${shapes.join("")}</svg>`;
     return { svg: svg2, w, h };
+  }
+  function tableMarkdown(table2) {
+    const inline = (n) => {
+      if (n.nodeType === Node.TEXT_NODE) return (n.textContent ?? "").replace(/\s+/g, " ");
+      if (n.nodeType !== Node.ELEMENT_NODE) return "";
+      const e = n;
+      if (e.matches("button, .fe-col-rz, .fe-blk-x")) return "";
+      const inner = [...e.childNodes].map(inline).join("");
+      switch (e.tagName) {
+        case "STRONG":
+        case "B":
+          return `**${inner}**`;
+        case "EM":
+        case "I":
+          return `_${inner}_`;
+        case "CODE":
+          return `\`${inner}\``;
+        case "DEL":
+        case "S":
+          return `~~${inner}~~`;
+        case "BR":
+          return "<br>";
+        case "A":
+          return `[${inner}](${e.getAttribute("href") ?? ""})`;
+        default:
+          return inner;
+      }
+    };
+    const rows = [...table2.rows].map((r) => [...r.cells].map((c) => [...c.childNodes].map(inline).join("").trim().replace(/\|/g, "\\|")));
+    if (!rows.length) return "";
+    const cols = Math.max(...rows.map((r) => r.length));
+    const line2 = (cells) => `| ${Array.from({ length: cols }, (_, i3) => cells[i3] ?? "").join(" | ")} |`;
+    return [line2(rows[0]), `|${" --- |".repeat(cols)}`, ...rows.slice(1).map(line2)].join("\n") + "\n";
   }
   function backdrop(el2) {
     for (let n = el2; n; n = n.parentElement) {
@@ -23919,12 +23964,16 @@ ${body}
     const n = [...document.querySelectorAll(block.matches(".fe-md-tablewrap") ? ".fe-md-tablewrap" : ".fe-md-code")].indexOf(block) + 1;
     const menu = document.createElement("div");
     menu.className = "fe-ctx fe-export-menu";
-    menu.innerHTML = `<div class="row fe-ctx-item" data-fmt="svg">${UI_ICON.image}<span>SVG, sharp at any size</span></div><div class="row fe-ctx-item" data-fmt="png">${UI_ICON.image}<span>PNG, twice the size</span></div>`;
-    const layer = openLayer(menu, { kind: "popover", anchor: btn, role: "menu", group: "menu", label: "Save as a picture" });
+    menu.innerHTML = `<div class="row fe-ctx-item" data-fmt="svg">${UI_ICON.image}<span>SVG, sharp at any size</span></div><div class="row fe-ctx-item" data-fmt="png">${UI_ICON.image}<span>PNG, twice the size</span></div>${kind === "table" ? `<div class="row fe-ctx-item" data-fmt="md">${UI_ICON.copy}<span>Copy as Markdown</span></div>` : ""}`;
+    const layer = openLayer(menu, { kind: "popover", anchor: btn, role: "menu", group: "menu", label: "Save or copy this block" });
     menu.addEventListener("click", (e) => {
       const fmt = e.target.closest("[data-fmt]")?.dataset.fmt;
       if (!fmt) return;
       layer.close("pick");
+      if (fmt === "md") {
+        void navigator.clipboard.writeText(tableMarkdown(target)).then(() => toast("Copied the table as Markdown"), () => toast("Copy failed"));
+        return;
+      }
       void saveBlock(target, fmt, `${doc}-${kind}-${n}`).then((m) => toast(m), (err) => toast(`Could not save the picture: ${err instanceof Error ? err.message : String(err)}`, 5e3));
     });
   }

@@ -319,38 +319,116 @@ export function wireDocExport(btn: HTMLElement, doc: () => { text: string; href:
   });
 }
 
-// The computed styles a block's still copy needs to look the same outside the page.
-const BLOCK_PROPS = ['display', 'box-sizing', 'width', 'height', 'min-width', 'margin', 'padding', 'border-top', 'border-right', 'border-bottom', 'border-left',
-  'border-radius', 'border-collapse', 'border-spacing', 'background-color', 'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height',
-  'letter-spacing', 'text-align', 'text-transform', 'text-decoration', 'vertical-align', 'white-space', 'overflow-wrap', 'word-break', 'tab-size',
-  'grid-template-columns', 'gap', 'align-items', 'justify-content', 'flex-direction', 'flex-wrap', 'opacity', 'list-style', 'table-layout', 'box-shadow'];
+// One pixel of canvas turns any colour the browser can compute (oklch, color-mix)
+// into plain numbers that every program reading the SVG understands.
+let colourCtx: CanvasRenderingContext2D | null = null;
+function plainColour(c: string): { hex: string; alpha: number } | null {
+  if (!c || c === 'transparent') return null;
+  colourCtx ??= Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })!;
+  colourCtx.clearRect(0, 0, 1, 1);
+  colourCtx.fillStyle = c;
+  colourCtx.fillRect(0, 0, 1, 1);
+  const [r, g, bl, a] = colourCtx.getImageData(0, 0, 1, 1).data;
+  if (!a) return null;
+  return { hex: `#${[r, g, bl].map(n => n.toString(16).padStart(2, '0')).join('')}`, alpha: Math.round(a / 255 * 100) / 100 };
+}
+const fillOf = (c: { hex: string; alpha: number }) => `fill="${c.hex}"${c.alpha < 1 ? ` fill-opacity="${c.alpha}"` : ''}`;
+const num = (n: number) => String(Math.round(n * 10) / 10);
+const xmlText = (t: string) => t.replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]!));
 
-/** A table or code block as an SVG picture of how it looks on the page now. */
+/** The pieces of a text node as they sit on screen, one per line it wraps onto. */
+function textLines(node: Text): { text: string; x: number; top: number; bottom: number }[] {
+  const out: { text: string; x: number; top: number; bottom: number }[] = [];
+  const range = document.createRange();
+  const data = node.data;
+  for (let i = 0; i < data.length; i++) {
+    range.setStart(node, i); range.setEnd(node, i + 1);
+    const r = range.getClientRects()[0];
+    if (!r || !r.width) continue;
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.top - r.top) < r.height / 2) last.text += data[i];
+    else out.push({ text: data[i], x: r.left, top: r.top, bottom: r.bottom });
+  }
+  return out;
+}
+
+/**
+ * A table or code block as an SVG picture of how it looks on the page now. It is
+ * plain rectangles, lines and text, with no embedded web page, so design tools and
+ * image viewers can all open it.
+ */
 export function blockSvg(el: HTMLElement): { svg: string; w: number; h: number } {
-  const r = el.getBoundingClientRect();
-  const w = Math.ceil(Math.max(r.width, el.scrollWidth)), h = Math.ceil(Math.max(r.height, el.scrollHeight));
-  const c = el.cloneNode(true) as HTMLElement;
-  const a = [el, ...el.querySelectorAll<HTMLElement>('*')], b = [c, ...c.querySelectorAll<HTMLElement>('*')];
-  // Widths are copied so text wraps where it does on the page; heights only
-  // for the block and its pictures, since a table row given its measured
-  // height grows by its padding.
-  a.forEach((src, i) => {
-    const cs = getComputedStyle(src);
-    const sized = i === 0 || /^(IMG|SVG|svg)$/.test(src.tagName);
-    b[i].setAttribute('style', BLOCK_PROPS.filter(p => sized || p !== 'height').map(p => `${p}:${cs.getPropertyValue(p)}`).join(';'));
-    b[i].removeAttribute('class');
-  });
-  // Line numbers are drawn by the page's stylesheet, which the picture does not carry; leave room where they were.
-  c.querySelectorAll<HTMLElement>('pre').forEach(p => { p.style.paddingLeft = '1em'; });
-  c.querySelectorAll('button, .fe-col-rz, .fe-blk-x').forEach(n => n.remove());
-  c.style.margin = '0';
-  c.style.width = `${w}px`;
-  c.style.overflow = 'visible';
+  const box = el.getBoundingClientRect();
+  const w = Math.ceil(Math.max(box.width, el.scrollWidth)), h = Math.ceil(Math.max(box.height, el.scrollHeight));
+  const dx = box.left - el.scrollLeft, dy = box.top - el.scrollTop;
+  const shapes: string[] = [];
+  const draw = (n: Node): void => {
+    if (n.nodeType === Node.TEXT_NODE) {
+      if (!n.textContent?.trim()) return;
+      const cs = getComputedStyle(n.parentElement!);
+      const size = parseFloat(cs.fontSize);
+      const ink = plainColour(cs.color);
+      if (!ink) return;
+      const face = cs.fontFamily.replace(/"/g, "'");
+      const weight = cs.fontWeight !== '400' ? ` font-weight="${cs.fontWeight}"` : '';
+      const slant = cs.fontStyle === 'italic' ? ' font-style="italic"' : '';
+      for (const line of textLines(n as Text)) {
+        if (!line.text.trim()) continue;
+        // The baseline sits about a fifth of the size above the bottom of the line's glyph box.
+        const y = line.bottom - (line.bottom - line.top - size) / 2 - size * 0.2 - dy;
+        shapes.push(`<text x="${num(line.x - dx)}" y="${num(y)}" font-family="${xmlText(face)}" font-size="${num(size)}"${weight}${slant} ${fillOf(ink)} xml:space="preserve">${xmlText(line.text)}</text>`);
+      }
+      return;
+    }
+    if (n.nodeType !== Node.ELEMENT_NODE) return;
+    const e = n as HTMLElement;
+    if (e.matches('button, .fe-col-rz, .fe-blk-x') || !e.checkVisibility()) return;
+    const cs = getComputedStyle(e);
+    const r = e.getBoundingClientRect();
+    const fill = plainColour(cs.backgroundColor);
+    const radius = parseFloat(cs.borderTopLeftRadius) || 0;
+    if (fill && r.width && r.height) shapes.push(`<rect x="${num(r.left - dx)}" y="${num(r.top - dy)}" width="${num(r.width)}" height="${num(r.height)}"${radius ? ` rx="${num(radius)}"` : ''} ${fillOf(fill)}/>`);
+    const edges: [string, number, number, number, number][] = [
+      ['Top', r.left, r.top, r.right, r.top], ['Bottom', r.left, r.bottom, r.right, r.bottom],
+      ['Left', r.left, r.top, r.left, r.bottom], ['Right', r.right, r.top, r.right, r.bottom],
+    ];
+    for (const [side, x1, y1, x2, y2] of edges) {
+      const width = parseFloat(cs.getPropertyValue(`border-${side.toLowerCase()}-width`));
+      const ink = width && cs.getPropertyValue(`border-${side.toLowerCase()}-style`) !== 'none' ? plainColour(cs.getPropertyValue(`border-${side.toLowerCase()}-color`)) : null;
+      if (ink) shapes.push(`<line x1="${num(x1 - dx)}" y1="${num(y1 - dy)}" x2="${num(x2 - dx)}" y2="${num(y2 - dy)}" stroke="${ink.hex}"${ink.alpha < 1 ? ` stroke-opacity="${ink.alpha}"` : ''} stroke-width="${num(width)}"/>`);
+    }
+    e.childNodes.forEach(draw);
+  };
+  draw(el);
   // The colour showing behind the block on screen, so a transparent block keeps its look.
-  const back = backdrop(el);
-  const body = new XMLSerializer().serializeToString(c);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="${back}"/><foreignObject x="0" y="0" width="${w}" height="${h}">${body.replace(/^<(\w+)/, '<$1 xmlns="http://www.w3.org/1999/xhtml"')}</foreignObject></svg>`;
+  const back = plainColour(backdrop(el)) ?? { hex: '#ffffff', alpha: 1 };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${back.hex}"/>${shapes.join('')}</svg>`;
   return { svg, w, h };
+}
+
+/** A rendered table as Markdown: links, bold, italics and code stay, and a pipe in a cell stays a pipe. */
+export function tableMarkdown(table: HTMLTableElement): string {
+  const inline = (n: Node): string => {
+    if (n.nodeType === Node.TEXT_NODE) return (n.textContent ?? '').replace(/\s+/g, ' ');
+    if (n.nodeType !== Node.ELEMENT_NODE) return '';
+    const e = n as HTMLElement;
+    if (e.matches('button, .fe-col-rz, .fe-blk-x')) return '';
+    const inner = [...e.childNodes].map(inline).join('');
+    switch (e.tagName) {
+      case 'STRONG': case 'B': return `**${inner}**`;
+      case 'EM': case 'I': return `_${inner}_`;
+      case 'CODE': return `\`${inner}\``;
+      case 'DEL': case 'S': return `~~${inner}~~`;
+      case 'BR': return '<br>';
+      case 'A': return `[${inner}](${e.getAttribute('href') ?? ''})`;
+      default: return inner;
+    }
+  };
+  const rows = [...table.rows].map(r => [...r.cells].map(c => [...c.childNodes].map(inline).join('').trim().replace(/\|/g, '\\|')));
+  if (!rows.length) return '';
+  const cols = Math.max(...rows.map(r => r.length));
+  const line = (cells: string[]) => `| ${Array.from({ length: cols }, (_, i) => cells[i] ?? '').join(' | ')} |`;
+  return [line(rows[0]), `|${' --- |'.repeat(cols)}`, ...rows.slice(1).map(line)].join('\n') + '\n';
 }
 
 /** The first solid colour behind an element, walking out to the page. */
@@ -382,12 +460,16 @@ export function openBlockMenu(btn: HTMLElement, toast: Toast): void {
   const n = [...document.querySelectorAll(block.matches('.fe-md-tablewrap') ? '.fe-md-tablewrap' : '.fe-md-code')].indexOf(block) + 1;
   const menu = document.createElement('div');
   menu.className = 'fe-ctx fe-export-menu';
-  menu.innerHTML = `<div class="row fe-ctx-item" data-fmt="svg">${UI_ICON.image}<span>SVG, sharp at any size</span></div><div class="row fe-ctx-item" data-fmt="png">${UI_ICON.image}<span>PNG, twice the size</span></div>`;
-  const layer = openLayer(menu, { kind: 'popover', anchor: btn, role: 'menu', group: 'menu', label: 'Save as a picture' });
+  menu.innerHTML = `<div class="row fe-ctx-item" data-fmt="svg">${UI_ICON.image}<span>SVG, sharp at any size</span></div><div class="row fe-ctx-item" data-fmt="png">${UI_ICON.image}<span>PNG, twice the size</span></div>${kind === 'table' ? `<div class="row fe-ctx-item" data-fmt="md">${UI_ICON.copy}<span>Copy as Markdown</span></div>` : ''}`;
+  const layer = openLayer(menu, { kind: 'popover', anchor: btn, role: 'menu', group: 'menu', label: 'Save or copy this block' });
   menu.addEventListener('click', e => {
-    const fmt = (e.target as Element).closest<HTMLElement>('[data-fmt]')?.dataset.fmt as 'svg' | 'png' | undefined;
+    const fmt = (e.target as Element).closest<HTMLElement>('[data-fmt]')?.dataset.fmt as 'svg' | 'png' | 'md' | undefined;
     if (!fmt) return;
     layer.close('pick');
+    if (fmt === 'md') {
+      void navigator.clipboard.writeText(tableMarkdown(target as HTMLTableElement)).then(() => toast('Copied the table as Markdown'), () => toast('Copy failed'));
+      return;
+    }
     void saveBlock(target, fmt, `${doc}-${kind}-${n}`).then(m => toast(m), err => toast(`Could not save the picture: ${err instanceof Error ? err.message : String(err)}`, 5000));
   });
 }
