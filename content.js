@@ -15623,7 +15623,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     root2.querySelector('[data-media="close"]').addEventListener("click", () => layer.close("api"));
     return layer;
   }
-  function railHtml(set2) {
+  function railHtml(set2, pick2 = false) {
     const groups = [];
     set2.forEach((m, i3) => {
       const last = groups[groups.length - 1];
@@ -15635,11 +15635,45 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       return `<button type="button" class="fe-dv-thumb" data-at="${i3}" title="${esc(m.name)}" aria-label="${esc(`${m.cat ? `${m.cat.label}: ` : ""}${m.name}`)}">${m.kind === "img" ? `<img src="${esc(m.src)}" alt="" loading="lazy" draggable="false">` : `<span class="fe-dv-thumb-mock">${esc(m.name)}</span>`}</button>`;
     };
     return groups.map((g) => `<section class="fe-dv-rail-grp"${g.cat ? ` data-code="${esc(g.cat.code)}"` : ""}>
-      ${g.cat ? `<header class="fe-dv-rail-head" title="${esc(g.cat.label)}"><span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${esc(g.cat.label)}</span></header>` : ""}
+      ${g.cat ? `<header class="fe-dv-rail-head" title="${esc(g.cat.label)}">${pick2 ? `<button type="button" class="fe-dv-rail-pick" role="radio" aria-checked="false" data-pick="${esc(g.cat.code)}" title="Choose ${esc(g.cat.label)}"><i></i><span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${midHtml(g.cat.label)}</span></button>` : `<span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${midHtml(g.cat.label)}</span>`}</header>` : ""}
       <div class="fe-dv-rail-thumbs">${g.at.map(thumb2).join("")}</div>
     </section>`).join("");
   }
-  function openFocus(set2, at, notify) {
+  function linkRailToCard(rail, card5) {
+    const radios = [...card5.querySelectorAll('input[type="radio"]')];
+    const paintPicks = () => {
+      const on = radios.find((r) => r.checked)?.value;
+      rail.querySelectorAll("[data-pick]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.pick === on)));
+    };
+    rail.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pick]");
+      if (!b) return;
+      radios.find((r) => r.value === b.dataset.pick)?.click();
+      paintPicks();
+    });
+    card5.addEventListener("change", paintPicks);
+    paintPicks();
+    const source = card5.querySelector("textarea[data-note]");
+    if (!source) return;
+    const box = document.createElement("label");
+    box.className = "fe-dv-rail-note";
+    box.innerHTML = `<textarea class="tb" rows="2" placeholder="A note for Claude" aria-label="Note on this question"></textarea>`;
+    rail.append(box);
+    const note2 = box.querySelector("textarea");
+    note2.value = source.value;
+    note2.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") e.stopPropagation();
+    });
+    note2.addEventListener("input", () => {
+      source.value = note2.value;
+      if (note2.value.trim()) card5.querySelector(".fe-dp-note")?.removeAttribute("hidden");
+      source.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    source.addEventListener("input", () => {
+      if (document.activeElement !== note2) note2.value = source.value;
+    });
+  }
+  function openFocus(set2, at, notify, card5) {
     viewer?.layer.close("replaced");
     const { root: root2, body, head } = shell("", "Large view");
     const rail = document.createElement("nav");
@@ -15648,9 +15682,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       row2.className = "fe-dv-view-row";
       rail.className = "fe-dv-rail";
       rail.setAttribute("aria-label", "Everything in this set");
-      rail.innerHTML = railHtml(set2);
+      rail.innerHTML = railHtml(set2, !!card5?.querySelector('input[type="radio"]'));
       body.replaceWith(row2);
       row2.append(rail, body);
+      if (card5) linkRailToCard(rail, card5);
     }
     const titleEl = head.querySelector(".fe-dv-view-title");
     const subEl = head.querySelector(".fe-dv-view-sub");
@@ -15692,6 +15727,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           path: decodeURIComponent(new URL(m.src, location.href).pathname),
           notify,
           start: left,
+          // Outside the extension (the web build of a page) there is no other app to list.
+          openMore: typeof chrome === "undefined" || !chrome.runtime?.id ? void 0 : (anchor) => openWithMenu(anchor, decodeURIComponent(new URL(m.src, location.href).pathname), false, parseCommands(getSettings().openWithCmds), notify),
           // Outside the extension (the web build of a page) there is no app to open it in.
           openNative: (p) => typeof chrome === "undefined" || !chrome.runtime?.id ? Promise.resolve(false) : new Promise((res) => chrome.runtime.sendMessage(
             { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
@@ -15825,7 +15862,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       } else if (act === "zoom") toggleZoom(f);
       else if (act === "focus") {
         const set2 = mediaIn(f.closest("[data-media-set]") ?? f);
-        openFocus(set2.map(toMedia), set2.indexOf(f), notify);
+        openFocus(set2.map(toMedia), set2.indexOf(f), notify, f.closest(".fe-dp-card"));
       } else if (act === "compare") {
         const at = comparing.indexOf(f);
         if (at >= 0) {
@@ -15878,10 +15915,12 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   </div>`;
   };
   var mediaList = (images, base2) => (images ?? []).map((p) => mediaOf(base2, p)).filter((m) => !!m);
-  var noteBtn = (id, notes2) => notes2 ? `<button type="button" class="btn fe-dp-addnote" data-icon data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" title="Add a note (n)" aria-label="Add a note on ${esc(id)}">${UI_ICON.comment}</button>` : "";
   var noteHtml = (id, notes2) => notes2 ? `
   <div class="fe-dp-note" hidden>
     <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
+  </div>
+  <div class="fe-dp-notefoot">
+    <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" aria-expanded="false" title="Add a note (n)" aria-label="Note on ${esc(id)}">${UI_ICON.comment}<span>Note</span>${UI_ICON.chevronDown}</button>
   </div>` : "";
   function optionHtml(d, o, n, base2, none2 = false) {
     const imgs = mediaList(o.images, base2);
@@ -15905,7 +15944,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const tiles = d.options.filter((o) => o.images?.length).length;
     const none2 = d.none ? { code: noneCode(d), label: d.noneLabel || "None of these" } : null;
     return `<article class="card fe-dp-card" data-id="${esc(d.id)}" data-kind="decision" tabindex="-1">
-    <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3>${decisionGroupHtml(d, cfg)}${noteBtn(d.id, notes2)}</header>
+    <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3>${decisionGroupHtml(d, cfg)}</header>
     ${d.context ? clampHtml(md(d.context, base2), 3) : ""}
     ${stripHtml(mediaList(d.images, base2))}
     <div class="fe-dp-opts${tiles ? " gallery" : ""}"${tiles ? ` style="--cols:${tileCols(tiles)}"` : ""} role="radiogroup" aria-label="${esc(d.question)}" data-media-set>
@@ -15922,7 +15961,6 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       <span class="badge fe-dp-id" data-tone="quiet">${esc(x2.id)}</span>
       <h3 class="fe-dp-q">${esc(x2.title || x2.id)}</h3>
       ${x2.prio ? `<span class="badge fe-dp-prio" data-prio="${esc(x2.prio.toLowerCase())}">${esc(x2.prio)}</span>` : ""}
-      ${noteBtn(x2.id, notes2)}
       <label class="fe-dp-agree"><span class="fe-dp-agree-lbl">Agree</span>${switchHtml({ title: "Agree with this as drafted (a)", label: `Agree with ${x2.id}`, checked: true, small: true, cls: "fe-dp-agree-sw" })}</label>
     </header>
     ${x2.read ? clampHtml(md(x2.read, base2), 4) : ""}
@@ -16498,7 +16536,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const wrap = c.querySelector(".fe-dp-note"), add = c.querySelector(".fe-dp-addnote");
       if (!wrap || !add) return;
       wrap.hidden = !on;
-      add.setAttribute("aria-pressed", String(on));
+      add.setAttribute("aria-expanded", String(on));
     };
     const mark = (c) => {
       const id = c.dataset.id;
@@ -16625,7 +16663,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     };
     const toggleNote = (c) => {
       const wrap = c.querySelector(".fe-dp-note");
-      if (wrap && !wrap.hidden && !notesOn.get() && !c.querySelector("textarea[data-note]")?.value.trim()) showNote(c, false);
+      if (wrap && !wrap.hidden) showNote(c, false);
       else openNote2(c);
     };
     markRail = followOutline(rail, box, cards2(), (id) => {
@@ -19618,7 +19656,14 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dv-rail{flex:none;width:calc(var(--sp-9) * 6.5);box-sizing:border-box;overflow-y:auto;display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-3);border-right:1px solid var(--bd);background:var(--s1)}
 .fe-dv-rail-grp{display:flex;flex-direction:column;gap:var(--sp-2)}
 .fe-dv-rail-head{display:flex;align-items:baseline;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--mt)}
-.fe-dv-rail-name{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.fe-dv-rail-name{min-width:0;flex:1 1 auto}
+/* Pick an option from the large view, with the page's own choice shown live. */
+.fe-dv-rail-pick{display:flex;align-items:center;gap:var(--sp-2);width:100%;min-width:0;padding:var(--sp-1) var(--sp-2);background:none;border:1px solid transparent;border-radius:var(--r-sm);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.fe-dv-rail-pick:hover{background:var(--hover)}
+.fe-dv-rail-pick[aria-checked="true"]{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--tx)}
+.fe-dv-rail-pick i{flex:none;width:12px;height:12px;border:1.5px solid var(--dm);border-radius:50%;box-sizing:border-box}
+.fe-dv-rail-pick[aria-checked="true"] i{border:4px solid var(--ac)}
+.fe-dv-rail-note{position:sticky;bottom:calc(var(--sp-3) * -1);margin-top:auto;padding:var(--sp-3) 0;background:var(--s1)}
 .fe-dv-rail-grp:has([aria-current]) .fe-dv-rail-head{color:var(--tx)}
 .fe-dv-rail-thumbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
 .fe-dv-thumb{display:block;padding:0;aspect-ratio:16 / 10;overflow:hidden;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-xs);cursor:pointer}
@@ -19662,9 +19707,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-slot{display:contents}
 .fe-dp-slot dt{font-size:var(--fs-xs);font-weight:650;letter-spacing:.06em;color:var(--dm)}
 .fe-dp-slot dd{min-width:0;margin:0;color:var(--tx)}
+.fe-dp-notefoot{display:flex;justify-content:flex-end;margin-top:var(--sp-2)}
 .fe-dp-addnote{flex:none}
+.fe-dp-addnote svg:last-child{width:12px;height:12px;transition:transform var(--t-fast) var(--ease)}
+.fe-dp-addnote[aria-expanded="true"] svg:last-child{transform:rotate(180deg)}
 .fe-dp-card.has-note .fe-dp-addnote{color:var(--ac)}
-.fe-dp-note textarea,.fe-dp-end textarea{width:100%}
+.fe-dp-note{margin-top:var(--sp-4)}
+.fe-dp-note textarea,.fe-dv-rail-note textarea{field-sizing:content;min-height:calc(var(--sp-9) * 2);max-height:40vh;padding:var(--sp-3) var(--sp-4);background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-md);font-size:var(--fs-md);line-height:1.5;color:var(--tx)}
+.fe-dp-note textarea:focus,.fe-dv-rail-note textarea:focus{border-color:var(--ac)}
+.fe-dp-note textarea,.fe-dp-end textarea,.fe-dv-rail-note textarea{width:100%;box-sizing:border-box}
 .fe-dp-end{display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-6)}
 #fe-dp.flagged-only .fe-dp-card:not([data-flag]),#fe-dp.flagged-only .fe-dp-grp:not(:has(.fe-dp-card[data-flag])){display:none}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
@@ -28418,9 +28469,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("new-note-clip", () => app.newNoteFromClipboard(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
     bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
-    const noteBtn2 = (act) => document.querySelector(`#fe-ed-bar [data-act="${act}"]`);
-    bind("note-rename", () => noteAction("rename"), () => visible(noteBtn2("rename")));
-    bind("note-delete", () => noteAction("delete"), () => visible(noteBtn2("delete")));
+    const noteBtn = (act) => document.querySelector(`#fe-ed-bar [data-act="${act}"]`);
+    bind("note-rename", () => noteAction("rename"), () => visible(noteBtn("rename")));
+    bind("note-delete", () => noteAction("delete"), () => visible(noteBtn("delete")));
     bind("goto-bg", gotoBackground, () => !!document.getElementById("fe-goto"));
     const commentable = () => !!app.filePage?.commentable();
     bind("fp-comment", () => app.filePage?.comment("comment"), commentable);

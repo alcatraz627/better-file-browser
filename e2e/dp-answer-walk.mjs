@@ -89,14 +89,16 @@ try {
   await shot(page, 'dp-answer-sent');
 
   // C7 Replace asks first; cancel sends nothing, OK sends replace.
-  accept = false; dialogs = [];
   await page.click('#fe-dp-submit');
-  await wait(600);
-  check(dialogs.length === 1 && calls().filter(c => c.verb === 'submit').length === 1, `C7 Replace asks first and Cancel sends nothing: ${JSON.stringify(dialogs)}`);
-  accept = true;
+  await page.waitForSelector('.fe-yesno [data-a="no"]');
+  await page.click('.fe-yesno [data-a="no"]');
+  await wait(400);
+  check(calls().filter(c => c.verb === 'submit').length === 1, 'C7 Replace asks first and Cancel sends nothing');
   await pick(page, 'D2', 'b');
   await until(page, t => document.getElementById('fe-dp-answer-text').textContent.includes(t), 'D2b');
   await page.click('#fe-dp-submit');
+  await page.waitForSelector('.fe-yesno [data-a="yes"]');
+  await page.click('.fe-yesno [data-a="yes"]');
   await until(page, () => document.querySelector('.fe-dp-sent-full pre')?.textContent.includes('D2b'), null, 8000);
   const rep = calls().filter(c => c.verb === 'submit');
   check(rep.length === 2 && rep[1].args.includes('--replace') && JSON.parse(readFileSync(join(one, '.answer.json'), 'utf8')).answer.includes('D1b D2b'),

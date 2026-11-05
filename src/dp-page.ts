@@ -172,7 +172,7 @@ function wireAnswers(cfg: DpConfig, box: HTMLElement, slug: string | undefined, 
     const wrap = c.querySelector<HTMLElement>('.fe-dp-note'), add = c.querySelector<HTMLElement>('.fe-dp-addnote');
     if (!wrap || !add) return;
     wrap.hidden = !on;
-    add.setAttribute('aria-pressed', String(on));
+    add.setAttribute('aria-expanded', String(on));
   };
   const mark = (c: HTMLElement) => {
     const id = c.dataset.id!;
@@ -277,10 +277,10 @@ function wireAnswers(cfg: DpConfig, box: HTMLElement, slug: string | undefined, 
     setCurrent(c);
     c.querySelector<HTMLTextAreaElement>('textarea[data-note]')?.focus();
   };
-  // The note button opens the note; pressed again on an empty note, it closes it.
+  // The note button opens the note and folds it again; what was typed stays, and the button stays lit.
   const toggleNote = (c: HTMLElement) => {
     const wrap = c.querySelector<HTMLElement>('.fe-dp-note');
-    if (wrap && !wrap.hidden && !notesOn.get() && !c.querySelector<HTMLTextAreaElement>('textarea[data-note]')?.value.trim()) showNote(c, false);
+    if (wrap && !wrap.hidden) showNote(c, false);
     else openNote(c);
   };
   // A rail row opens the card's group if it was folded, then goes to the card.

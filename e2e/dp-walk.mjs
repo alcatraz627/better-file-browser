@@ -31,7 +31,7 @@ try {
     origin: [...document.querySelectorAll('.fe-dp-origin .fe-dp-fact')].map(f => f.textContent),
     intro: !!document.querySelector('.fe-dp-intro'),
     count: document.querySelector('.fe-dp-count')?.textContent,
-    listing: getComputedStyle(document.getElementById('fe-scroll')).display,
+    listing: document.getElementById('fe-scroll').checkVisibility() ? 'shown' : 'none',
   }));
   check(first.title === JSON.parse(readFileSync(join(slug, 'config.json'), 'utf8')).title && first.listing === 'none' && /decision/.test(first.count ?? ''), `the folder opens as its decision page, listing out of sight: ${JSON.stringify(first)}`);
   const align = await page.evaluate(() => {

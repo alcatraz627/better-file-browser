@@ -4,9 +4,11 @@
 // (.html beside the doc) runs live in a frame that may run its own script
 // but cannot reach bfb, the files or the network. Pictures inside a view's
 // prose (markdown images) open large the same way.
-import { esc } from './utils';
+import { esc, midHtml } from './utils';
 import { UI_ICON, GLYPH } from './control-icons';
 import { openLayer, type Layer } from './layer';
+import { openWithMenu, parseCommands } from './open-with';
+import { getSettings } from './storage';
 import { mountImageTools, type ViewState } from './image-tools';
 import { bind } from './commands';
 import { mountDiagram, type LabOptions } from './diagram-lab';
@@ -174,7 +176,7 @@ function openShell(root: HTMLElement, onClose?: () => void): Layer {
 }
 
 /** The side rail of a large view: a small copy of every item in the set, under the choice each belongs to. */
-function railHtml(set: Media[]): string {
+function railHtml(set: Media[], pick = false): string {
   const groups: { cat?: MediaCategory; at: number[] }[] = [];
   set.forEach((m, i) => {
     const last = groups[groups.length - 1];
@@ -188,9 +190,47 @@ function railHtml(set: Media[]): string {
       : `<span class="fe-dv-thumb-mock">${esc(m.name)}</span>`}</button>`;
   };
   return groups.map(g => `<section class="fe-dv-rail-grp"${g.cat ? ` data-code="${esc(g.cat.code)}"` : ''}>
-      ${g.cat ? `<header class="fe-dv-rail-head" title="${esc(g.cat.label)}"><span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${esc(g.cat.label)}</span></header>` : ''}
+      ${g.cat ? `<header class="fe-dv-rail-head" title="${esc(g.cat.label)}">${pick
+        ? `<button type="button" class="fe-dv-rail-pick" role="radio" aria-checked="false" data-pick="${esc(g.cat.code)}" title="Choose ${esc(g.cat.label)}"><i></i><span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${midHtml(g.cat.label)}</span></button>`
+        : `<span class="badge" data-size="sm" data-tone="quiet">${esc(g.cat.code)}</span><span class="fe-dv-rail-name">${midHtml(g.cat.label)}</span>`}</header>` : ''}
       <div class="fe-dv-rail-thumbs">${g.at.map(thumb).join('')}</div>
     </section>`).join('');
+}
+
+/**
+ * Let the large view's rail choose an option and write the note of the card it came
+ * from. The card's own controls stay the one record: the rail presses them and
+ * follows them, so what is saved, counted and sent is what the page already does.
+ */
+function linkRailToCard(rail: HTMLElement, card: HTMLElement): void {
+  const radios = [...card.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+  const paintPicks = () => {
+    const on = radios.find(r => r.checked)?.value;
+    rail.querySelectorAll<HTMLElement>('[data-pick]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.pick === on)));
+  };
+  rail.addEventListener('click', e => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-pick]');
+    if (!b) return;
+    radios.find(r => r.value === b.dataset.pick)?.click();
+    paintPicks();
+  });
+  card.addEventListener('change', paintPicks);
+  paintPicks();
+  const source = card.querySelector<HTMLTextAreaElement>('textarea[data-note]');
+  if (!source) return;
+  const box = document.createElement('label');
+  box.className = 'fe-dv-rail-note';
+  box.innerHTML = `<textarea class="tb" rows="2" placeholder="A note for Claude" aria-label="Note on this question"></textarea>`;
+  rail.append(box);
+  const note = box.querySelector('textarea')!;
+  note.value = source.value;
+  note.addEventListener('keydown', e => { if (e.key !== 'Escape') e.stopPropagation(); });
+  note.addEventListener('input', () => {
+    source.value = note.value;
+    if (note.value.trim()) card.querySelector<HTMLElement>('.fe-dp-note')?.removeAttribute('hidden');
+    source.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  source.addEventListener('input', () => { if (document.activeElement !== note) note.value = source.value; });
 }
 
 /**
@@ -199,7 +239,7 @@ function railHtml(set: Media[]): string {
  * at the zoom and scroll the last was left at, so the same spot can be compared
  * across a set of same-sized pictures.
  */
-export function openFocus(set: Media[], at: number, notify: (m: string) => void): void {
+export function openFocus(set: Media[], at: number, notify: (m: string) => void, card?: HTMLElement | null): void {
   viewer?.layer.close('replaced');
   const { root, body, head } = shell('', 'Large view');
   const rail = document.createElement('nav');
@@ -208,9 +248,10 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void)
     row.className = 'fe-dv-view-row';
     rail.className = 'fe-dv-rail';
     rail.setAttribute('aria-label', 'Everything in this set');
-    rail.innerHTML = railHtml(set);
+    rail.innerHTML = railHtml(set, !!card?.querySelector('input[type="radio"]'));
     body.replaceWith(row);
     row.append(rail, body);
+    if (card) linkRailToCard(rail, card);
   }
   const titleEl = head.querySelector<HTMLElement>('.fe-dv-view-title')!;
   const subEl = head.querySelector<HTMLElement>('.fe-dv-view-sub')!;
@@ -247,6 +288,8 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void)
       body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
       tools = mountImageTools(body.firstElementChild as HTMLElement, {
         href: m.src, name: m.name, path: decodeURIComponent(new URL(m.src, location.href).pathname), notify, start: left,
+        // Outside the extension (the web build of a page) there is no other app to list.
+        openMore: typeof chrome === 'undefined' || !chrome.runtime?.id ? undefined : anchor => openWithMenu(anchor, decodeURIComponent(new URL(m.src, location.href).pathname), false, parseCommands(getSettings().openWithCmds), notify),
         // Outside the extension (the web build of a page) there is no app to open it in.
         openNative: p => typeof chrome === 'undefined' || !chrome.runtime?.id ? Promise.resolve(false) : new Promise(res => chrome.runtime.sendMessage(
           { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_file', path: p } },
@@ -376,7 +419,7 @@ export function wireMedia(box: HTMLElement, notify: (m: string) => void): void {
     } else if (act === 'zoom') toggleZoom(f);
     else if (act === 'focus') {
       const set = mediaIn(f.closest('[data-media-set]') ?? f);
-      openFocus(set.map(toMedia), set.indexOf(f), notify);
+      openFocus(set.map(toMedia), set.indexOf(f), notify, f.closest<HTMLElement>('.fe-dp-card'));
     } else if (act === 'compare') {
       const at = comparing.indexOf(f);
       if (at >= 0) { comparing.splice(at, 1); f.querySelector('[data-media="compare"]')!.setAttribute('aria-pressed', 'false'); return; }

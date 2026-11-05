@@ -205,6 +205,28 @@ document.body.dataset.width = String(innerWidth);</script></body></html>`));
   check(tile.n === 4 && tile.sameRow && tile.small.every(w => w * 2.5 < tile.lead) && tile.h < 760, `an option's four pictures read as one lead and three small, under one screen: ${JSON.stringify(tile)}`);
   await shot(page, 'dp-tile-set');
 
+  // The note: under the options, at the bottom right; it opens and folds, and grows as it is typed in.
+  const noteCard = '.fe-dp-card[data-id="D2"]';
+  await page.evaluate(s => document.querySelector(s).scrollIntoView({ block: 'center' }), noteCard);
+  const place = await page.evaluate(s => {
+    const c = document.querySelector(s), b = c.querySelector('.fe-dp-addnote').getBoundingClientRect(), o = c.querySelector('.fe-dp-opts').getBoundingClientRect(), r = c.getBoundingClientRect();
+    return { below: b.top >= o.bottom, right: r.right - b.right < 40 };
+  }, noteCard);
+  check(place.below && place.right, `the note button sits at the bottom right of the card: ${JSON.stringify(place)}`);
+  await page.click(`${noteCard} .fe-dp-addnote`);
+  await wait(100);
+  const open = await page.$eval(`${noteCard} .fe-dp-note`, n => !n.hidden);
+  const h0 = await page.$eval(`${noteCard} textarea[data-note]`, t => t.offsetHeight);
+  await page.keyboard.type('one\ntwo\nthree\nfour\nfive\nsix');
+  await wait(100);
+  const h1 = await page.$eval(`${noteCard} textarea[data-note]`, t => t.offsetHeight);
+  check(open && h1 > h0, `the box opens and grows as it is typed in: ${h0} to ${h1}`);
+  await shot(page, 'dp-note-open');
+  await page.click(`${noteCard} .fe-dp-addnote`);
+  await wait(100);
+  check(await page.$eval(`${noteCard} .fe-dp-note`, n => n.hidden) && await page.$eval(`${noteCard} textarea[data-note]`, t => t.value.startsWith('one')), 'it folds with the words kept');
+  await page.$eval(`${noteCard} textarea[data-note]`, t => { t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); });
+
   // The large view of a set: the choice's name, a rail of the whole set, jumps from the rail.
   const lead = '.fe-dp-card[data-id="D3"] .fe-dp-opt[data-code="c"] .fe-dv-media';
   await page.evaluate(s => document.querySelector(s).scrollIntoView({ block: 'center' }), lead);
@@ -224,6 +246,32 @@ document.body.dataset.width = String(innerWidth);</script></body></html>`));
   check(rail.groups.length === 2 && rail.groups[0][0].startsWith('Calm table') && rail.groups.every(g => g[1] === 4) && rail.current === '4' && rail.painted,
     `the rail shows every picture under its choice with the open one marked: ${JSON.stringify(rail)}`);
   await shot(page, 'dp-focus-rail');
+
+  // The rail names an option on one line, cut in the middle, with all of it in the tooltip.
+  const name = await page.evaluate(() => {
+    const head = [...document.querySelectorAll('.fe-dv-rail-head')].find(h => h.textContent.includes('Answer first'));
+    const n = head.querySelector('.fe-dv-rail-name');
+    return { tip: head.title, mid: !!n.querySelector('.fe-mid'), oneLine: n.getBoundingClientRect().height < 30, tail: n.querySelector('.fe-mid-t')?.getBoundingClientRect().width > 0 };
+  });
+  check(name.tip === 'Answer first. One line says whether to read it.' && name.mid && name.oneLine && name.tail, `a long option name is cut in the middle, whole in its tooltip: ${JSON.stringify(name)}`);
+
+  // Choosing and noting from the large view is the page's own choice and note.
+  const pagePick = () => page.evaluate(() => document.querySelector('.fe-dp-card[data-id="D3"] input:checked')?.value ?? null);
+  const pickBefore = await pagePick();
+  await page.click('.fe-dv-rail-pick[data-pick="a"]');
+  await wait(150);
+  check(await pagePick() === 'a' && pickBefore !== 'a', `choosing in the rail chooses on the page: ${pickBefore} to a`);
+  check(await page.$eval('.fe-dv-rail-pick[data-pick="a"]', b => b.getAttribute('aria-checked') === 'true') && await page.$eval('.fe-dv-rail-pick[data-pick="c"]', b => b.getAttribute('aria-checked') === 'false'), 'and the rail shows which is chosen');
+  await page.evaluate(() => { const r = document.querySelector('.fe-dp-card[data-id="D3"] input[value="c"]'); r.click(); });
+  await wait(150);
+  check(await page.$eval('.fe-dv-rail-pick[data-pick="c"]', b => b.getAttribute('aria-checked') === 'true'), 'a choice made on the page shows in the rail at once');
+  await page.click('.fe-dv-rail-note textarea');
+  await page.keyboard.type('Prefer this one');
+  await wait(150);
+  const noted = await page.evaluate(() => { const c = document.querySelector('.fe-dp-card[data-id="D3"]'); return { text: c.querySelector('textarea[data-note]').value, shown: !c.querySelector('.fe-dp-note').hidden, marked: c.classList.contains('has-note'), meter: document.getElementById('fe-dp-progress').textContent }; });
+  check(noted.text === 'Prefer this one' && noted.shown && noted.marked, `a note typed in the rail is the card's note: ${JSON.stringify(noted)}`);
+  await shot(page, 'dp-focus-pick');
+  await page.evaluate(() => { const t = document.querySelector('.fe-dv-rail-note textarea'); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.click('.fe-dv-thumb[data-at="1"]');
   await wait(300);
   const jumped = await heading();
@@ -275,6 +323,8 @@ document.body.dataset.width = String(innerWidth);</script></body></html>`));
   await wait(200);
 
   // Compare two picture options: one zoom, one scroll.
+  await page.evaluate(() => document.querySelector('.fe-dp-card[data-id="D2"] .fe-dp-opts').scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await wait(300);
   for (const code of ['a', 'b']) {
     await page.hover(`.fe-dp-card[data-id="D2"] .fe-dp-opt[data-code="${code}"] .fe-dv-media`);
     await page.click(`.fe-dp-card[data-id="D2"] .fe-dp-opt[data-code="${code}"] [data-media="compare"]`);

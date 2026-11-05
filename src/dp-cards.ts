@@ -38,13 +38,14 @@ const preHtml = (text: string, base: string) => {
 const mediaList = (images: ImageEntry[] | undefined, base: string): Media[] =>
   (images ?? []).map(p => mediaOf(base, p)).filter((m): m is Media => !!m);
 
-const noteBtn = (id: string, notes: boolean) => notes
-  ? `<button type="button" class="btn fe-dp-addnote" data-icon data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" title="Add a note (n)" aria-label="Add a note on ${esc(id)}">${UI_ICON.comment}</button>`
-  : '';
-
+// The note sits under the options, where the eye lands after choosing: a box that grows
+// with what is typed, and a button at the bottom right that opens and folds it.
 const noteHtml = (id: string, notes: boolean) => notes ? `
   <div class="fe-dp-note" hidden>
     <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
+  </div>
+  <div class="fe-dp-notefoot">
+    <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" aria-expanded="false" title="Add a note (n)" aria-label="Note on ${esc(id)}">${UI_ICON.comment}<span>Note</span>${UI_ICON.chevronDown}</button>
   </div>` : '';
 
 function optionHtml(d: DpDecision, o: DpOption, n: number, base: string, none = false): string {
@@ -74,7 +75,7 @@ function decisionHtml(d: DpDecision, cfg: DpConfig, base: string, notes: boolean
   const tiles = d.options.filter(o => o.images?.length).length;
   const none: DpOption | null = d.none ? { code: noneCode(d), label: d.noneLabel || 'None of these' } : null;
   return `<article class="card fe-dp-card" data-id="${esc(d.id)}" data-kind="decision" tabindex="-1">
-    <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3>${decisionGroupHtml(d, cfg)}${noteBtn(d.id, notes)}</header>
+    <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3>${decisionGroupHtml(d, cfg)}</header>
     ${d.context ? clampHtml(md(d.context, base), 3) : ''}
     ${stripHtml(mediaList(d.images, base))}
     <div class="fe-dp-opts${tiles ? ' gallery' : ''}"${tiles ? ` style="--cols:${tileCols(tiles)}"` : ''} role="radiogroup" aria-label="${esc(d.question)}" data-media-set>
@@ -92,7 +93,6 @@ function sectionHtml(x: DpSection, base: string, notes: boolean): string {
       <span class="badge fe-dp-id" data-tone="quiet">${esc(x.id)}</span>
       <h3 class="fe-dp-q">${esc(x.title || x.id)}</h3>
       ${x.prio ? `<span class="badge fe-dp-prio" data-prio="${esc(x.prio.toLowerCase())}">${esc(x.prio)}</span>` : ''}
-      ${noteBtn(x.id, notes)}
       <label class="fe-dp-agree"><span class="fe-dp-agree-lbl">Agree</span>${switchHtml({ title: 'Agree with this as drafted (a)', label: `Agree with ${x.id}`, checked: true, small: true, cls: 'fe-dp-agree-sw' })}</label>
     </header>
     ${x.read ? clampHtml(md(x.read, base), 4) : ''}
