@@ -2187,6 +2187,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-qlook.side{margin-left:var(--sp-3)}
 }
 /* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
+/* In the sidebar every tab stays in sight as an icon; the page's own header names the open one. */
+@container dlg (max-width:420px){
+  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-3);overflow:hidden}
+  .fe-dlg-tab{flex:none;min-width:0;padding:var(--sp-2)}
+  .fe-dlg-tab b,.fe-dlg-tab i{display:none}
+}
 @container dlg (max-width:720px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
   .fe-dlg-title{border-right:0}

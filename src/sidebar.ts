@@ -879,6 +879,19 @@ export function initSidebar(app: App): void {
     openNoteRel(root, next.rel);
   }
   // Rename keeps the file for a shared-store note (the title is a property) and renames the file otherwise.
+  // The list redraws once the disk answers, possibly under a new file name. Until it settles,
+  // focus that fell out of the list returns to this note's row, unless the person has moved on.
+  function keepFocusOnNote(rel: string): void {
+    const until = Date.now() + 1500;
+    const tick = () => {
+      const on = document.activeElement;
+      if (on && on !== document.body && !on.closest('#fe-nt-list')) return;
+      if (!on || on === document.body) ntList.querySelector<HTMLElement>(`.fe-nt-item[data-rel="${CSS.escape(rel)}"] .fe-si-link`)?.focus({ preventScroll: true });
+      if (Date.now() < until) setTimeout(tick, 100);
+    };
+    tick();
+  }
+
   function renameNote(root: string, rel: string, reopen: boolean): void {
     const row = els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === rel);
     const label = row?.querySelector<HTMLElement>('.fe-nt-label');
@@ -907,7 +920,7 @@ export function initSidebar(app: App): void {
         const titled = retitle(doc.text, val);
         if (titled !== null) await notes.write(root, now, titled, doc.mtime);
         refreshNotes();
-        if (reopen) openNoteRel(root, now);
+        if (reopen) openNoteRel(root, now); else keepFocusOnNote(now);
       }).catch((err: NotesError) => toast(errorText(err, 'Renaming the note')));
     }, back);
   }

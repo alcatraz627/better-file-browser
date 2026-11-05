@@ -19772,6 +19772,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-qlook.side{margin-left:var(--sp-3)}
 }
 /* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
+/* In the sidebar every tab stays in sight as an icon; the page's own header names the open one. */
+@container dlg (max-width:420px){
+  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-3);overflow:hidden}
+  .fe-dlg-tab{flex:none;min-width:0;padding:var(--sp-2)}
+  .fe-dlg-tab b,.fe-dlg-tab i{display:none}
+}
 @container dlg (max-width:720px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
   .fe-dlg-title{border-right:0}
@@ -19880,6 +19886,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set.wide .fe-st-input{width:100%}
 .fe-set[hidden],#fe-st-saved-move[hidden]{display:none}
 #fe-st-notes-root{width:420px}
+#fe-st-home-url{background:none;border-color:transparent;color:var(--mt);text-align:right;text-overflow:ellipsis}
 .fe-st-rows{display:inline-flex;flex-direction:column;justify-content:center;gap:5px;width:56px;height:var(--ctl-lg)}
 .fe-st-rows i{display:block;height:3px;border-radius:2px;background:var(--dm);opacity:.6}
 .fe-st-rows[data-d="compact"]{gap:2px}
@@ -24951,6 +24958,7 @@ ${d.message}` : d.message;
       if (s?.url) kvSet(URL_KEY, s.url);
       out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" title="Open bfb as the phone sees it">${esc(s.url.replace(/^https?:\/\//, ""))}</a>` : "<span>Off</span>";
       if (copy) copy.disabled = !(s?.on && s.url);
+      out.closest(".fe-set")?.toggleAttribute("hidden", !(s?.on && s.url));
       hint.textContent = err ? errorText(err, "Phone access") : s?.why ? s.why : s?.on ? "Open the link on any device signed in to your tailnet. Nobody else can reach it." : s?.server && !s.served ? "The server is running but not on the tailnet yet; switch on again." : "Shows this Mac\u2019s folders, files and comments to your own devices on the tailnet.";
       if (s?.on) pushSeed();
     };
@@ -30027,6 +30035,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       openNoteRel(root2, next.rel);
     }
+    function keepFocusOnNote(rel) {
+      const until = Date.now() + 1500;
+      const tick2 = () => {
+        const on = document.activeElement;
+        if (on && on !== document.body && !on.closest("#fe-nt-list")) return;
+        if (!on || on === document.body) ntList.querySelector(`.fe-nt-item[data-rel="${CSS.escape(rel)}"] .fe-si-link`)?.focus({ preventScroll: true });
+        if (Date.now() < until) setTimeout(tick2, 100);
+      };
+      tick2();
+    }
     function renameNote(root2, rel, reopen) {
       const row2 = els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel);
       const label = row2?.querySelector(".fe-nt-label");
@@ -30066,6 +30084,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           if (titled !== null) await notes.write(root2, now, titled, doc.mtime);
           refreshNotes();
           if (reopen) openNoteRel(root2, now);
+          else keepFocusOnNote(now);
         }).catch((err) => toast(errorText(err, "Renaming the note")));
       }, back);
     }

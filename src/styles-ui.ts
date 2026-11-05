@@ -86,6 +86,7 @@ export const UI_CSS = `
 .fe-set.wide .fe-st-input{width:100%}
 .fe-set[hidden],#fe-st-saved-move[hidden]{display:none}
 #fe-st-notes-root{width:420px}
+#fe-st-home-url{background:none;border-color:transparent;color:var(--mt);text-align:right;text-overflow:ellipsis}
 .fe-st-rows{display:inline-flex;flex-direction:column;justify-content:center;gap:5px;width:56px;height:var(--ctl-lg)}
 .fe-st-rows i{display:block;height:3px;border-radius:2px;background:var(--dm);opacity:.6}
 .fe-st-rows[data-d="compact"]{gap:2px}

@@ -2186,6 +2186,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-qlook.side{margin-left:var(--sp-3)}
 }
 /* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
+/* In the sidebar every tab stays in sight as an icon; the page's own header names the open one. */
+@container dlg (max-width:420px){
+  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-3);overflow:hidden}
+  .fe-dlg-tab{flex:none;min-width:0;padding:var(--sp-2)}
+  .fe-dlg-tab b,.fe-dlg-tab i{display:none}
+}
 @container dlg (max-width:720px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
   .fe-dlg-title{border-right:0}
@@ -2291,6 +2297,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set.wide .fe-st-input{width:100%}
 .fe-set[hidden],#fe-st-saved-move[hidden]{display:none}
 #fe-st-notes-root{width:420px}
+#fe-st-home-url{background:none;border-color:transparent;color:var(--mt);text-align:right;text-overflow:ellipsis}
 .fe-st-rows{display:inline-flex;flex-direction:column;justify-content:center;gap:5px;width:56px;height:var(--ctl-lg)}
 .fe-st-rows i{display:block;height:3px;border-radius:2px;background:var(--dm);opacity:.6}
 .fe-st-rows[data-d="compact"]{gap:2px}

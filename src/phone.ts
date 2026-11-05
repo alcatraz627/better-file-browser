@@ -95,6 +95,7 @@ export function initPhoneSettings(toast: (m: string) => void): () => void {
     if (s?.url) kvSet(URL_KEY, s.url);
     out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" title="Open bfb as the phone sees it">${esc(s.url.replace(/^https?:\/\//, ''))}</a>` : '<span>Off</span>';
     if (copy) copy.disabled = !(s?.on && s.url);
+    (out.closest('.fe-set') as HTMLElement | null)?.toggleAttribute('hidden', !(s?.on && s.url));
     hint.textContent = err ? errorText(err, 'Phone access')
       : s?.why ? s.why
       : s?.on ? 'Open the link on any device signed in to your tailnet. Nobody else can reach it.'

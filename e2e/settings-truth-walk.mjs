@@ -36,6 +36,22 @@ try {
   check(buttons.length === 4 && buttons.every(Boolean), `Export, Import, Reset and Keys read as buttons at rest: ${buttons}`);
   check((await page.$eval('#fe-settings-modal', d => d.textContent)).includes('Changes apply at once') && !(await page.$eval('#fe-settings-modal', d => d.textContent)).includes('Kept in this browser'), 'the title no longer claims everything stays in this browser');
 
+  // The phone's Link row waits until there is a link.
+  await tab(page, 'data');
+  await sleep(500);
+  check(!(await page.$eval('#fe-st-phone-url', e => e.checkVisibility())), 'with the phone off there is no Link row saying Off');
+
+  // Docked in the sidebar, every tab stays in sight.
+  await page.click('#fe-settings-modal .fe-dlg-place');
+  await sleep(500);
+  const docked = await page.$eval('#fe-side-pane .fe-dlg-tabs', t => { const r = t.getBoundingClientRect(); return { all: t.children.length, inside: [...t.children].filter(c => { const b = c.getBoundingClientRect(); return b.width > 10 && b.left >= r.left - 1 && b.right <= r.right + 1; }).length, scrolls: t.scrollWidth > t.clientWidth + 1 }; });
+  check(docked.all === 8 && docked.inside === 8 && !docked.scrolls, `every tab shows when docked: ${JSON.stringify(docked)}`);
+  if (shots) await page.screenshot({ path: join(shots, `set-docked-${THEME}.png`), clip: { x: 0, y: 0, width: 560, height: 900 } });
+  await page.click('#fe-side-pane .fe-dlg-place');
+  await sleep(400);
+  await page.waitForSelector('#fe-settings-modal .fe-dlg-box', { visible: true });
+  await tab(page, 'look');
+
   // Direction under "As listed" chooses Name, as the toolbar does.
   await tab(page, 'folders');
   await pickSeg(page, 'fe-st-sort-dir', 'desc');
