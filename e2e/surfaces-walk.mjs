@@ -139,6 +139,26 @@ try {
   await page.keyboard.press('Escape');
   await wait(100);
 
+  // Saved and Notes share one tag editor: a comma ends a tag, and a tag can hold words and capitals.
+  await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/nested/', label: 'Nested' }]);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-tbody tr');
+  await wait(300);
+  await page.evaluate(() => document.querySelector('.fe-rail-btn[data-lens="saved"]')?.click());
+  await wait(200);
+  await page.hover('#fe-sv-list .fe-pl-item .fe-pl-label');
+  await page.click('#fe-sv-list .fe-pl-item .fe-tag-btn');
+  await page.waitForSelector('.fe-pmenu .fe-pm-add input');
+  check(!(await page.$('.fe-pmenu [data-pm="color"]')), 'a Saved row opens the tag editor without the note-only rows');
+  await page.keyboard.type('Two Words, plain');
+  await page.keyboard.press('Enter');
+  await wait(200);
+  check(JSON.stringify((await h.store.json('bfb-saved-v1', []))[0].tags) === '["Two Words","plain"]', 'a Saved tag keeps its words and capitals, as a note\'s does');
+  check((await page.$$eval('.fe-pmenu .fe-pm-tags .chip', c => c.length)) === 2, 'and both show as chips in the open editor');
+  await snap('surfaces-saved-tags');
+  await page.keyboard.press('Escape');
+  await wait(100);
+
   // The sidebar's colour row shows every colour without a hidden scroll.
   const row = await page.evaluate(() => { const e = document.getElementById('fe-lens-colours'); return e ? { sw: e.scrollWidth, cw: e.clientWidth, shown: e.checkVisibility() } : null; });
   check(!row || !row.shown || row.sw <= row.cw, `the chip rows hold all their contents: ${JSON.stringify(row)}`);

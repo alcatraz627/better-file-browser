@@ -173,7 +173,8 @@ export function closeAll(why: CloseWhy = 'api'): void { [...stack].reverse().for
 
 function position(el: HTMLElement, o: LayerOptions): void {
   const place = o.place ?? (o.point ? 'point' : o.anchor ? 'below' : 'none');
-  if (place === 'none') return;
+  // The row it opened from was drawn again: the layer stays where it is.
+  if (place === 'none' || (o.anchor && !o.anchor.isConnected)) return;
   el.style.position = 'fixed';
   el.style.margin = '0';
   el.style.inset = 'auto';

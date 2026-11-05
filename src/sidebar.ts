@@ -10,12 +10,12 @@ import { runOpenWith } from './open-with';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, removeSavedWithUndo, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref } from './storage';
-import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor, isWebPath } from './places';
+import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, cycleTagColor, isWebPath } from './places';
 import { renderSavedList } from './render';
 import { describeSync } from './sync-state';
 import { startSavedSync, savedWhere, onSavedWhere, enableSavedFolder, restoreBackup, settleSave } from './saved-sync';
 import type { Keep } from './notefmt';
-import { whenShort } from './note-meta-ui';
+import { whenShort, openTagsMenu } from './note-meta-ui';
 import { notes, NOTE_COLORS, duplicateText, clipboardNote, splitNote, reminderState, isExpired, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
@@ -376,10 +376,10 @@ export function initSidebar(app: App): void {
         e.stopPropagation(); e.preventDefault();
         const item = btn.closest<HTMLElement>('.fe-pl-item')!;
         const path = item.dataset.path!;
-        const tagsEl = item.querySelector<HTMLElement>('.fe-pl-tags')!;
-        tagsEl.textContent = (getSaved().find(p => p.path === path)?.tags ?? []).join(', ');
-        tagsEl.classList.add('show');
-        inlineEdit(tagsEl, val => saveSaved(setTags(getSaved(), path, parseTags(val))));
+        openTagsMenu(btn, getSaved().find(p => p.path === path)?.tags ?? [], tags => {
+          saveSaved(setTags(getSaved(), path, tags));
+          app.refreshSaved();
+        });
       });
     });
     els('.fe-clash-btn', svList).forEach(btn => {

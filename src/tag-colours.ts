@@ -55,7 +55,7 @@ export async function renameTag(root: string, old: string, rawNew: string): Prom
   }
   const saved = getSaved();
   if (saved.some(p => p.tags?.includes(old))) {
-    saveSaved(saved.map(p => (p.tags?.includes(old) ? { ...p, tags: swapTag(p.tags, old, next.toLowerCase()) } : p)));
+    saveSaved(saved.map(p => (p.tags?.includes(old) ? { ...p, tags: swapTag(p.tags, old, next) } : p)));
     changed += saved.filter(p => p.tags?.includes(old)).length;
   }
   renameTagColour(old, next);

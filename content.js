@@ -1961,7 +1961,7 @@ ${text}
   }
   function position(el2, o) {
     const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
-    if (place === "none") return;
+    if (place === "none" || o.anchor && !o.anchor.isConnected) return;
     el2.style.position = "fixed";
     el2.style.margin = "0";
     el2.style.inset = "auto";
@@ -5035,20 +5035,20 @@ ${body}
     openMenu?.close("api");
     openMenu = null;
   }
-  function openPropsMenu(anchor, props, apply) {
+  function openPropsMenu(anchor, props, apply, o = {}) {
     closePropsMenu();
     const menu = document.createElement("div");
     menu.className = "fe-pmenu";
     let cur = props;
     const render2 = () => {
-      menu.innerHTML = `
+      menu.innerHTML = `${o.tagsOnly ? "" : `
       <button data-size="sm" class="btn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "Unpin" : "Pin to top"}</span></button>
       <div class="fe-pm-lbl">Colour</div>
       <div class="fe-pm-colors">
         <button data-size="sm" class="btn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>None</span></button>
-        ${NOTE_COLORS.map((c) => `<button data-size="sm" class="btn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join("")}
-      </div>
-      <div class="fe-pm-lbl">tags</div>
+        ${NOTE_COLORS.map((c) => `<button data-size="sm" class="btn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c[0].toUpperCase() + c.slice(1)}</span></button>`).join("")}
+      </div>`}
+      <div class="fe-pm-lbl">Tags</div>
       <div class="fe-pm-tags">
         ${cur.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
       </div>
@@ -5280,6 +5280,16 @@ ${body}
     });
     draw();
     return draw;
+  }
+  function openTagsMenu(anchor, tags, set2) {
+    let cur = { tags };
+    openPropsMenu(anchor, cur, (c) => {
+      if (c.tags) {
+        set2(c.tags);
+        cur = { ...cur, tags: c.tags };
+      }
+      return cur;
+    }, { tagsOnly: true });
   }
 
   // src/image-tools.ts
@@ -29253,10 +29263,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           e.preventDefault();
           const item2 = btn.closest(".fe-pl-item");
           const path = item2.dataset.path;
-          const tagsEl = item2.querySelector(".fe-pl-tags");
-          tagsEl.textContent = (getSaved().find((p) => p.path === path)?.tags ?? []).join(", ");
-          tagsEl.classList.add("show");
-          inlineEdit(tagsEl, (val) => saveSaved(setTags(getSaved(), path, parseTags(val))));
+          openTagsMenu(btn, getSaved().find((p) => p.path === path)?.tags ?? [], (tags) => {
+            saveSaved(setTags(getSaved(), path, tags));
+            app.refreshSaved();
+          });
         });
       });
       els(".fe-clash-btn", svList).forEach((btn) => {
@@ -31611,7 +31621,7 @@ ${rows.join("\n")}`, name: subject };
     }
     const saved = getSaved();
     if (saved.some((p) => p.tags?.includes(old))) {
-      saveSaved(saved.map((p) => p.tags?.includes(old) ? { ...p, tags: swapTag(p.tags, old, next.toLowerCase()) } : p));
+      saveSaved(saved.map((p) => p.tags?.includes(old) ? { ...p, tags: swapTag(p.tags, old, next) } : p));
       changed += saved.filter((p) => p.tags?.includes(old)).length;
     }
     renameTagColour(old, next);

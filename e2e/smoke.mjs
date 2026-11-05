@@ -227,8 +227,9 @@ try {
   const tagBox = await page.$eval('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-tag-btn', b => { const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width }; });
   check(tagBox.w > 0, `the tag button shows on a hovered Saved row (width ${tagBox.w})`);
   await page.mouse.click(tagBox.x, tagBox.y);
-  await page.keyboard.type('Work, code');
+  await page.keyboard.type('work, code');
   await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   const tagState = await page.evaluate(() => ({
     heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
     dotColor: (d => d && getComputedStyle(d).backgroundColor)(document.querySelector('#fe-sv-list .fe-sv-dot')),

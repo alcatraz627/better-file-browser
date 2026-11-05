@@ -2783,7 +2783,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   }
   function position(el, o) {
     const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
-    if (place === "none") return;
+    if (place === "none" || o.anchor && !o.anchor.isConnected) return;
     el.style.position = "fixed";
     el.style.margin = "0";
     el.style.inset = "auto";
