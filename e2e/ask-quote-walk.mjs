@@ -79,8 +79,8 @@ try {
   // Copy on an answer says so.
   await page.hover('#fe-ask-thread .fe-ask-turn:last-of-type'); await sleep(100);
   await page.click('#fe-ask-thread .fe-ask-turn:last-of-type .fe-ask-acts [data-act="copy"]'); await sleep(200);
-  const toast = await page.$eval('#fe-toast', t => t.textContent);
-  check(/Cop(ied|y failed)/.test(toast), `Copy on an answer reports what happened: ${toast}`);
+  const told = await page.evaluate(() => ({ tick: !!document.querySelector('#fe-ask-thread .fe-ask-turn:last-of-type .fe-ask-acts [data-act="copy"][data-done]'), toast: document.getElementById('fe-toast').textContent }));
+  check(told.tick || /Copy failed/.test(told.toast), `Copy on an answer reports what happened: ${JSON.stringify(told)}`);
 } finally {
   for (const r of results) console.log(r);
   await h.close();

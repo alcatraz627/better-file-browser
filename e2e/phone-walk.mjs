@@ -122,7 +122,7 @@ try {
   await page.tap('.fe-cm-send [data-to="bfb"]');
   for (let i = 0; i < 40 && !existsSync(sent); i++) await sleep(150);
   const msg = existsSync(sent) ? readFileSync(sent, 'utf8') : '';
-  check(/^send\n--from\nuser\n--to\nbfb\n/.test(msg) && msg.includes('readme.md') && msg.includes('Read on the phone') && msg.includes('bfb-docs comments reply'),
+  check(/^send\n--source\nbfb\n--to\nbfb\n/.test(msg) && msg.includes('readme.md') && msg.includes('Read on the phone') && msg.includes('bfb-docs comments reply'),
     `Send hands the thread to the agent with how to reply: ${JSON.stringify(msg.slice(0, 160))}`);
   check(!errors.length, `no page errors: ${errors.join(' | ') || 'none'}`);
 } finally {

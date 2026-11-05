@@ -939,17 +939,8 @@ export function initSidebar(app: App): void {
   function openNoteRel(root: string, rel: string): void {
     const actions: NoteActions = {
       step: (r, dir) => stepNote(root, r, dir),
-      // The editor's scrim covers the sidebar, so close the editor, rename in
-      // the list, then reopen the note. The bar acts on mousedown; wait for the
-      // rest of that click, which would otherwise land on the page under the
-      // closed editor and shut the rename box straight away.
-      rename: (r, now) => {
-        let started = false;
-        const start = () => { if (started) return; started = true; void saveEditor().then(() => { discardEditor(); renameNote(root, r, true); }); };
-        if (now) { start(); return; }
-        document.addEventListener('pointerup', () => setTimeout(start, 0), { once: true, capture: true });
-        setTimeout(start, 800);
-      },
+      // The editor's scrim covers the sidebar, so close the editor, rename in the list, then reopen the note.
+      rename: r => { void saveEditor().then(() => { discardEditor(); renameNote(root, r, true); }); },
       del: r => void deleteNote(root, r),
     };
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes, actions))

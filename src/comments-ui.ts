@@ -494,8 +494,10 @@ export function mountComments(o: {
     const behavior: ScrollBehavior = opening ? 'smooth' : 'auto';
     if (th && opening) { growFrom(th, was); if (!scroll) pulse(th); }
     th?.scrollIntoView({ block: 'nearest', behavior });
-    // A long thread can run past the card: keep its reply box in sight.
-    th?.querySelector<HTMLElement>(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', behavior });
+    // A long thread can run past the card: keep its reply box in sight, again once the card has finished growing.
+    const replyInView = (how: ScrollBehavior) => o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"] textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', behavior: how });
+    replyInView(behavior);
+    if (opening) setTimeout(() => { if (active === id) replyInView('smooth'); }, 400);
     const r = ranges.get(id);
     if (scroll && r) {
       const box = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();

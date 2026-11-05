@@ -99,9 +99,9 @@ function setPending(p: string): void {
 export function dispatch(e: KeyboardEvent): boolean {
   const ctx = contextOf();
   const tok = keyToken(e);
-  // A text area or editor that binds ⌘K itself (the note editor's link) keeps it.
+  // The note editor binds ⌘K to Link, and a name being edited in place keeps its keys; every other box still opens the palette.
   const ae = document.activeElement as HTMLElement | null;
-  if (tok === '⌘K' && !(ae?.tagName === 'TEXTAREA' || ae?.isContentEditable)) { e.preventDefault(); return runCommand('palette'); }
+  if (tok === '⌘K' && !(ae?.id === 'fe-ed-src' || ae?.isContentEditable)) { e.preventDefault(); return runCommand('palette'); }
   if (ctx.blocked || (tok === 'Esc' && escTaken())) { setPending(''); return false; }
   if (ctx.typing) {
     setPending('');

@@ -156,8 +156,8 @@ try {
   check(/^Copied the contents of /.test(await toastText()), `Copy contents reports what it copied: "${await toastText()}"`);
   await page.click('tr[data-idx="2"]', { button: 'right' });
   if (await appears(page, '#fe-ctx [data-act="ask"]')) await page.click('#fe-ctx [data-act="ask"]');
-  await page.waitForFunction(() => document.getElementById('fe-qlook')?.style.display === 'flex', { timeout: 3000 }).catch(() => null);
-  check(await page.$eval('#fe-qlook', q => q.style.display === 'flex'), 'Ask opens the preview of that file');
+  await page.waitForSelector('#fe-ask-q', { visible: true, timeout: 3000 }).catch(() => null);
+  check(await page.$eval('#fe-ask-q', q => q.checkVisibility()).catch(() => false), 'Ask opens the sidebar chat on that file');
   await page.keyboard.press('Escape'); await sleep(200);
 
   await page.keyboard.press('Escape');

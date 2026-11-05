@@ -408,7 +408,7 @@ export interface NoteActions { step(rel: string, dir: 1 | -1): void; rename(rel:
 /// Rename or delete the open note from a key; false when no note with those actions is open.
 export function noteAction(name: 'rename' | 'delete'): boolean {
   if (!edit?.actions) return false;
-  if (name === 'rename') edit.actions.rename(edit.rel, true); else edit.actions.del(edit.rel);
+  if (name === 'rename') edit.actions.rename(edit.rel); else edit.actions.del(edit.rel);
   return true;
 }
 

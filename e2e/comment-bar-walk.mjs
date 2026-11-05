@@ -26,7 +26,6 @@ try {
   const paras = Array.from({ length: 90 }, (_, i) => `Paragraph ${i + 1} says something worth reading about item ${i + 1}.`);
   writeFileSync(doc, '# Bar\n\n' + paras.join('\n\n') + '\n');
   await h.store.edit('bfb-settings-v1', s => ({ ...s, editableFolders: [h.fixture], tooltips: true }));
-  await h.store.set('bfb-comments-filter-v1', 'all');
   const top = cli('comments', 'new', doc, '--quote', 'Paragraph 2 says', 'Near the top.').results[0].thread;
   const low = cli('comments', 'new', doc, '--quote', 'Paragraph 80 says', 'Far down, still open.').results[0].thread;
   const settled = cli('comments', 'new', doc, '--quote', 'Paragraph 45 says', 'Settled already.').results[0].thread;
@@ -40,6 +39,7 @@ try {
   await page.waitForSelector('#fe-page .fe-md');
   await page.click('#fe-fp-cm');
   await page.waitForSelector('#fe-cm .fe-cm-th', { timeout: 8000 });
+  await page.click('#fe-cm [data-f="all"]');   // the done thread shows beside the open ones
   await sleep(400);
 
   // Done words: in their own highlight, not in the tinted one.

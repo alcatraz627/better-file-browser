@@ -49,7 +49,8 @@ try {
   await Promise.all([page.waitForNavigation({ timeout: 6000 }).catch(() => null), page.click('#fe-crumb-menu .fe-dd-item:last-child')]);
   check(page.url() === target, `a folded folder opens from the menu: ${page.url()}`);
 
-  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  // Inside the fixture, so the menu lists a known folder and not the machine's temp folder.
+  await page.goto('file://' + h.fixture + '/nested/', { waitUntil: 'load' });
   await page.setViewport({ width: 1800, height: 800 });
   await page.waitForSelector('#fe-bc');
   await page.click('#fe-bc .fe-cg:nth-last-of-type(2) .fe-crumb-dd');
@@ -57,7 +58,7 @@ try {
   const inParent = await page.evaluate(name => {
     const items = document.querySelectorAll('#fe-crumb-menu .fe-dd-item');
     return { n: items.length, has: [...items].some(a => a.textContent.trim() === name) };
-  }, h.fixture.split('/').pop());
+  }, 'nested');
   check(inParent.has, `the chevron after a folder lists what it holds: ${inParent.n} items`);
   await page.keyboard.press('Escape');
 
@@ -73,7 +74,7 @@ try {
     return page.$eval('#fe-bc-edit input', i => ({ value: i.value, focused: document.activeElement === i, selected: i.selectionEnd - i.selectionStart }));
   };
   const box1 = await typeBox();
-  check(box1.value.replace(/\/$/, '') === h.fixture && box1.focused && box1.selected === box1.value.length, `an empty part of the bar opens a path box with the path selected: ${JSON.stringify(box1)}`);
+  check(box1.value.replace(/\/$/, '') === h.fixture + '/nested' && box1.focused && box1.selected === box1.value.length, `an empty part of the bar opens a path box with the path selected: ${JSON.stringify(box1)}`);
   await page.screenshot({ path: join(SHOTS, `path-bar-edit${sfx}.png`), clip: { x: 0, y: 0, width: 1100, height: 44 } });
   await page.keyboard.press('Escape');
   await sleep(150);

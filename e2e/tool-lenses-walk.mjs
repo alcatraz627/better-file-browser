@@ -41,7 +41,7 @@ try {
     const ans = await page.evaluate(() => ({ a: document.querySelector('.fe-ask-a')?.textContent, btn: document.getElementById('fe-ask-go').textContent }));
     check(ans.a && ans.a.length > 5 && ans.btn === 'Ask', `a question gets an answer and the button returns to Ask: ${JSON.stringify(ans)}`);
   } else {
-    const quiet = await page.evaluate(() => ({ q: document.getElementById('fe-ask-q').disabled, go: document.getElementById('fe-ask-go').disabled, chips: [...document.querySelectorAll('.fe-ask-chip')].every(c => c.disabled), turns: document.querySelectorAll('.fe-ask-turn').length }));
+    const quiet = await page.evaluate(() => ({ q: document.getElementById('fe-ask-q').readOnly, go: document.getElementById('fe-ask-go').disabled, chips: [...document.querySelectorAll('.fe-ask-chip')].every(c => c.disabled), turns: document.querySelectorAll('.fe-ask-turn').length }));
     check(quiet.q && quiet.go && quiet.chips && quiet.turns === 0, `with no model the form is disabled and the reason shows once: ${JSON.stringify(quiet)}`);
   }
   await page.screenshot({ path: join(SHOTS, 'lens-ask.png'), clip: { x: 0, y: 40, width: 520, height: 520 } });

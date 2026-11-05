@@ -30,7 +30,7 @@ try {
   await page.setViewport({ width: 1400, height: 800 });
   await page.goto('file://' + doc + '#c=' + t, { waitUntil: 'load' });
   await page.waitForSelector('#fe-toc-rail .fe-cm-th.on', { timeout: 8000 }).catch(() => null);
-  await sleep(400);
+  await sleep(1500);
   const box = await page.evaluate(id => {
     const ta = document.querySelector(`#fe-toc-rail textarea[data-for="${id}"]`);
     const list = document.querySelector('#fe-toc-rail .fe-cm-list');

@@ -2589,7 +2589,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-g h3{padding:var(--sp-4) var(--sp-4) var(--sp-3)}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:var(--row-r);font-size:var(--row-fs);color:var(--tx)}
-.fe-km-k{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none}
+.fe-km-k{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--sp-2);flex:0 1 auto;min-width:0}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:var(--ctl-sm);padding:0 var(--sp-3);border-radius:var(--r-sm);
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
 .fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 var(--sp-1)}

@@ -2769,7 +2769,7 @@ ${text}
     const ctx = contextOf();
     const tok = keyToken(e);
     const ae = document.activeElement;
-    if (tok === "\u2318K" && !(ae?.tagName === "TEXTAREA" || ae?.isContentEditable)) {
+    if (tok === "\u2318K" && !(ae?.id === "fe-ed-src" || ae?.isContentEditable)) {
       e.preventDefault();
       return runCommand("palette");
     }
@@ -12520,7 +12520,7 @@ ${end.comment}` : end.comment;
   var stripFrontMatter = (t) => splitNote(t).body;
   function noteAction(name2) {
     if (!edit?.actions) return false;
-    if (name2 === "rename") edit.actions.rename(edit.rel, true);
+    if (name2 === "rename") edit.actions.rename(edit.rel);
     else edit.actions.del(edit.rel);
     return true;
   }
@@ -20172,7 +20172,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-g h3{padding:var(--sp-4) var(--sp-4) var(--sp-3)}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:var(--row-r);font-size:var(--row-fs);color:var(--tx)}
-.fe-km-k{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none}
+.fe-km-k{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--sp-2);flex:0 1 auto;min-width:0}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:var(--ctl-sm);padding:0 var(--sp-3);border-radius:var(--r-sm);
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
 .fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 var(--sp-1)}
@@ -22577,7 +22577,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         if (!scroll) pulse(th);
       }
       th?.scrollIntoView({ block: "nearest", behavior });
-      th?.querySelector(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior });
+      const replyInView = (how) => o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"] textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior: how });
+      replyInView(behavior);
+      if (opening) setTimeout(() => {
+        if (active === id) replyInView("smooth");
+      }, 400);
       const r = ranges.get(id);
       if (scroll && r) {
         const box2 = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
@@ -30106,26 +30110,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function openNoteRel(root2, rel) {
       const actions = {
         step: (r, dir) => stepNote(root2, r, dir),
-        // The editor's scrim covers the sidebar, so close the editor, rename in
-        // the list, then reopen the note. The bar acts on mousedown; wait for the
-        // rest of that click, which would otherwise land on the page under the
-        // closed editor and shut the rename box straight away.
-        rename: (r, now) => {
-          let started = false;
-          const start = () => {
-            if (started) return;
-            started = true;
-            void saveEditor().then(() => {
-              discardEditor();
-              renameNote(root2, r, true);
-            });
-          };
-          if (now) {
-            start();
-            return;
-          }
-          document.addEventListener("pointerup", () => setTimeout(start, 0), { once: true, capture: true });
-          setTimeout(start, 800);
+        // The editor's scrim covers the sidebar, so close the editor, rename in the list, then reopen the note.
+        rename: (r) => {
+          void saveEditor().then(() => {
+            discardEditor();
+            renameNote(root2, r, true);
+          });
         },
         del: (r) => void deleteNote(root2, r)
       };

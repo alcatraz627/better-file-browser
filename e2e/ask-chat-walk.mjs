@@ -26,9 +26,10 @@ try {
     const m = document.querySelector('.fe-ask-model .fe-dd-btn').getBoundingClientRect();
     const first = document.getElementById('fe-ask-copyall').getBoundingClientRect();
     const row = document.querySelector('.fe-ask-top').getBoundingClientRect();
-    return { modelRight: Math.round(m.right), firstLeft: Math.round(first.left), rowH: Math.round(row.height) };
+    const apart = m.right <= first.left || m.left >= first.right || m.bottom <= first.top || m.top >= first.bottom;
+    return { apart, inside: m.right <= row.right + 1, width: Math.round(m.width) };
   });
-  check(top.modelRight <= top.firstLeft && top.rowH < 40, `the model picker and the header buttons share one row without overlapping: ${JSON.stringify(top)}`);
+  check(top.apart && top.inside && top.width > 100, `the model picker has its own room, clear of the header buttons: ${JSON.stringify(top)}`);
 
   await page.type('#fe-ask-q', 'What is this file?');
   await page.keyboard.press('Enter');

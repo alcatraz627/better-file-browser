@@ -92,7 +92,9 @@ try {
     check(m === n - 1, `⌫ on a tab closes it (${n} → ${m})`);
   } else check(false, 'a closable tab to try ⌫ on');
 
-  // Toolbar.
+  // Toolbar. Closing the tab above can land on Home, which has no toolbar.
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe-toolbar button', { visible: true });
   await page.$eval('#fe-toolbar button', b => b.focus());
   const t0 = await where();
   await key('ArrowRight');

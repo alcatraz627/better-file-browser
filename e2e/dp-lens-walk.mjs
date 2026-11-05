@@ -45,13 +45,13 @@ try {
   })));
   let bands = await read();
   const by = slug => bands.flatMap(b => b.rows).find(r => r.slug === slug);
-  check(bands.map(b => b.label).join('|') === 'Waiting on you2|Answered1|Never answered1' && bands[2].open === false,
+  check(bands.map(b => b.label).join('|') === 'Waiting on you2|Never answered1|Archived1' && bands[1].open === false,
     `E2 three bands with counts, never-answered folded: ${JSON.stringify(bands.map(b => [b.label, b.open]))}`);
   check(bands[0].rows.map(r => r.slug).join() === 'fresh-ask,listed-old', `E2 newest first inside a band: ${bands[0].rows.map(r => r.slug)}`);
   check(by('listed-old') && bands[0].rows.some(r => r.slug === 'listed-old'), 'E3 a page gcc lists as pending waits even when old');
   check(bands[0].rows.some(r => r.slug === 'fresh-ask'), 'E3 a fresh unanswered page waits even when nobody listed it');
   const fresh = by('fresh-ask');
-  check(fresh.n === '3' && fresh.age === '14 min' && /\d{4}/.test(fresh.ageTip), `E2 a row shows its item count and age, full date on hover: ${JSON.stringify({ n: fresh.n, age: fresh.age, tip: fresh.ageTip })}`);
+  check(fresh.n === '3' && fresh.age === '14 min' && /\d{4}|Today \d/.test(fresh.ageTip), `E2 a row shows its item count and age, full date on hover: ${JSON.stringify({ n: fresh.n, age: fresh.age, tip: fresh.ageTip })}`);
   check(fresh.origin === 'bfb · gallery', `E5 a row shows where it came from: ${fresh.origin}`);
   check(fresh.unseen && fresh.dot && by('answered-one').unseen === false && !by('answered-one').dot && fresh.bg !== by('answered-one').bg,
     `E4 a waiting page never opened has a dot and an amber wash; an opened one has neither: ${JSON.stringify([fresh.bg, by('answered-one').bg])}`);

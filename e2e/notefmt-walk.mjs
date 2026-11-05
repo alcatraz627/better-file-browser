@@ -51,7 +51,7 @@ try {
   // 2. A picture is named <id>-<stamp>.<ext>.
   // The editor is a modal with a scrim over the sidebar, so a click on another row while it is open
   // lands on the scrim and closes it (checked below); with it closed, the next note opens at once.
-  const scrim = await page.evaluate(() => { const r = document.querySelector('#fe-nt-list .fe-nt-item[data-rel="20261010-203425-f574.md"] .fe-si-link').getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; });
+  const scrim = await page.evaluate(() => { const link = document.querySelector('#fe-nt-list .fe-nt-item[data-rel="20261010-203425-f574.md"] .fe-si-link'); link.scrollIntoView({ block: 'nearest' }); const r = link.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.id; });
   check(scrim === 'fe-ql-bg', `with the editor open the sidebar row sits under the scrim, so a click there closes the editor: ${scrim}`);
   await page.keyboard.press('Escape'); await sleep(400);
   await page.click('#fe-nt-list .fe-nt-item[data-rel="20261010-203425-f574.md"] .fe-si-link');
