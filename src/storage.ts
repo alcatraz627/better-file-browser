@@ -48,7 +48,7 @@ export const TERMINAL_CMDS: Record<string, string> = {
 export function getIconRules(): IconRule[] {
   try {
     const r = JSON.parse(kvGet(ICON_RULES_KEY) ?? 'null');
-    return Array.isArray(r) && r.length > 0 ? r : DEFAULT_ICON_RULES.map(r => ({ ...r }));
+    return Array.isArray(r) ? r : DEFAULT_ICON_RULES.map(r => ({ ...r }));
   } catch { return DEFAULT_ICON_RULES.map(r => ({ ...r })); }
 }
 export function saveIconRules(r: IconRule[]): void {
@@ -426,7 +426,9 @@ export const isPassingState = (k: string): boolean => PASSING_STATE.some(p => k 
 
 // What a person built up (Saved places, tags, history) rather than chose in Settings: exported and
 // imported, but a reset leaves it alone.
-const BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, ICON_RULES_KEY, 'bfb-saved-folded-v1', 'bfb-notes-folded-v1', 'bfb-ask-history-v1', 'bfb-home-v1'];
+const BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, ICON_RULES_KEY, 'bfb-saved-folded-v1', 'bfb-notes-folded-v1', 'bfb-ask-history-v1', 'bfb-home-v1',
+  // Where Saved lives and what it last sent are not preferences: clearing them would repeat the move into the notes folder.
+  'bfb-saved-moved-v1', 'bfb-saved-known-v1', 'bfb-saved-colours-v1', 'bfb-saved-folder-off-v1', 'bfb-tag-colours-v1', 'bfb-trash-hidden-v1', 'bfb-waiting-seen-v1'];
 // Settings a person wrote out or that name folders on this Mac: commands, exclusions, the notes and edit folders. A reset keeps them.
 const KEEP_IN_SETTINGS = ['notesRoot', 'editableFolders', 'openWithCmds', 'terminalApp', 'terminalCmd', 'excludedFileExtensions'] as const;
 

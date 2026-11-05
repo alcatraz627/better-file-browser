@@ -56,8 +56,8 @@ export function switchHtml(o: { id?: string; title: string; label?: string; chec
 /// A list edited as chips: each entry a pill with its own remove button, and
 /// a box at the end to add more (Enter, comma or leaving the box adds).
 /// The value is the entries joined by ", ".
-export function chipsHtml(id: string, placeholder: string, title: string): string {
-  return `<div class="fe-chipin" id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
+export function chipsHtml(id: string, placeholder: string, title: string, spaces = false): string {
+  return `<div class="fe-chipin"${spaces ? ' data-spaces' : ''} id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
 }
 
 type Valued = HTMLElement & { value: string };
@@ -187,7 +187,7 @@ function upgradeChips(host: HTMLElement): void {
       `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(''));
   };
   const commit = () => {
-    const add = input.value.split(/[,\s]+/).map(x => x.trim()).filter(Boolean);
+    const add = input.value.split(host.hasAttribute('data-spaces') ? /,/ : /[,\s]+/).map(x => x.trim()).filter(Boolean);
     input.value = '';
     if (!add.length) return;
     items = [...items, ...add.filter(a => !items.includes(a))];

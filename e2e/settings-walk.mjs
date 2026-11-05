@@ -14,7 +14,7 @@ try {
   await applyTheme(page);
   await page.keyboard.press(',');
   await page.waitForSelector('#fe-settings-modal .fe-dlg-box');
-  const tabs = ['look', 'folders', 'files', 'notes', 'ai', 'data'];
+  const tabs = ['look', 'folders', 'files', 'sidebar', 'tools', 'notes', 'ai', 'data'];
   for (const t of tabs) {
     await page.click(`#fe-settings-modal .fe-dlg-tab[data-tab="${t}"]`);
     await sleep(t === 'ai' ? 900 : 200);
@@ -81,6 +81,8 @@ try {
   await page.keyboard.press('Enter');
   const ex = await read('bfb-settings-v1');
   check((ex.excludedFileExtensions ?? []).includes('svg'), `chip adds .svg: ${JSON.stringify(ex.excludedFileExtensions)}`);
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="tools"]');
+
   await page.click('.fe-rule-add[data-name="Images"]');
   const rules = await read('bfb-icon-rules-v1');
   check(Array.isArray(rules) && rules.some(r => r.glyph === 'image'), 'suggestion adds an Images rule with a picture');

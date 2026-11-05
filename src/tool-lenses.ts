@@ -141,7 +141,7 @@ function initSearch(app: App): void {
 
 // ── Ask ─────────────────────────────────────────────────────────────
 
-const askModelPref = textPref('bfb-ask-model-v1');
+export const askModelPref = textPref('bfb-ask-model-v1');
 // Pages where "New chat" was pressed and nothing asked since: coming back to one
 // starts empty instead of reopening the chat that was put away. Lasts the tab.
 const freshPref = jsonPref<string[]>('bfb-ask-fresh-v1', [], Array.isArray, 'tab');
@@ -265,7 +265,7 @@ function initAsk(app: App): void {
     const saved = askModelPref.get();
     // The first row names the model lm answers with, so no other row has to
     // claim "default": Gemini's own pick is tagged as Gemini's.
-    const def = a.kind === 'unavailable' ? '' : (a.status.default_model ?? '').replace(/:latest$/, '');
+    const def = app.settings.aiModel || (a.kind === 'unavailable' ? '' : (a.status.default_model ?? '').replace(/:latest$/, ''));
     const opts: Opt[] = [
       { value: '', label: def ? `${def} (default)` : 'Default model', ...(/^gemini/i.test(def) ? { hint: 'remote' } : {}) },
       ...models.tiers.map(t => ({ value: t.alias, label: t.alias, hint: t.model, group: 'On this machine' })),

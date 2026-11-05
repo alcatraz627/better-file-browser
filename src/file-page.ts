@@ -37,6 +37,9 @@ const tocPref = flagPref('bfb-page-toc-v1', true);
 const railTabPref = choicePref('bfb-page-rail-tab-v1', ['toc', 'cm'], 'toc');
 /** The reading column's width; v1 held a plain on or off. */
 export const columnPref = textPref('bfb-page-column-v2');
+// A preference hears other tabs but not this one, so Settings tells the open page through here.
+let columnHeard: (() => void) | null = null;
+export function setColumn(mode: string): void { columnPref.set(mode); columnHeard?.(); }
 const oldColumnPref = textPref('bfb-page-column-v1');
 /// The page whose side card was opened on request, so a reload of it opens the card again.
 const askedPref = textPref('bfb-page-asked-v1', '', 'tab');
@@ -388,6 +391,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   refit();
   if (fp) new ResizeObserver(refit).observe(fp);
   toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; setAsked(false); paint(); } });
+  columnHeard = () => { const next = savedColumnMode(columnPref.get()); if (next !== column) { column = next; paint(); refit(); } };
+  columnPref.onChange(columnHeard);
   colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; columnPref.set(column); paint(); refit(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
   // A problem's line number opens the source at that line.

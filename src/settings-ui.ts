@@ -10,11 +10,11 @@ import { icoCustom, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
 import { copyWithCheck } from './copy-done';
-import { llmAvailability, llmWarm, llmModels, defaultTier, LLM_ERROR_TEXT } from './llm';
+import { llmAvailability, llmWarm, llmModels, defaultTier } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
 import { wireKeyboardMap } from './help';
-import { columnPref, parseExcludedExtensions, savedColumnMode } from './file-page';
+import { setColumn, parseExcludedExtensions, savedColumnMode } from './file-page';
 import { UI_ICON } from './control-icons';
 import { setSidebarShown } from './motion';
 import { setUiScale } from './chrome';
@@ -22,7 +22,7 @@ import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './c
 import { setThemeMode, setAppIcon, appIconUrl, appIconPref, fontPrefs, applyFonts, type ThemeMode } from './theme';
 import { emptyHtml } from './empty-state';
 import { reload } from './nav';
-import { kvFlush } from './kv';
+import { kvFlush, kvGet } from './kv';
 
 // Reload once the writes have reached storage, and not before the toast has been seen.
 const reloadWhenSaved = (): void => { void Promise.all([kvFlush(), new Promise(r => setTimeout(r, 600))]).then(reload); };
@@ -30,6 +30,17 @@ import { errorText } from './errors';
 import { initPhoneSettings } from './phone';
 import { mountTagColours } from './tag-colours';
 import { setTooltips } from './tooltip';
+import { askModelPref } from './tool-lenses';
+import { savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
+
+// What a stored key is called on screen, for the import preview.
+const KEY_NAMES: Record<string, string> = {
+  'bfb-settings-v1': 'Settings', 'bfb-saved-v1': 'Saved', 'bfb-recents-v1': 'History', 'bfb-ask-history-v1': 'Ask chats', 'bfb-tags-v1': 'Tags', 'bfb-tag-colours-v1': 'Tag colours',
+  'bfb-icon-rules-v1': 'Icon rules', 'bfb-palette': 'Palette', 'bfb-theme': 'Mode', 'bfb-view': 'View', 'bfb-sort-v1': 'Sort', 'bfb-group-v1': 'Group', 'bfb-density': 'Detail',
+  'bfb-font-text': 'Text font', 'bfb-font-head': 'Heading font', 'bfb-font-code': 'Code font', 'bfb-app-icon': 'App icon', 'bfb-col-widths-v1': 'Column widths', 'bfb-preview-layout-v1': 'Preview',
+};
+const keyName = (k: string) => KEY_NAMES[k] ?? k.replace(/^bfb-/, '').replace(/-v\d+$/, '').replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
+const listSize = (text: string | null | undefined): number | null => { try { const v = JSON.parse(text ?? 'null') as unknown; return Array.isArray(v) ? v.length : null; } catch { return null; } };
 
 /// Home's address (~/#home), the same one the toolbar button and a new tab open; empty until bfb has seen the home folder.
 function homeAddress(): string {
@@ -81,6 +92,11 @@ export function initSettingsUi(app: App): void {
       `<button type="button" class="chip fe-rule-add" data-add data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join('') : '';
   }
   const saveRules = () => { saveIconRules(app.iconRules); app.applyAll(); };
+  // Taken before a change that cannot be typed back, so its toast can put the list back.
+  const rulesUndo = () => {
+    const before = app.iconRules.map(r => ({ ...r }));
+    return { label: 'Undo', run: () => { app.iconRules = before; saveRules(); renderRulesList(); } };
+  };
   const rulesList = el('fe-st-rules-list');
   const ruleAt = (e: Event): [HTMLElement, number] | null => {
     const row = (e.target as HTMLElement).closest<HTMLElement>('.fe-rule');
@@ -107,7 +123,7 @@ export function initSettingsUi(app: App): void {
   rulesList.addEventListener('click', e => {
     const hit = ruleAt(e); if (!hit) return;
     const t = e.target as HTMLElement;
-    if (t.closest('.fe-st-rule-del')) { app.iconRules.splice(hit[1], 1); saveRules(); renderRulesList(); }
+    if (t.closest('.fe-st-rule-del')) { const undo = rulesUndo(); app.iconRules.splice(hit[1], 1); saveRules(); renderRulesList(); toast('Rule deleted', 8000, undo); }
     else if (t.closest('.fe-rule-ico')) openRulePop(hit[1], t.closest<HTMLElement>('.fe-rule-ico')!);
   });
   el('fe-st-rule-sugg').addEventListener('click', e => {
@@ -124,9 +140,10 @@ export function initSettingsUi(app: App): void {
     els<HTMLInputElement>('.fe-st-rule-pattern', rulesList).pop()?.focus();
   });
   el('fe-st-reset-rules').addEventListener('click', () => {
+    const undo = rulesUndo();
     app.iconRules = DEFAULT_ICON_RULES.map(r => ({ ...r }));
     saveRules(); renderRulesList();
-    toast('Icon rules reset');
+    toast('Icon rules reset', 8000, undo);
   });
 
   // The icon designer: a short text badge or a picture, and a colour.
@@ -184,42 +201,57 @@ export function initSettingsUi(app: App): void {
     state.textContent = 'Checking…';
     sub.textContent = ''; grid.innerHTML = ''; hint.innerHTML = '';
     warm.disabled = true;
+    const localRows = (on: boolean) => { for (const c of [aiModel, warm]) (c.closest('.fe-set') as HTMLElement).hidden = !on; };
     const kv = (k: string, val: string) => `<span class="k">${esc(k)}</span><span class="v">${esc(val)}</span>`;
     const avail = llmAvailability();
     avail.then((av: LlmAvailability) => {
       if (av.kind === 'unavailable') {
         head.classList.add('off');
         state.textContent = 'Not set up';
-        sub.textContent = 'Ask stays hidden';
-        hint.innerHTML = `Run <code>native/install.sh &lt;extension-id&gt;</code>, then reload. <span class="fe-dm">(${esc(av.reason)})</span>`;
+        sub.textContent = 'Ask is off until lm is installed';
+        hint.title = av.reason;
+        hint.innerHTML = `From the bfb folder, run <code>native/install.sh ${esc(chrome.runtime?.id ?? '')}</code>, then reload.`;
         aiModel.setOptions([]);
+        localRows(false);
         return;
       }
       const s = av.status;
-      head.classList.add(av.kind === 'down' ? 'down' : (av.cold ? 'cold' : 'ready'));
-      state.textContent = av.kind === 'down' ? 'Server down' : av.cold ? 'Ready, cold' : 'Ready';
-      sub.textContent = av.kind === 'down' ? LLM_ERROR_TEXT.server_down : `${settings.aiModel || s.default_model} · ${av.cold ? 'first reply loads it' : 'replies at once'}`;
-      grid.innerHTML = kv('Server', `${s.server}${s.host ? ' · ' + s.host : ''}`) + (s.toolkit_version ? kv('Toolkit', `lm ${s.toolkit_version}`) : '');
+      localRows(true);
+      const bare = (m: string) => m.replace(/:latest$/, '');
       const resident = new Set(s.resident_models ?? []);
+      // Warm status belongs to whichever model lm has loaded, which may not be the one chosen here.
+      const atOnce = av.kind === 'ready' && !av.cold && (!settings.aiModel || [...resident].some(m => bare(m) === bare(settings.aiModel!)));
+      // lm starts its server on demand and stops it when idle, so a stopped server is the normal resting state.
+      head.classList.add(av.kind === 'down' || !atOnce ? 'cold' : 'ready');
+      state.textContent = av.kind === 'down' ? 'Asleep' : 'Ready';
+      sub.textContent = av.kind === 'down' ? 'Starts on your first question' : `${settings.aiModel || s.default_model} · ${atOnce ? 'replies at once' : 'first reply loads it'}`;
+      grid.innerHTML = (s.host ? kv('Address', s.host) : '') + (s.toolkit_version ? kv('lm version', s.toolkit_version) : '');
       aiModel.setOptions((s.available_models ?? []).map(m => ({ value: m, label: m, icon: UI_ICON.bot,
         hint: [m === s.default_model ? 'default' : '', resident.has(m) ? 'loaded' : ''].filter(Boolean).join(' · ') })));
       aiModel.value = settings.aiModel || s.default_model;
       warm.checked = !!s.warm;
       warm.disabled = av.kind !== 'ready';
+      warm.title = warm.disabled ? 'Available once the model has started' : 'Keep the model loaded';
     });
     const models = el('fe-st-ai-models');
     // The row marked default is the model lm itself answers with. Remote rows are
     // the ones that send the question and the file off this machine.
     Promise.all([avail, llmModels()]).then(([av, { tiers, gemini, gpt }]) => {
-      const def = av.kind === 'unavailable' ? '' : (av.status.default_model ?? '').replace(/:latest$/, '');
+      // The one Ask answers with: the model chosen above, or else lm's own default.
+      const def = settings.aiModel || (av.kind === 'unavailable' ? '' : (av.status.default_model ?? '').replace(/:latest$/, ''));
       const defAt = defaultTier(tiers, def);
+      // A stopped server lists no models, but the toolkit still names them.
+      if (av.kind === 'down') {
+        aiModel.setOptions(tiers.map(t => ({ value: t.model, label: t.model, icon: UI_ICON.bot, hint: t.alias })));
+        aiModel.value = def;
+      }
       const rowHtml = (icon: string, name: string, model: string, remote: '' | 'Google' | 'OpenAI', badge = '', badgeTip = '') =>
         `<div class="fe-ai-m">${icon}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ''}<span class="fe-ai-where${remote ? ' cloud' : ''}" title="${remote ? `Sent to ${remote}` : 'Stays on this Mac'}">${remote ? 'Remote' : 'This Mac'}</span></div>`;
       // A default that no listed alias names still shows, under its own name.
-      const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def) ? 'Google' : '', 'default', 'The model lm answers with') : '';
+      const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def) ? 'Google' : '', 'default', 'The model Ask answers with') : '';
       models.innerHTML = tiers.length || gemini.length || gpt.length
         ? lead
-          + tiers.map((t, i) => rowHtml(UI_ICON.bot, t.alias, t.model, '', i === defAt ? 'default' : '', 'The model lm answers with')).join('')
+          + tiers.map((t, i) => rowHtml(UI_ICON.bot, t.alias, t.model, '', i === defAt ? 'default' : '', 'The model Ask answers with')).join('')
           + gemini.map(g => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, 'Gemini '), g.name, 'Google', g.default ? 'Gemini default' : '', 'Used when you ask Gemini without naming a model')).join('')
           + gpt.map(g => rowHtml(UI_ICON.ai, g.label, g.name, 'OpenAI', g.default ? 'Codex default' : '', 'Used when you ask GPT without naming a model; answers through your Codex sign-in')).join('')
           + `<p class="fe-set-note">Remote models send the question and the file to Google or OpenAI.</p>`
@@ -227,7 +259,8 @@ export function initSettingsUi(app: App): void {
     });
   }
   el('fe-st-ai-refresh').addEventListener('click', refreshAi);
-  aiModel.addEventListener('change', () => { settings.aiModel = aiModel.value || undefined; saveSettings(settings); });
+  // Choosing here is the latest word on the default, so a pick left over in Ask does not outvote it.
+  aiModel.addEventListener('change', () => { settings.aiModel = aiModel.value || undefined; saveSettings(settings); askModelPref.set(''); refreshAi(); });
   warm.addEventListener('change', () => {
     warm.disabled = true;
     llmWarm(warm.checked).then(r => { if (!r.ok) toast(errorText(r, 'Warming the model')); refreshAi(); });
@@ -242,9 +275,25 @@ export function initSettingsUi(app: App): void {
   const refreshPhone = initPhoneSettings(toast);
   const refreshTagColours = mountTagColours(el('fe-st-tags'), { root: () => (settings.notesRoot || '').replace(/\/$/, ''), toast, refresh: () => { app.refreshSaved(); app.refreshNotes(); } });
   const settingsDlg = mountDialog('fe-settings-modal', { onClose: closePop });
+  // Where Saved and tag colours live right now, in the words the Saved lens uses.
+  function paintSavedRow(): void {
+    const { where, why } = savedWhere();
+    const inFolder = where === 'folder';
+    el('fe-st-saved-where').textContent = inFolder ? 'In your notes folder' : where === 'unreachable' ? 'Last copy: folder not answering' : 'Only in this browser';
+    el('fe-st-saved-move').hidden = !why.includes('moved back');
+    el('fe-st-tags-note').textContent = (inFolder ? 'A tag’s colour is kept in the notes folder, so it looks the same on every device.' : 'Tag colours stay in this browser until Saved moves to a notes folder.') + ' Renaming a tag changes it on every note and save.';
+  }
+  onSavedWhere(paintSavedRow);
+  el('fe-st-saved-move').addEventListener('click', () => void enableSavedFolder());
+  // The samples in the dialog follow the settings they show.
+  const paintSamples = () => {
+    el('fe-st-rows').dataset.d = v('fe-st-density').value;
+    el('fe-st-readsample').dataset.col = v('fe-st-rd-column').value;
+  };
   function openSettings(tab?: string): void {
     refreshPhone();
     refreshTagColours();
+    paintSavedRow();
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.mode || 'dark'); });
     els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => { r.checked = r.value === (fe.dataset.palette || 'slate'); });
     const icon = appIconPref.get();
@@ -291,6 +340,7 @@ export function initSettingsUi(app: App): void {
     updateTermHint();
     renderRulesList();
     refreshAi();
+    paintSamples();
     settingsDlg.open(tab);
   }
 
@@ -317,6 +367,7 @@ export function initSettingsUi(app: App): void {
   v('fe-st-density').addEventListener('change', () => {
     settings.compactMode = v('fe-st-density').value === 'compact'; saveSettings(settings);
     fe.classList.toggle('compact', settings.compactMode);
+    paintSamples();
   });
   el<HTMLInputElement>('fe-st-tooltips').addEventListener('change', function () {
     settings.tooltips = this.checked; saveSettings(settings);
@@ -328,6 +379,8 @@ export function initSettingsUi(app: App): void {
   const applyOrder = () => app.setOrder(
     { col: (v('fe-st-sort').value || null) as SortConfig['col'], dir: v('fe-st-sort-dir').value as SortConfig['dir'] },
     v('fe-st-group').value as GroupMode);
+  // A direction means nothing on the folder's own order, so choosing one sorts by name, as the toolbar does.
+  el('fe-st-sort-dir').addEventListener('change', () => { if (!v('fe-st-sort').value) v('fe-st-sort').value = 'name'; });
   ['fe-st-sort', 'fe-st-sort-dir', 'fe-st-group'].forEach(id => el(id).addEventListener('change', applyOrder));
   v('fe-st-datefmt').addEventListener('change', () => { settings.dateFormat = v('fe-st-datefmt').value as 'short' | 'full'; saveSettings(settings); app.applyAll(); });
   v('fe-st-click').addEventListener('change', () => { settings.clickOpens = v('fe-st-click').value as 'look' | 'go'; saveSettings(settings); });
@@ -372,7 +425,8 @@ export function initSettingsUi(app: App): void {
   // Files.
   v('fe-st-rd-column').addEventListener('change', () => {
     settings.readerColumn = v('fe-st-rd-column').value as 'unset' | 'xl' | 'lg' | 'md'; saveSettings(settings);
-    columnPref.set(settings.readerColumn);
+    setColumn(settings.readerColumn);
+    paintSamples();
   });
   const readerVar = (id: string, key: 'readerLineHeight' | 'readerCodeSize', cssVar: string, unit: string) => {
     const live = () => fe.style.setProperty(cssVar, v(id).value + unit);
@@ -392,6 +446,12 @@ export function initSettingsUi(app: App): void {
     saveSettings(settings);
   });
   el('fe-st-excluded-reset').addEventListener('click', () => {
+    const before = settings.excludedFileExtensions;
+    toast('Back to .pdf .html .htm', 8000, { label: 'Undo', run: () => {
+      settings.excludedFileExtensions = before;
+      v('fe-st-excluded-exts').value = (before ?? []).map(x => '.' + x).join(', ');
+      saveSettings(settings);
+    } });
     settings.excludedFileExtensions = [...(DEFAULT_SETTINGS.excludedFileExtensions ?? [])];
     v('fe-st-excluded-exts').value = settings.excludedFileExtensions.map(x => '.' + x).join(', ');
     saveSettings(settings);
@@ -423,7 +483,11 @@ export function initSettingsUi(app: App): void {
   const planBox = el('fe-st-import-plan');
   let pending: ImportPlan | null = null;
   const hidePlan = () => { pending = null; planBox.hidden = true; };
-  const short = (keys: string[]) => keys.map(k => k.replace(/^bfb-/, '').replace(/-v\d+$/, '')).slice(0, 6).join(', ') + (keys.length > 6 ? `, and ${keys.length - 6} more` : '');
+  // A list says how its size changes, so an import that would cut Saved says so.
+  const short = (keys: string[], plan: ImportPlan) => keys.map(k => {
+    const was = listSize(kvGet(k)), next = listSize(plan.writes[k]);
+    return keyName(k) + (was !== null && next !== null && was !== next ? `: ${was} to ${next}` : '');
+  }).slice(0, 6).join(', ') + (keys.length > 6 ? `, and ${keys.length - 6} more` : '');
   el('fe-st-import').addEventListener('click', () => el<HTMLInputElement>('fe-st-import-file').click());
   el<HTMLInputElement>('fe-st-import-file').addEventListener('change', function () {
     const f = this.files?.[0];
@@ -435,8 +499,8 @@ export function initSettingsUi(app: App): void {
       const plan = planImport(data);
       if (!plan.changed.length && !plan.added.length) { hidePlan(); toast('Nothing to change: this export matches what you have'); return; }
       pending = plan;
-      el('fe-st-import-plan-tx').textContent = `This file changes ${plan.changed.length} setting${plan.changed.length !== 1 ? 's' : ''}${plan.changed.length ? ` (${short(plan.changed)})` : ''}`
-        + ` and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added)})` : ''}. ${plan.same} already match.`;
+      el('fe-st-import-plan-tx').textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? 'items' : 'item'}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ''}`
+        + ` and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ''}. ${plan.same} already match.`;
       planBox.hidden = false;
     }).catch(() => { hidePlan(); toast('That file is not a JSON export'); });
   });

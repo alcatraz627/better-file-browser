@@ -16,7 +16,7 @@ const wide = (label: string, desc: string, ctl: string) =>
 const card = (title: string, rows: string, action = '') =>
   `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
 const sw = (id: string, title: string) => switchHtml({ id, title });
-const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon}</button>`;
+const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="lg" title="${title}" aria-label="${title}">${icon}</button>`;
 // Mode and palette share one row, each named above its swatches.
 const pick = (label: string, body: string) => `<div class="fe-set-pick"><span class="fe-set-l">${label}</span>${body}</div>`;
 // Each font in the list is drawn in itself.
@@ -56,8 +56,8 @@ export const GROUP_OPTS: Opt[] = [
   { value: 'type', label: 'By type', icon: i('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>') },
 ];
 const PEEK_OPTS: Opt[] = [
-  { value: '250', label: 'Quickly', hint: '¼ second' }, { value: '500', label: 'After a moment', hint: '½ second' },
-  { value: '1000', label: 'Slowly', hint: '1 second' }, { value: '0', label: 'Only on Esc or a click away' },
+  { value: '250', label: '¼ second' }, { value: '500', label: '½ second' },
+  { value: '1000', label: '1 second' }, { value: '0', label: 'Never', hint: 'Esc or a click away' },
 ];
 const PAN_OPTS: Opt[] = [
   { value: 'Shift', label: 'Shift' }, { value: 'Alt', label: 'Option' }, { value: 'Meta', label: 'Command' }, { value: 'off', label: 'Off' },
@@ -69,30 +69,30 @@ const TERM_OPTS: Opt[] = [
 
 export function settingsDialog(): DialogSpec {
   return {
-    id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Kept in this browser',
+    id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Changes apply at once',
     tabs: [
-      { key: 'look', label: 'Look', hint: 'Theme, colour, size', icon: UI_ICON.appearance, tone: 'var(--nc-pink)', desc: 'Theme, colours, fonts, icon and size.', body:
+      { key: 'look', label: 'Look', hint: 'Theme, fonts, size', icon: UI_ICON.appearance, tone: 'var(--nc-pink)', desc: 'Theme, fonts, size and icon.', body:
         card('Theme', `<div class="fe-set fe-set-theme">${
           pick('Mode', `<div class="fe-set-sws">${thumb('bfb-theme', 'dark', 'Dark', 'mode') + thumb('bfb-theme', 'light', 'Light', 'mode') + thumb('bfb-theme', 'system', 'System', 'mode')}</div>`) +
           pick('Palette', `<div class="fe-set-sws grid8">${PALETTE_NAMES.map(([v, n]) => thumb('bfb-palette', v, n, 'p')).join('')}</div>`)}</div>`) +
         card('Fonts',
-          row('Headings', 'Titles in pages and notes', ddHtml('fe-st-font-head', fontOpts(HEAD_FONTS), 'Font for headings', 'lg')) +
-          row('Text', 'Everything else', ddHtml('fe-st-font-text', fontOpts(TEXT_FONTS), 'Font for text', 'lg')) +
-          row('Code', 'Code, raw files, paths', ddHtml('fe-st-font-code', fontOpts(CODE_FONTS), 'Font for code', 'lg'))) +
-        card('App icon',
-          wide('', 'Shows in the tab and in an installed app window', `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map(a =>
-            `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join('')}</div>`)) +
+          `<div class="fe-st-fontsample" id="fe-st-fontsample" aria-hidden="true"><b>A heading looks like this</b><span>Text reads like this, in lists and pages.</span><code>code_looks("like this")</code></div>` +
+          row('Headings', '', ddHtml('fe-st-font-head', fontOpts(HEAD_FONTS), 'Font for titles in pages and notes', 'lg')) +
+          row('Text', '', ddHtml('fe-st-font-text', fontOpts(TEXT_FONTS), 'Font for everything else', 'lg')) +
+          row('Code', '', ddHtml('fe-st-font-code', fontOpts(CODE_FONTS), 'Font for code, raw files and paths', 'lg'))) +
         card('Size',
           row('Interface', 'Everything', sliderHtml('fe-st-uiscale', [80, 90, 100, 110, 125, 150], '%', 'Interface size')) +
-          row('Text', 'Lists, sidebar, pages', sliderHtml('fe-st-rd-size', [12, 13, 14, 15, 16, 17, 18], ' px', 'Text size')) +
-          row('Density', '', segHtml('fe-st-density', [
+          row('Text', 'Page text; lists and the sidebar scale with it', sliderHtml('fe-st-rd-size', [12, 13, 14, 15, 16, 17, 18], ' px', 'Text size')) +
+          row('Code', 'Code blocks and raw files', sliderHtml('fe-st-rd-code', [11, 12, 13, 14, 15, 16], ' px', 'Code size')) +
+          row('Row spacing', '', `<span class="fe-st-rows" id="fe-st-rows" aria-hidden="true"><i></i><i></i><i></i></span>` + segHtml('fe-st-density', [
             { value: 'roomy', label: 'Roomy', icon: i('<path d="M3 5h18M3 12h18M3 19h18"/>') },
-            { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing', 'lg'))) +
-        card('Help',
-          row('Tooltips', 'Labels on hover', sw('fe-st-tooltips', 'Tooltips on every control')) +
-          row('Keyboard', 'Every key, on a map', `<button id="fe-st-keys" class="btn" data-size="lg" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)) },
+            { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing', 'lg')) +
+          row('Tooltips', '', sw('fe-st-tooltips', 'Labels on hover, on every control'))) +
+        card('App icon',
+          wide('', '', `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and in an installed app window">${APP_ICONS.map(a =>
+            `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join('')}</div>`)) },
 
-      { key: 'folders', label: 'Folders', hint: 'View, order, sidebar', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How folders open, and what a click does.', body:
+      { key: 'folders', label: 'Browse', hint: 'View, order, clicks', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How a folder opens, and what a click does.', body:
         card('Opening a folder',
           row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in', 'lg')) +
           row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in', 'lg') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction', 'lg')) +
@@ -104,57 +104,64 @@ export function settingsDialog(): DialogSpec {
             { value: 'go', label: 'Open', icon: UI_ICON.external }], 'What a click on a file does', 'lg')) +
           row('Preview', '', segHtml('fe-st-panel', [
             { value: 'modal', label: 'Float', icon: i('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
-            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes')) +
-          row('Drag to scroll', 'Hold this key over a page, table or code block and drag to scroll it', ddHtml('fe-st-pan', PAN_OPTS, 'Key that turns a drag into scrolling', 'lg'))) +
-        card('Sidebar',
-          row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
-          row('Make room for a docked preview', 'Fold the sidebar while a docked preview is open', sw('fe-st-dock-fold', 'Fold the sidebar for a docked preview')) +
-          row('Peek closes', 'A hidden sidebar opens from the left edge; it closes this long after the pointer leaves', ddHtml('fe-st-peek-close', PEEK_OPTS, 'When a peeked sidebar closes', 'lg')) +
-          row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
-        card('Home',
-          row('New tabs open Home', 'Every new Chrome tab shows Home instead of Chrome’s own page', sw('fe-st-newtab-home', 'New tabs open Home')) +
-          row('Home address', 'Paste it in Chrome’s settings as the start-up page or the Home button', `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="The address of Home">${iconBtn('fe-st-home-copy', UI_ICON.copy, 'Copy the Home address')}`)) +
-        card('Terminal',
-          row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
-          row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') +
-          note('', 'fe-st-term-hint') +
-          wide('Open with', 'Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window. End a name with (files) to keep it off folders.',
-            `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="4" spellcheck="false" title="One per line, Name: command"></textarea>`)) },
+            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes'))) },
 
-      { key: 'files', label: 'Files', hint: 'Pages, icons', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'Reading, file pages and icons.', body:
+      { key: 'files', label: 'Reading', hint: 'Pages, editing', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'How a file reads, and which ones bfb opens.', body:
         card('Reading',
+          `<div class="fe-st-readsample" id="fe-st-readsample" aria-hidden="true"><div><b>A sample of a page</b><p>Width and line height change this text as you set them, the same way they change a page behind this window.</p><pre><code>const long_line = "code wraps here when Wrap lines is on, and scrolls sideways when it is off";</code></pre></div></div>` +
           row('Width', 'Markdown pages', segHtml('fe-st-rd-column', [
             { value: 'unset', label: 'Full' }, { value: 'xl', label: 'Wide' }, { value: 'lg', label: 'Medium' }, { value: 'md', label: 'Narrow' }], 'Reading width', 'lg')) +
           row('Line height', '', sliderHtml('fe-st-rd-lh', [1.4, 1.5, 1.65, 1.8, 2], '', 'Line height')) +
-          row('Code', '', sliderHtml('fe-st-rd-code', [11, 12, 13, 14, 15, 16], ' px', 'Code size')) +
-          row('Wrap lines', 'Raw text and code', sw('fe-st-wrap', 'Wrap long lines'))) +
-        card('File pages',
-          row('Pages for', '', segHtml('fe-st-filepages', [
-            { value: 'all', label: 'All text' }, { value: 'not-md', label: 'Not .md' }, { value: 'off', label: 'Off' }], 'Which files open as pages', 'lg')) +
-          row('Chrome opens', 'In its own viewer', chipsHtml('fe-st-excluded-exts', '.ext', 'Extensions Chrome opens itself') + iconBtn('fe-st-excluded-reset', UI_ICON.reset, 'Restore .pdf .html .htm'))) +
+          row('Wrap lines', 'Raw text and code', sw('fe-st-wrap', 'Wrap long lines')) +
+          row('Drag to scroll', '', ddHtml('fe-st-pan', PAN_OPTS, 'Hold this key over a page, table or code block and drag to scroll it', 'lg'))) +
+        card('Which files open here',
+          row('Open text files in bfb', '', segHtml('fe-st-filepages', [
+            { value: 'all', label: 'All' }, { value: 'not-md', label: 'All but Markdown' }, { value: 'off', label: 'None' }], 'Which files open as pages', 'lg')) +
+          row('Leave to Chrome', 'Chrome’s own viewer opens these', chipsHtml('fe-st-excluded-exts', '.ext', 'Extensions Chrome opens itself') + iconBtn('fe-st-excluded-reset', UI_ICON.reset, 'Restore .pdf .html .htm'))) +
+        card('Editing',
+          wide('Editable folders', 'Text files inside can be edited. Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', 'Add a folder, for example ~/Code', 'Folders you can edit in', true))) },
+
+      { key: 'sidebar', label: 'Sidebar and Home', hint: 'Sidebar, new tabs', icon: i('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), tone: 'var(--nc-yellow)', desc: 'The sidebar, and what a new tab shows.', body:
+        card('Sidebar',
+          row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
+          row('Fold for a docked preview', '', sw('fe-st-dock-fold', 'Fold the sidebar while a docked preview is open')) +
+          row('Peek closes', '', ddHtml('fe-st-peek-close', PEEK_OPTS, 'A hidden sidebar opens from the left edge, and closes this long after the pointer leaves', 'lg')) +
+          row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
+        card('Home',
+          row('New tabs open Home', '', sw('fe-st-newtab-home', 'Every new Chrome tab shows Home instead of Chrome’s own page')) +
+          row('Home address', '', `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="Paste it in Chrome’s settings as the start-up page or the Home button">${iconBtn('fe-st-home-copy', UI_ICON.copy, 'Copy the Home address')}`)) },
+
+      { key: 'tools', label: 'Tools', hint: 'Terminal, icons, keys', icon: UI_ICON.terminal, tone: 'var(--nc-red)', desc: 'Your terminal, your commands, icon rules and keys.', body:
+        card('Terminal',
+          row('Terminal app', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
+          row('Command to copy', 'A custom command is copied, not run. ${p} is the folder.', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='The terminal button copies this. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') +
+          note('', 'fe-st-term-hint') +
+          wide('Open with', 'One per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window. End a name with (files) to keep it off folders.',
+            `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="5" spellcheck="false" title="One per line, Name: command"></textarea>`)) +
         card('Icon rules', `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div id="fe-st-rules-list"></div>`,
-          `<span class="sect-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`) },
+          `<span class="sect-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" data-variant="outline" title="Add a rule">${UI_ICON.add}Rule</button></span>`) +
+        card('Keyboard',
+          row('Keys', 'Every key, on a map', `<button id="fe-st-keys" class="btn" data-size="lg" data-variant="outline" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)) },
 
-      { key: 'notes', label: 'Notes', hint: 'Notes, editing', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, and where you can edit.', body:
+      { key: 'notes', label: 'Notes and Saved', hint: 'Folder, tags', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, where Saved lives, and tag colours.', body:
         card('Notes',
           row('Folder', 'Markdown files, for example ~/Notes', `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="Not set" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
-          note('', 'fe-st-notes-hint')) +
+          note('', 'fe-st-notes-hint') +
+          row('Saved', '<span id="fe-st-saved-where"></span>', `<button id="fe-st-saved-move" class="btn" data-size="lg" data-variant="outline" title="Keep Saved in the notes folder" hidden>${UI_ICON.notes}Move to Notes</button>`)) +
         card('Tag colours',
-          note('A tag’s colour is kept in the notes folder, so it looks the same on every device. Renaming a tag changes it on every note and save.') +
-          '<div id="fe-st-tags" class="fe-tc"></div>') +
-        card('Editing',
-          wide('Editable folders', 'Text files inside get Edit (e e), for example ~/Code. Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', 'Not set', 'Folders you can edit in'))) },
+          note('', 'fe-st-tags-note') +
+          '<div id="fe-st-tags" class="fe-tc"></div>') },
 
       { key: 'ai', label: 'AI', hint: 'Models', icon: UI_ICON.ai, tone: 'var(--nc-purple)', desc: 'Models that answer in Ask and the preview.', body: `
         <div id="fe-st-ai-card" class="fe-ai-hero">
           <span class="fe-st-ai-head"><span class="fe-st-ai-blink"><span class="dot"></span></span></span>
           <div class="fe-ai-hero-tx"><b class="fe-st-ai-state">Checking…</b><span id="fe-st-ai-sub"></span></div>
-          ${iconBtn('fe-st-ai-refresh', UI_ICON.reset, 'Check again')}
+          ${iconBtn('fe-st-ai-refresh', UI_ICON.refresh, 'Check again')}
         </div>` +
         card('On this Mac',
-          row('Model', '', ddHtml('fe-st-ai-model', [], 'Local model', 'lg')) +
+          row('Model', 'Ask uses this unless you pick another there', ddHtml('fe-st-ai-model', [], 'Local model', 'lg')) +
           row('Keep warm', 'Replies start at once', sw('fe-st-ai-warm', 'Keep the model loaded')) +
           `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` +
           note('', 'fe-st-ai-hint')) +
@@ -166,10 +173,10 @@ export function settingsDialog(): DialogSpec {
           row('Link', '', `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn('fe-st-phone-copy', UI_ICON.copy, 'Copy the link')}`) +
           note('', 'fe-st-phone-hint')) +
         card('Your data',
-          row('Export', 'Saves a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" title="Save settings and Saved as .json">${UI_ICON.export}Export</button>`) +
-          row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
+          row('Export', 'Settings, Saved, History and Ask chats, as a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats as .json">${UI_ICON.export}Export</button>`) +
+          row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
           `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` +
-          row('Reset', 'Every preference back to its default. Saved places, your folders, commands and icon rules stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)) },
+          row('Reset', 'Every preference back to its default. Saved places, your folders, commands and icon rules stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)) },
     ],
   };
 }
