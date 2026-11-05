@@ -141,6 +141,12 @@ elif args[:2] == ['models', '--json']:
         'tiers': [{'alias': 'small', 'model': 'gemma4-e4b-warm'}, {'alias': 'big', 'model': 'gemma4:26b'}, {'alias': 'code', 'model': 'qwen3.6:35b-a3b'}],
         'gemini': [{'name': 'gemini-3.8-flash', 'default': False}, {'name': 'gemini-3.5-flash', 'default': True}]}))
 elif args[:1] == ['gemini']:
+    asked = ' '.join(args)
+    if 'Fail please' in asked:
+        print(json.dumps({'ok': False, 'error': 'the file is too large for this model'}))
+        sys.exit(0)
+    if 'Stream code' in asked:
+        import time; time.sleep(3)
     print(json.dumps({'ok': True, 'text': 'Gemini says hello.', 'model': 'gemini-3.5-flash', 'ms': 5}))
 elif args[:1] == ['q'] and down:
     print(json.dumps({'t': 'error', 'code': 'server_down', 'message': 'ollama is not running'}))

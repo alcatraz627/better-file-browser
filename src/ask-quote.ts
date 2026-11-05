@@ -65,7 +65,7 @@ const LANE_DEFAULT = /\(((Gemini|Codex) )?default\)$/;
 export const bareLabel = (label: string) => label.replace(/ \(((Gemini|Codex) )?default\)$/, '');
 
 /** A model the picker offers, as Ask's dropdown holds it. */
-export interface ModelOpt { value: string; label: string }
+export interface ModelOpt { value: string; label: string; group?: string }
 
 /** A question that starts with `@name` goes to that model for this one turn.
  *  The name is a picker value (`code`, `gemini:gemini-4-argon`), a remote

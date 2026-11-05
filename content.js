@@ -19210,12 +19210,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    pinned to the bottom of the lens. */
 #fe-lens-ask:not([hidden]){display:flex;flex-direction:column;min-height:100%}
 #fe-ask{flex:1;display:flex;flex-direction:column}
-.fe-ask-top{position:relative;display:flex;align-items:center;gap:var(--sp-1);margin:0 var(--sp-4) var(--sp-4) var(--sp-5)}
+.fe-ask-top{position:relative;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--sp-1);margin:0 var(--sp-4) var(--sp-4) var(--sp-5)}
+.fe-ask-top .fe-ask-sp{display:none}
 .fe-ask-sp{flex:1}
-.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%;flex:0 1 auto}
-.fe-ask-model>.fe-dd{min-width:0;max-width:100%}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%;flex:1 1 100%}
+.fe-ask-model>.fe-dd{min-width:0;width:100%}
 .fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
-.fe-ask-model .fe-dd-btn{min-width:0;max-width:min(190px,100%);padding-left:var(--sp-8)}
+.fe-ask-model .fe-dd-btn{min-width:0;width:100%;padding-left:var(--sp-8)}
 .fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}
@@ -30768,7 +30769,7 @@ ${body}
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-icon data-size="xs" id="fe-ask-recheck" title="Check again" aria-label="Check the model again">${UI_ICON.reset}</button></div>
-    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"} to <span class="fe-ask-cloud-to">Google</span></span></p>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"}<span class="fe-ask-cloud-and" hidden> and attached files</span> to <span class="fe-ask-cloud-to">Google</span></span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join("")}</div></div>
     <div class="fe-ask-form">
@@ -31302,7 +31303,7 @@ ${rows.join("\n")}`, name: subject };
     const menuOf = (anchor, head, rows, onPick, keepOpen = false) => {
       const menu = document.createElement("div");
       menu.className = "fe-ctx fe-ask-qmenu";
-      menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i3) => `<div class="row fe-ctx-item" data-i="${i3}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ""}</span></div>`).join("");
+      menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i3) => `${r.group && r.group !== rows[i3 - 1]?.group ? `<div class="fe-dd-g">${esc(r.group)}</div>` : ""}<div class="row fe-ctx-item" data-i="${i3}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ""}</span></div>`).join("");
       let layer = null;
       menu.addEventListener("click", (e) => {
         const row2 = e.target.closest(".fe-ctx-item");
@@ -31319,7 +31320,7 @@ ${rows.join("\n")}`, name: subject };
       const asked = asks.get(turn);
       if (!answer2 || !asked) return;
       const opts = modelOpts().filter((o) => o.value);
-      menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), (i3) => {
+      menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, group: o.group, sub: !isRemote(o.value) ? void 0 : `Sends the answer to ${o.value.startsWith("gpt:") ? "OpenAI" : "Google"}`, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), (i3) => {
         const o = opts[i3];
         const label = bareLabel(o.label);
         const away = isRemote(o.value) ? `, sent to ${o.value.startsWith("gpt:") ? "OpenAI" : "Google"}` : "";
@@ -31327,10 +31328,25 @@ ${rows.join("\n")}`, name: subject };
       });
     };
     const filesBox = el("fe-ask-files");
+    const filesKey = `bfb-ask-files:${key}`;
     const paintFiles = () => {
       filesBox.hidden = !attached.length;
       filesBox.innerHTML = attached.map((p) => fileChip(p, true)).join("");
+      cloud.querySelector(".fe-ask-cloud-and").hidden = !attached.length;
+      try {
+        if (attached.length) sessionStorage.setItem(filesKey, JSON.stringify(attached));
+        else sessionStorage.removeItem(filesKey);
+      } catch {
+      }
     };
+    try {
+      const was = JSON.parse(sessionStorage.getItem(filesKey) ?? "[]");
+      if (Array.isArray(was) && was.length) {
+        attached = was.filter((p) => typeof p === "string");
+        paintFiles();
+      }
+    } catch {
+    }
     function clearAttached() {
       if (attached.length) {
         attached = [];

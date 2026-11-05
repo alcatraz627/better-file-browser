@@ -1791,12 +1791,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    pinned to the bottom of the lens. */
 #fe-lens-ask:not([hidden]){display:flex;flex-direction:column;min-height:100%}
 #fe-ask{flex:1;display:flex;flex-direction:column}
-.fe-ask-top{position:relative;display:flex;align-items:center;gap:var(--sp-1);margin:0 var(--sp-4) var(--sp-4) var(--sp-5)}
+.fe-ask-top{position:relative;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--sp-1);margin:0 var(--sp-4) var(--sp-4) var(--sp-5)}
+.fe-ask-top .fe-ask-sp{display:none}
 .fe-ask-sp{flex:1}
-.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%;flex:0 1 auto}
-.fe-ask-model>.fe-dd{min-width:0;max-width:100%}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%;flex:1 1 100%}
+.fe-ask-model>.fe-dd{min-width:0;width:100%}
 .fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
-.fe-ask-model .fe-dd-btn{min-width:0;max-width:min(190px,100%);padding-left:var(--sp-8)}
+.fe-ask-model .fe-dd-btn{min-width:0;width:100%;padding-left:var(--sp-8)}
 .fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}

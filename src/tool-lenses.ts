@@ -176,7 +176,7 @@ function initAsk(app: App): void {
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-icon data-size="xs" id="fe-ask-recheck" title="Check again" aria-label="Check the model again">${UI_ICON.reset}</button></div>
-    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to <span class="fe-ask-cloud-to">Google</span></span></p>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'}<span class="fe-ask-cloud-and" hidden> and attached files</span> to <span class="fe-ask-cloud-to">Google</span></span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join('')}</div></div>
     <div class="fe-ask-form">
@@ -615,10 +615,10 @@ function initAsk(app: App): void {
   });
   // The models the picker offers, for @name and for a second opinion.
   const modelOpts = (): ModelOpt[] => { try { return JSON.parse(pick.dataset.opts || '[]'); } catch { return []; } };
-  const menuOf = (anchor: HTMLElement, head: string, rows: { label: string; sub?: string; icon: string }[], onPick: (i: number) => void, keepOpen = false) => {
+  const menuOf = (anchor: HTMLElement, head: string, rows: { label: string; sub?: string; icon: string; group?: string }[], onPick: (i: number) => void, keepOpen = false) => {
     const menu = document.createElement('div');
     menu.className = 'fe-ctx fe-ask-qmenu';
-    menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i) => `<div class="row fe-ctx-item" data-i="${i}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ''}</span></div>`).join('');
+    menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i) => `${r.group && r.group !== rows[i - 1]?.group ? `<div class="fe-dd-g">${esc(r.group)}</div>` : ''}<div class="row fe-ctx-item" data-i="${i}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ''}</span></div>`).join('');
     let layer: Layer | null = null;
     menu.addEventListener('click', e => {
       const row = (e.target as Element).closest<HTMLElement>('.fe-ctx-item');
@@ -636,7 +636,7 @@ function initAsk(app: App): void {
     const asked = asks.get(turn);
     if (!answer || !asked) return;
     const opts = modelOpts().filter(o => o.value);
-    menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), i => {
+    menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, group: o.group, sub: !isRemote(o.value) ? undefined : `Sends the answer to ${o.value.startsWith('gpt:') ? 'OpenAI' : 'Google'}`, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), i => {
       const o = opts[i];
       const label = bareLabel(o.label);
       const away = isRemote(o.value) ? `, sent to ${o.value.startsWith('gpt:') ? 'OpenAI' : 'Google'}` : '';
@@ -646,10 +646,18 @@ function initAsk(app: App): void {
 
   // Attachments: chips above the box, from the attach menu or a dropped file link.
   const filesBox = el('fe-ask-files');
+  // Attached files stay with the page in this Chrome tab, like the question being typed.
+  const filesKey = `bfb-ask-files:${key}`;
   const paintFiles = () => {
     filesBox.hidden = !attached.length;
     filesBox.innerHTML = attached.map(p => fileChip(p, true)).join('');
+    cloud.querySelector<HTMLElement>('.fe-ask-cloud-and')!.hidden = !attached.length;
+    try { if (attached.length) sessionStorage.setItem(filesKey, JSON.stringify(attached)); else sessionStorage.removeItem(filesKey); } catch { /* storage blocked */ }
   };
+  try {
+    const was = JSON.parse(sessionStorage.getItem(filesKey) ?? '[]');
+    if (Array.isArray(was) && was.length) { attached = was.filter(p => typeof p === 'string'); paintFiles(); }
+  } catch { /* storage blocked or an old value: start empty */ }
   function clearAttached(): void { if (attached.length) { attached = []; paintFiles(); } }
   const attach = (p: string) => { if (!attached.includes(p)) { attached.push(p); paintFiles(); } };
   filesBox.addEventListener('click', e => {
