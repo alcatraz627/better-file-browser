@@ -82,7 +82,7 @@ try {
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await setRoot(loose);
   l = await line();
-  check(l.state === 'off' && /not in a synced repository, so it stays on this Mac/.test(l.text), `a folder in no repo says it stays on this Mac: ${l.text}`);
+  check(l.state === 'off' && /Stays on this Mac/.test(l.text), `a folder in no repo says it stays on this Mac: ${l.text}`);
   await shot(page, 'sync-state-norepo');
 } finally {
   await h.close();

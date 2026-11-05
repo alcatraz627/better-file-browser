@@ -29,7 +29,7 @@ function ago(seconds: number): string {
 /** One plain line for the Notes lens and Home. */
 export function describeSync(r: SyncReply): SyncView {
   const none = { clashes: 0, cameBack: [] as string[] };
-  if (!r.repo) return { level: 'off', text: 'Not synced: this notes folder is not in a synced repository, so it stays on this Mac.', ...none };
+  if (!r.repo) return { level: 'off', text: 'Stays on this Mac, not synced', ...none };
   const s = r.state;
   if (!s) return { level: 'off', text: 'Sync is not running: Switchboard has not reported on this folder yet.', ...none };
   if (s.unreadable) return { level: 'trouble', text: 'Sync status could not be read: the state file is damaged.', ...none };

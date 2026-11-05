@@ -37,7 +37,7 @@ function showBanner(fe: HTMLElement): void {
   bar.className = 'notice';
   bar.dataset.tone = 'warn';
   bar.setAttribute('role', 'status');
-  bar.innerHTML = `<span>The extension was reloaded, so this page can no longer open files or ask the model. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">${UI_ICON.refresh}Refresh page</button>`;
+  bar.innerHTML = `<span title="Files and Ask stop working until then">Extension reloaded. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">${UI_ICON.refresh}Refresh page</button>`;
   bar.querySelector('#fe-conn-reload')!.addEventListener('click', () => reload());
   const body = document.getElementById('fe-body');
   fe.insertBefore(bar, body);

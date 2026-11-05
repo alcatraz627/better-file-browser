@@ -28776,7 +28776,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
   function describeSync(r) {
     const none2 = { clashes: 0, cameBack: [] };
-    if (!r.repo) return { level: "off", text: "Not synced: this notes folder is not in a synced repository, so it stays on this Mac.", ...none2 };
+    if (!r.repo) return { level: "off", text: "Stays on this Mac, not synced", ...none2 };
     const s = r.state;
     if (!s) return { level: "off", text: "Sync is not running: Switchboard has not reported on this folder yet.", ...none2 };
     if (s.unreadable) return { level: "trouble", text: "Sync status could not be read: the state file is damaged.", ...none2 };
@@ -31820,7 +31820,7 @@ ${rows.join("\n")}`, name: subject };
     bar.className = "notice";
     bar.dataset.tone = "warn";
     bar.setAttribute("role", "status");
-    bar.innerHTML = `<span>The extension was reloaded, so this page can no longer open files or ask the model. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">${UI_ICON.refresh}Refresh page</button>`;
+    bar.innerHTML = `<span title="Files and Ask stop working until then">Extension reloaded. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">${UI_ICON.refresh}Refresh page</button>`;
     bar.querySelector("#fe-conn-reload").addEventListener("click", () => reload());
     const body = document.getElementById("fe-body");
     fe.insertBefore(bar, body);

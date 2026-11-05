@@ -11,7 +11,7 @@ describe('describeSync', () => {
   });
   it('a folder in no repository says it stays on this Mac', () => {
     const v = describeSync(rep(null, false));
-    expect(v.level).toBe('off'); expect(v.text).toMatch(/not in a synced repository/);
+    expect(v.level).toBe('off'); expect(v.text).toMatch(/Stays on this Mac/);
   });
   it('a report older than ten minutes is "sync is not running", whatever it said', () => {
     const v = describeSync(rep({ ...fresh, at: '2026-11-01T13:55:00Z' }));

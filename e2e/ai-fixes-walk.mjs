@@ -104,7 +104,7 @@ try {
     const sent = h.lmCalls().filter(c => c.args[0] === 'q').at(-1);
     check(/Fixture/.test(sent?.stdin ?? ''), `the question goes with the previewed file's text, not the folder: ${JSON.stringify((sent?.stdin ?? '').slice(0, 60))}`);
     await page.click('[data-ask-page]');
-    await sleep(200);
+    await page.waitForFunction(() => !document.querySelector('.fe-ask-ctx')?.textContent.includes('readme.md'), { timeout: 3000 }).catch(() => null);
     check(!(await page.$eval('.fe-ask-ctx', c => c.textContent)).includes('readme.md'), 'the chat can go back to this page');
     await page.close();
   });
