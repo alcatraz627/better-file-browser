@@ -16,7 +16,7 @@ const h = await launch();
 const env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('CLAUDE_') && !k.startsWith('BFB_'))), BFB_DOCS_HOME: h.docsHome };
 let failed = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (!ok) failed++; };
-const BARS = ['#fe-bar', '#fe-toolbar', '#fe-statusbar', '#fe-fp-bar', '#fe-ql-hdr', '.fe-ql-imgbar', '.fe-ql-htmlbar', '#fe-ed-bar'];
+const BARS = ['#fe-bar', '#fe-toolbar', '#fe-statusbar', '#fe-fp-bar', '#fe-ql-hdr', '.fe-ql-imgbar', '#fe-ed-bar'];
 const INSET = ['.fe-md-code-bar', '.fe-cm-tools', '.fe-lens-tools'];
 try {
   // A notes folder of its own, never the owner's.

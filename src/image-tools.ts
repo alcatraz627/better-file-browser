@@ -1,4 +1,5 @@
 // The image preview's toolbar: zoom, actual size, rotate, flip, copy, open in the default app.
+import { openSplitHtml } from './open-with';
 import { UI_ICON } from './control-icons';
 import { esc } from './utils';
 import { errorText } from './errors';
@@ -40,8 +41,9 @@ export function viewTransform(v: View): string {
   return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
 }
 
-const BTN = (act: string, icon: string, text: string, title: string) =>
-  `<button class="btn" data-img="${act}" title="${esc(title)}">${icon}<span>${text}</span></button>`;
+const BTN = (act: string, icon: string, title: string) =>
+  `<button class="btn" data-icon data-img="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;
+const SEP = '<span class="bar-sep" aria-hidden="true"></span>';
 
 /// Builds the toolbar and the zoomable stage inside `wrap`. `open` hands the file to its default app.
 /// `start` opens the picture where another was left, and the result reports where this one is.
@@ -49,18 +51,23 @@ export function mountImageTools(wrap: HTMLElement, o: {
   href: string; name: string; path: string;
   notify: (m: string) => void;
   openNative: (path: string) => Promise<boolean>;
+  /** The other ways to open the file, listed under the arrow beside Open. */
+  openMore?: (anchor: HTMLElement) => void;
   start?: ViewState;
 }): { state: () => ViewState } {
   wrap.innerHTML = `
     <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
-      ${BTN('in', UI_ICON.zoomIn, 'zoom in', 'Zoom in')}
-      ${BTN('out', UI_ICON.zoomOut, 'zoom out', 'Zoom out')}
-      ${BTN('fit', UI_ICON.fit, 'fit', 'Fit the picture in the panel')}
-      ${BTN('actual', UI_ICON.actualSize, 'actual size', 'Show at 100%')}
-      ${BTN('rotate', UI_ICON.rotate, 'rotate', 'Turn a quarter clockwise')}
-      ${BTN('flip', UI_ICON.flip, 'flip', 'Mirror left to right')}
-      ${BTN('copy', UI_ICON.copyImage, 'copy image', 'Copy the picture as shown')}
-      ${BTN('open', UI_ICON.external, 'open in app', 'Open in the default app')}
+      ${BTN('in', UI_ICON.zoomIn, 'Zoom in')}
+      ${BTN('out', UI_ICON.zoomOut, 'Zoom out')}
+      ${BTN('fit', UI_ICON.fit, 'Fit the picture in the panel')}
+      ${BTN('actual', UI_ICON.actualSize, 'Show at 100%')}
+      ${SEP}
+      ${BTN('rotate', UI_ICON.rotate, 'Turn a quarter clockwise')}
+      ${BTN('flip', UI_ICON.flip, 'Mirror left to right')}
+      ${SEP}
+      ${BTN('copy', UI_ICON.copyImage, 'Copy the picture as shown')}
+      ${SEP}
+      ${o.openMore ? openSplitHtml('data-img="open"', 'data-img="open-more"') : BTN('open', UI_ICON.external, 'Open in the default app')}
     </div>
     <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}" draggable="false"></div></div>
     <div class="fe-ql-dim"></div>`;
@@ -146,7 +153,8 @@ export function mountImageTools(wrap: HTMLElement, o: {
   };
   wrap.querySelector('.fe-ql-imgbar')!.addEventListener('click', e => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-img]');
-    if (b) act(b.dataset.img!);
+    if (b?.dataset.img === 'open-more') o.openMore?.(b);
+    else if (b) act(b.dataset.img!);
   });
   // A pinch, or a wheel with ⌘ or ⌃, zooms at the pointer.
   stage.addEventListener('wheel', e => {

@@ -5,7 +5,8 @@ import { resizable } from './resize';
 import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, fileHref, whenText } from './utils';
 import { copyWithCheck } from './copy-done';
-import { getPreviewLayout, savePreviewLayout, isSaved, toggleSavedWithUndo, flagPref, textPref } from './storage';
+import { getPreviewLayout, savePreviewLayout, getSettings, isSaved, toggleSavedWithUndo, flagPref, textPref } from './storage';
+import { openSplitHtml, openWithMenu, parseCommands } from './open-with';
 import type { Toast } from './toast';
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
@@ -81,6 +82,11 @@ const scrollMemo = new Map<string, number>();
 export function previewEntry(): Entry | null { return currentEntry; }
 // The file in the panel: a previewed file comes from currentEntry; a note
 // being edited nulls that, so it falls back to the note's own path.
+/** Hand a file to its default app. The Ghostty host does this too; a missing host answers not-ok. */
+const openNative = (path: string) => new Promise<boolean>(res => chrome.runtime.sendMessage(
+  { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_file', path } },
+  r => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)));
+
 function previewedPath(): string | null {
   return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname)
        : edit ? edit.root.replace(/\/$/, '') + '/' + edit.rel : null;
@@ -143,17 +149,21 @@ export function initPreview(d: PreviewDeps): void {
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open in a new tab"></a>
         <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" class="btn" title="Copy the file" disabled>
-          ${GLYPH.copySmall}
-          <span>Copy</span>
-        </button>
-        <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
-        <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
-        <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <span id="fe-ql-modes" class="fe-seg" role="group" aria-label="View" hidden></span>
+        <button id="fe-ql-copy" class="btn" data-icon title="Copy the file" aria-label="Copy the file" disabled>${GLYPH.copySmall}</button>
+        <a id="fe-ql-open" class="btn" data-icon target="_blank" rel="noopener" title="The raw file, in a new tab" aria-label="The raw file, in a new tab">${UI_ICON.file}</a>
+        <button id="fe-ql-go" class="btn" data-icon title="Open in this tab (Enter)" aria-label="Open in this tab">${UI_ICON.files}</button>
+        <button id="fe-ql-tab" class="btn" data-icon title="Keep as a strip tab (t)" aria-label="Keep as a strip tab">${UI_ICON.tab}</button>
+        <span id="fe-ql-app-group">
+          <span class="bar-sep" aria-hidden="true"></span>
+          ${openSplitHtml('id="fe-ql-app"', 'id="fe-ql-app-more"')}
+        </span>
+        <span class="bar-sep" aria-hidden="true"></span>
         <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file in the sidebar (a)" hidden>${UI_ICON.ai}</button>
+        <span class="bar-sep" aria-hidden="true"></span>
         ${SIZE_BTN('fe-ql-size')}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           ${GLYPH.dock}
@@ -172,6 +182,14 @@ export function initPreview(d: PreviewDeps): void {
     else if (edit) go(fileHref(edit.root.replace(/\/$/, '') + '/' + edit.rel));
   });
   document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
+  document.getElementById('fe-ql-app')!.addEventListener('click', () => {
+    const p = previewedPath();
+    if (p) void openNative(p).then(ok => { if (!ok) deps.toast?.('Open in app needs the native host: run native/install.sh'); });
+  });
+  document.getElementById('fe-ql-app-more')!.addEventListener('click', e => {
+    const p = previewedPath();
+    if (p) openWithMenu(e.currentTarget as HTMLElement, p, false, parseCommands(getSettings().openWithCmds), m => deps.toast?.(m));
+  });
   document.getElementById('fe-ql-save')!.addEventListener('click', () => {
     const p = previewedPath();
     if (!p) return;
@@ -411,6 +429,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
   currentText = doc.text;
   document.getElementById('fe-ql-icon')!.innerHTML = '';
+  document.getElementById('fe-ql-modes')!.hidden = true;
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
   nameEl.href = fileHref(root.replace(/\/$/, '') + '/' + doc.rel);
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = nameEl.href;
@@ -720,6 +739,9 @@ export function openPreview(e: Entry): void {
   document.getElementById('fe-ql-ai-btn')!.hidden = !canAsk(e);
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.disabled = true;
+  // A picture has this button in its own bar; every other file has it here. Only an HTML page has modes.
+  document.getElementById('fe-ql-modes')!.hidden = true;
+  document.getElementById('fe-ql-app-group')!.hidden = IMG_EXTS.has(ext);
 
   if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
     copyBtn.style.display = 'none';   // binary media: rendered from file://, no text; images still take Ask
@@ -730,10 +752,8 @@ export function openPreview(e: Entry): void {
         href: e.href, name: e.name,
         path: decodeURIComponent(new URL(e.href, location.href).pathname),
         notify: m => deps.toast?.(m),
-        // the Ghostty host also opens a file in its default app; a missing host answers not-ok
-        openNative: p => new Promise(res => chrome.runtime.sendMessage(
-          { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_file', path: p } },
-          r => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true))),
+        openMore: anchor => openWithMenu(anchor, currentImage!, false, parseCommands(getSettings().openWithCmds), m => deps.toast?.(m)),
+        openNative,
       });
     }
     else if (PDF_EXTS.has(ext))   body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
@@ -816,13 +836,15 @@ function render(text: string, ext: string): void {
 // highlighted markup, and the choice holds for the next HTML file.
 let htmlSource = false;
 function renderHtml(body: HTMLElement, text: string): void {
-  const btn = (v: 'page' | 'src', label: string, on: boolean) =>
-    `<button class="btn${on ? ' on' : ''}" data-v="${v}" title="${v === 'page' ? 'Show the rendered page' : 'Show the HTML source'}">${label}</button>`;
-  body.innerHTML = `<div class="bar fe-ql-htmlbar">${btn('page', 'Page', !htmlSource)}${btn('src', 'Source', htmlSource)}</div>`
-    + (htmlSource ? renderCode(text, 'html') : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
+  const btn = (v: 'page' | 'src', icon: string, title: string, on: boolean) =>
+    `<button type="button" class="fe-seg-b ico${on ? ' on' : ''}" data-v="${v}" aria-pressed="${on}" title="${title}" aria-label="${title}">${icon}</button>`;
+  const modes = document.getElementById('fe-ql-modes')!;
+  modes.hidden = false;
+  modes.innerHTML = btn('page', UI_ICON.eye, 'Show the rendered page', !htmlSource) + btn('src', UI_ICON.fmtCode, 'Show the HTML source', htmlSource);
+  body.innerHTML = htmlSource ? renderCode(text, 'html') : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>';
   const frame = body.querySelector<HTMLIFrameElement>('iframe.fe-ql-html');
   if (frame && currentEntry) frame.src = currentEntry.href;
-  body.querySelectorAll<HTMLButtonElement>('.fe-ql-htmlbar button').forEach(b => b.addEventListener('click', () => {
+  modes.querySelectorAll<HTMLButtonElement>('button').forEach(b => b.addEventListener('click', () => {
     htmlSource = b.dataset.v === 'src';
     renderHtml(body, text);
   }));

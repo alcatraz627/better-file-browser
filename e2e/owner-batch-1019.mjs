@@ -64,10 +64,10 @@ try {
     const inFrame = await frame.evaluate(() => ({ h1: document.querySelector('h1')?.textContent, js: document.getElementById('js')?.textContent }));
     check(inFrame.h1 === 'Rendered heading' && inFrame.js === 'script ran', `${theme}: HTML previews as a page (${JSON.stringify(inFrame)})`);
     await page.screenshot({ path: join(SHOTS, `owner-html-preview-${theme}.png`) });
-    await page.click('.fe-ql-htmlbar [data-v="src"]');
+    await page.click('#fe-ql-modes [data-v="src"]');
     const src = await page.$$eval('#fe-ql-body .fe-code .tok-type', s => s.length);
     check(src > 0, `${theme}: Source shows highlighted markup`);
-    await page.click('.fe-ql-htmlbar [data-v="page"]');
+    await page.click('#fe-ql-modes [data-v="page"]');
     await page.close();
   }
 

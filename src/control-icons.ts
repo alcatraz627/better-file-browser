@@ -36,6 +36,7 @@ export const UI_ICON = {
   // Text formatting in the note editor.
   fmtBold: svg('<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>'),
   fmtItalic: svg('<path d="M19 4h-9M14 20H5M15 4 9 20"/>'),
+  chevronDown: svg('<path d="m6 9 6 6 6-6"/>'),
   fmtCode: svg('<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>'),
   fmtStrike: svg('<path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16"/>'),
   fmtHeading: svg('<path d="M6 12h12M6 20V4M18 20V4"/>'),

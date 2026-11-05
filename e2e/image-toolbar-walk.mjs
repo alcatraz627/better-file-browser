@@ -64,9 +64,9 @@ try {
   const press = async act => { await page.click(`.fe-ql-imgbar [data-img="${act}"]`); await sleep(150); };
 
   await preview('wide-400x120.svg');
-  // 1. Every button has an icon on its left.
-  const bar = await page.$$eval('.fe-ql-imgbar button', bs => bs.map(b => ({ act: b.dataset.img, text: b.textContent.trim(), iconFirst: b.firstElementChild?.tagName === 'svg' })));
-  check(bar.length === 8 && bar.every(b => b.iconFirst && b.text), `the toolbar has eight buttons, each with an icon left of its text: ${JSON.stringify(bar.map(b => b.text))}`);
+  // 1. Every button is an icon with a tooltip.
+  const bar = await page.$$eval('.fe-ql-imgbar button', bs => bs.map(b => ({ act: b.dataset.img, tip: b.title, iconFirst: b.firstElementChild?.tagName === 'svg' })));
+  check(bar.length === 9 && bar.every(b => b.iconFirst && b.tip), `the toolbar has nine buttons, each an icon with a tooltip: ${JSON.stringify(bar.map(b => b.act))}`);
   let s = await state();
   check(s.nat[0] === 400 && s.zoom === 100 && /400 × 120 · 100%/.test(s.dim), `a small picture opens at 100%: ${JSON.stringify(s)}`);
   await shot(page, 'image-toolbar');

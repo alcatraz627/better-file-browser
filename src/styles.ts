@@ -1231,8 +1231,13 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 #fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 #fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none;min-width:0;flex-shrink:1}
 #fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
-#fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
-.fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
+#fe-ql-body:has(> iframe.fe-ql-html){display:flex;flex-direction:column}
+#fe-ql-modes[hidden],#fe-ql-app-group[hidden]{display:none}
+#fe-ql-app-group{display:inline-flex;align-items:center}
+/* Two buttons that read as one: the action, and the arrow listing the others. */
+.fe-split{display:inline-flex;align-items:center;flex:none;gap:1px}
+.fe-split > .fe-split-more{width:auto;min-width:0;padding:0 2px}
+.fe-split > .fe-split-more svg{width:12px;height:12px}
 .fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:rgb(var(--paper))}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}

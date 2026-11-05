@@ -542,3 +542,21 @@ describe('numbered code lines', () => {
     expect(pre.textContent).toBe('const a = 1;\n/* two\nlines */');
   });
 });
+
+describe('colouring CSS', () => {
+  const css = highlightCode('.card:hover, a {\n  color: #fff;\n  margin: 12px auto;\n}\n@media (min-width: 40em) { b { top: 0; } }', 'css');
+  it('tells selectors, properties and values apart', () => {
+    expect(css).toContain('<span class="tok-type">.card:hover, a ');
+    expect(css).toContain('<span class="tok-key">color</span>');
+    expect(css).toContain('<span class="tok-num">#fff</span>');
+    expect(css).toContain('<span class="tok-num">12px</span>');
+    expect(css).toContain('<span class="tok-deco">@media</span>');
+  });
+  it('colours a style block inside HTML as CSS, and a script as script', () => {
+    const html = highlightCode('<!doctype html>\n<style media="all">\n.a { color: red; }\n</style>\n<script>\nconst x = 1;\n</script>\n<p class="b\n c">hi</p>', 'html');
+    expect(html).toContain('<span class="tok-key">color</span>');
+    expect(html).toContain('<span class="tok-kw">const</span>');
+    expect(html).toContain('tok-type">&lt;style media');
+    expect(html).toContain('hi');
+  });
+});

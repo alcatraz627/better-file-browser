@@ -1716,6 +1716,7 @@ ${text}
     // Text formatting in the note editor.
     fmtBold: svg('<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>'),
     fmtItalic: svg('<path d="M19 4h-9M14 20H5M15 4 9 20"/>'),
+    chevronDown: svg('<path d="m6 9 6 6 6-6"/>'),
     fmtCode: svg('<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>'),
     fmtStrike: svg('<path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16"/>'),
     fmtHeading: svg('<path d="M6 12h12M6 20V4M18 20V4"/>'),
@@ -2159,6 +2160,56 @@ ${text}
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
+  }
+
+  // src/open-with.ts
+  var APPS = [
+    { id: "zed", label: "Open in Zed" },
+    { id: "vscode", label: "Open in VS Code" },
+    { id: "cursor", label: "Open in Cursor" },
+    { id: "finder", label: "Show in Finder" }
+  ];
+  var DEFAULT_COMMANDS = "Show contents (files): cat\nRun with bash (files): bash\nAdd to VS Code: & code --add";
+  var OLD_DEFAULT = "Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add";
+  function parseCommands(text) {
+    return (text === void 0 || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
+      const at = l.indexOf(":");
+      if (at < 1) return [];
+      const label = l.slice(0, at).trim();
+      const filesOnly = /\s*\(files\)$/i.test(label);
+      const name2 = label.replace(/\s*\(files\)$/i, "");
+      let cmd = l.slice(at + 1).trim();
+      const terminal = !cmd.startsWith("&");
+      if (!terminal) cmd = cmd.slice(1).trim();
+      return name2 && cmd ? [{ name: name2, cmd, terminal, ...filesOnly ? { filesOnly } : {} }] : [];
+    });
+  }
+  function openWithItems(commands, isDir = false) {
+    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => isDir && c.filesOnly ? "" : `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
+  }
+  function runOpenWith(act, path, commands, toast) {
+    const pick2 = act.replace(/^ow:/, "");
+    const own2 = pick2.startsWith("#") ? commands[Number(pick2.slice(1))] : null;
+    const payload = own2 ? { action: "run_with", path, cmd: own2.cmd, terminal: own2.terminal } : { action: "open_with", path, target: pick2 };
+    chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload }, (res) => {
+      if (chrome.runtime.lastError || !res?.ok) toast("Could not open it. Is the launcher installed (native/install.sh)?");
+      else if (res.response?.success === false) toast(`Could not open it: ${res.response.error}`);
+    });
+  }
+  function openSplitHtml(main, more) {
+    return `<span class="fe-split"><button type="button" class="btn" data-icon ${main} title="Open in the default app">${UI_ICON.external}</button><button type="button" class="btn fe-split-more" data-icon ${more} title="Other ways to open it" aria-label="Other ways to open it" aria-haspopup="menu">${UI_ICON.chevronDown}</button></span>`;
+  }
+  function openWithMenu(anchor, path, isDir, commands, toast) {
+    const menu = document.createElement("div");
+    menu.className = "fe-ctx fe-export-menu";
+    menu.innerHTML = openWithItems(commands, isDir);
+    const layer = openLayer(menu, { kind: "popover", anchor, align: "end", role: "menu", group: "menu", label: "Open with" });
+    menu.addEventListener("click", (e) => {
+      const act = e.target.closest("[data-act]")?.dataset.act;
+      if (!act) return;
+      layer.close("pick");
+      runOpenWith(act, path, commands, toast);
+    });
   }
 
   // src/keymap.ts
@@ -3620,7 +3671,19 @@ ${text}
     ] },
     cfg: { line: ["#", ";"], strings: [`"`, `'`], vars: true, kw: [] },
     cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], deco: true, namedTypes: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
-    css: { block: ["/*", "*/"], strings: [`"`, `'`], kw: [] },
+    css: {
+      block: ["/*", "*/"],
+      strings: [`"`, `'`],
+      deco: true,
+      kw: [],
+      kwCats: { lit: sp("none auto inherit initial unset transparent important") },
+      special: [
+        // A selector runs from the start of a line up to its opening brace; a property sits before its colon.
+        { kind: "tag", pattern: "(?<=^[ \\t]*)(?![@/*])[^\\s{};:][^{};\\n]*(?=[ \\t]*\\{)|(?<=^[ \\t]*):[^{};\\n]*(?=[ \\t]*\\{)" },
+        { kind: "key", pattern: "(?<=^[ \\t]*|[{;][ \\t]*)-{0,2}[A-Za-z][\\w-]*(?=[ \\t]*:)" },
+        { kind: "num", pattern: "#[0-9a-fA-F]{3,8}\\b|-?(?:\\d*\\.)?\\d+(?:px|em|rem|vh|vw|vmin|vmax|ch|ex|fr|deg|ms|s|%)?(?![\\w-])" }
+      ]
+    },
     jsonc: { line: ["//"], block: ["/*", "*/"], strings: [`"`], kw: [], kwCats: { lit: sp("true false null") } },
     graphql: { line: ["#"], strings: [`"`], kw: sp(KW_GQL), kwCats: { ctrl: sp("query mutation subscription fragment on"), type: sp("type interface union enum input scalar"), lit: sp("true false null") } },
     proto: {
@@ -3631,7 +3694,7 @@ ${text}
       namedTypes: true,
       kwCats: { ctrl: sp("import rpc returns"), type: sp("message enum service oneof map"), lit: sp("true false") }
     },
-    html: { block: ["<!--", "-->"], strings: [], kw: [], special: [{ kind: "tag", pattern: "<\\/?[A-Za-z][^>\\n]*>" }] },
+    html: { block: ["<!--", "-->"], strings: [], kw: [], special: [{ kind: "tag", pattern: "<\\/?[A-Za-z][^>]*>" }] },
     // Keys, anchors and plain values each get a colour; indentation and the list
     // dash stay outside the key, and an unquoted value like it's is one value.
     yaml: {
@@ -3815,6 +3878,23 @@ ${text}
     const langKey = EXT_LANG[FENCE_ALIAS[key] ?? key] ?? "plain";
     const lang = LANGS[langKey];
     if (langKey === "plain") return esc(src);
+    if (langKey === "html") {
+      const embedded = /(<(style|script)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi;
+      if (embedded.test(src)) {
+        embedded.lastIndex = 0;
+        let html = "", from = 0;
+        for (const m of src.matchAll(embedded)) {
+          html += highlightMarkup(src.slice(from, m.index) + m[1], lang);
+          html += highlightCode(m[3], m[2].toLowerCase() === "style" ? "css" : "js");
+          html += highlightMarkup(m[4], lang);
+          from = m.index + m[0].length;
+        }
+        return html + highlightMarkup(src.slice(from), lang);
+      }
+    }
+    return highlightMarkup(src, lang);
+  }
+  function highlightMarkup(src, lang) {
     const wmap = wordClasses(lang);
     const { re, kinds } = compile(buildRules(lang));
     let out = "";
@@ -5311,18 +5391,22 @@ ${body}
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
-  var BTN = (act, icon2, text, title) => `<button class="btn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
+  var BTN = (act, icon2, title) => `<button class="btn" data-icon data-img="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
+  var SEP = '<span class="bar-sep" aria-hidden="true"></span>';
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
     <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
-      ${BTN("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
-      ${BTN("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
-      ${BTN("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
-      ${BTN("actual", UI_ICON.actualSize, "actual size", "Show at 100%")}
-      ${BTN("rotate", UI_ICON.rotate, "rotate", "Turn a quarter clockwise")}
-      ${BTN("flip", UI_ICON.flip, "flip", "Mirror left to right")}
-      ${BTN("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
-      ${BTN("open", UI_ICON.external, "open in app", "Open in the default app")}
+      ${BTN("in", UI_ICON.zoomIn, "Zoom in")}
+      ${BTN("out", UI_ICON.zoomOut, "Zoom out")}
+      ${BTN("fit", UI_ICON.fit, "Fit the picture in the panel")}
+      ${BTN("actual", UI_ICON.actualSize, "Show at 100%")}
+      ${SEP}
+      ${BTN("rotate", UI_ICON.rotate, "Turn a quarter clockwise")}
+      ${BTN("flip", UI_ICON.flip, "Mirror left to right")}
+      ${SEP}
+      ${BTN("copy", UI_ICON.copyImage, "Copy the picture as shown")}
+      ${SEP}
+      ${o.openMore ? openSplitHtml('data-img="open"', 'data-img="open-more"') : BTN("open", UI_ICON.external, "Open in the default app")}
     </div>
     <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}" draggable="false"></div></div>
     <div class="fe-ql-dim"></div>`;
@@ -5428,7 +5512,8 @@ ${body}
     };
     wrap.querySelector(".fe-ql-imgbar").addEventListener("click", (e) => {
       const b = e.target.closest("[data-img]");
-      if (b) act(b.dataset.img);
+      if (b?.dataset.img === "open-more") o.openMore?.(b);
+      else if (b) act(b.dataset.img);
     });
     stage.addEventListener("wheel", (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -12128,6 +12213,10 @@ ${end.comment}` : end.comment;
   function previewEntry() {
     return currentEntry;
   }
+  var openNative = (path) => new Promise((res) => chrome.runtime.sendMessage(
+    { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path } },
+    (r) => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)
+  ));
   function previewedPath() {
     return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
   }
@@ -12179,17 +12268,21 @@ ${end.comment}` : end.comment;
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open in a new tab"></a>
         <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" class="btn" title="Copy the file" disabled>
-          ${GLYPH.copySmall}
-          <span>Copy</span>
-        </button>
-        <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
-        <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
-        <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <span id="fe-ql-modes" class="fe-seg" role="group" aria-label="View" hidden></span>
+        <button id="fe-ql-copy" class="btn" data-icon title="Copy the file" aria-label="Copy the file" disabled>${GLYPH.copySmall}</button>
+        <a id="fe-ql-open" class="btn" data-icon target="_blank" rel="noopener" title="The raw file, in a new tab" aria-label="The raw file, in a new tab">${UI_ICON.file}</a>
+        <button id="fe-ql-go" class="btn" data-icon title="Open in this tab (Enter)" aria-label="Open in this tab">${UI_ICON.files}</button>
+        <button id="fe-ql-tab" class="btn" data-icon title="Keep as a strip tab (t)" aria-label="Keep as a strip tab">${UI_ICON.tab}</button>
+        <span id="fe-ql-app-group">
+          <span class="bar-sep" aria-hidden="true"></span>
+          ${openSplitHtml('id="fe-ql-app"', 'id="fe-ql-app-more"')}
+        </span>
+        <span class="bar-sep" aria-hidden="true"></span>
         <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file in the sidebar (a)" hidden>${UI_ICON.ai}</button>
+        <span class="bar-sep" aria-hidden="true"></span>
         ${SIZE_BTN("fe-ql-size")}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           ${GLYPH.dock}
@@ -12207,6 +12300,16 @@ ${end.comment}` : end.comment;
       else if (edit) go(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
     });
     document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
+    document.getElementById("fe-ql-app").addEventListener("click", () => {
+      const p = previewedPath();
+      if (p) void openNative(p).then((ok) => {
+        if (!ok) deps.toast?.("Open in app needs the native host: run native/install.sh");
+      });
+    });
+    document.getElementById("fe-ql-app-more").addEventListener("click", (e) => {
+      const p = previewedPath();
+      if (p) openWithMenu(e.currentTarget, p, false, parseCommands(getSettings().openWithCmds), (m) => deps.toast?.(m));
+    });
     document.getElementById("fe-ql-save").addEventListener("click", () => {
       const p = previewedPath();
       if (!p) return;
@@ -12420,6 +12523,7 @@ ${end.comment}` : end.comment;
     edit = { root: root2, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
     currentText = doc.text;
     document.getElementById("fe-ql-icon").innerHTML = "";
+    document.getElementById("fe-ql-modes").hidden = true;
     const nameEl = document.getElementById("fe-ql-name");
     nameEl.href = fileHref(root2.replace(/\/$/, "") + "/" + doc.rel);
     document.getElementById("fe-ql-open").href = nameEl.href;
@@ -12822,6 +12926,8 @@ ${end.comment}` : end.comment;
     document.getElementById("fe-ql-ai-btn").hidden = !canAsk(e);
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.disabled = true;
+    document.getElementById("fe-ql-modes").hidden = true;
+    document.getElementById("fe-ql-app-group").hidden = IMG_EXTS.has(ext2);
     if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
       copyBtn.style.display = "none";
       if (IMG_EXTS.has(ext2)) {
@@ -12832,11 +12938,8 @@ ${end.comment}` : end.comment;
           name: e.name,
           path: decodeURIComponent(new URL(e.href, location.href).pathname),
           notify: (m) => deps.toast?.(m),
-          // the Ghostty host also opens a file in its default app; a missing host answers not-ok
-          openNative: (p) => new Promise((res) => chrome.runtime.sendMessage(
-            { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
-            (r) => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)
-          ))
+          openMore: (anchor) => openWithMenu(anchor, currentImage, false, parseCommands(getSettings().openWithCmds), (m) => deps.toast?.(m)),
+          openNative
         });
       } else if (PDF_EXTS.has(ext2)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
       else if (VIDEO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
@@ -12909,11 +13012,14 @@ ${end.comment}` : end.comment;
   }
   var htmlSource = false;
   function renderHtml(body, text) {
-    const btn = (v, label, on) => `<button class="btn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
-    body.innerHTML = `<div class="bar fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
+    const btn = (v, icon2, title, on) => `<button type="button" class="fe-seg-b ico${on ? " on" : ""}" data-v="${v}" aria-pressed="${on}" title="${title}" aria-label="${title}">${icon2}</button>`;
+    const modes = document.getElementById("fe-ql-modes");
+    modes.hidden = false;
+    modes.innerHTML = btn("page", UI_ICON.eye, "Show the rendered page", !htmlSource) + btn("src", UI_ICON.fmtCode, "Show the HTML source", htmlSource);
+    body.innerHTML = htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>';
     const frame = body.querySelector("iframe.fe-ql-html");
     if (frame && currentEntry) frame.src = currentEntry.href;
-    body.querySelectorAll(".fe-ql-htmlbar button").forEach((b) => b.addEventListener("click", () => {
+    modes.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
       htmlSource = b.dataset.v === "src";
       renderHtml(body, text);
     }));
@@ -18652,8 +18758,13 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 #fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 #fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none;min-width:0;flex-shrink:1}
 #fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
-#fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
-.fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
+#fe-ql-body:has(> iframe.fe-ql-html){display:flex;flex-direction:column}
+#fe-ql-modes[hidden],#fe-ql-app-group[hidden]{display:none}
+#fe-ql-app-group{display:inline-flex;align-items:center}
+/* Two buttons that read as one: the action, and the arrow listing the others. */
+.fe-split{display:inline-flex;align-items:center;flex:none;gap:1px}
+.fe-split > .fe-split-more{width:auto;min-width:0;padding:0 2px}
+.fe-split > .fe-split-more svg{width:12px;height:12px}
 .fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:rgb(var(--paper))}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
@@ -27418,41 +27529,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       treeReaders.clear();
     });
     return { ls, sel, applyAll, applyFindFromHash };
-  }
-
-  // src/open-with.ts
-  var APPS = [
-    { id: "zed", label: "Open in Zed" },
-    { id: "vscode", label: "Open in VS Code" },
-    { id: "cursor", label: "Open in Cursor" },
-    { id: "finder", label: "Show in Finder" }
-  ];
-  var DEFAULT_COMMANDS = "Show contents (files): cat\nRun with bash (files): bash\nAdd to VS Code: & code --add";
-  var OLD_DEFAULT = "Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add";
-  function parseCommands(text) {
-    return (text === void 0 || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
-      const at = l.indexOf(":");
-      if (at < 1) return [];
-      const label = l.slice(0, at).trim();
-      const filesOnly = /\s*\(files\)$/i.test(label);
-      const name2 = label.replace(/\s*\(files\)$/i, "");
-      let cmd = l.slice(at + 1).trim();
-      const terminal = !cmd.startsWith("&");
-      if (!terminal) cmd = cmd.slice(1).trim();
-      return name2 && cmd ? [{ name: name2, cmd, terminal, ...filesOnly ? { filesOnly } : {} }] : [];
-    });
-  }
-  function openWithItems(commands, isDir = false) {
-    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => isDir && c.filesOnly ? "" : `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
-  }
-  function runOpenWith(act, path, commands, toast) {
-    const pick2 = act.replace(/^ow:/, "");
-    const own2 = pick2.startsWith("#") ? commands[Number(pick2.slice(1))] : null;
-    const payload = own2 ? { action: "run_with", path, cmd: own2.cmd, terminal: own2.terminal } : { action: "open_with", path, target: pick2 };
-    chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload }, (res) => {
-      if (chrome.runtime.lastError || !res?.ok) toast("Could not open it. Is the launcher installed (native/install.sh)?");
-      else if (res.response?.success === false) toast(`Could not open it: ${res.response.error}`);
-    });
   }
 
   // src/listing-input.ts

@@ -5,6 +5,7 @@
 // runs in a new Ghostty window, or in the background when it starts with `&`.
 import { esc } from './utils';
 import { UI_ICON } from './control-icons';
+import { openLayer } from './layer';
 
 export interface OwnCommand { name: string; cmd: string; terminal: boolean; filesOnly?: boolean }
 export const APPS = [
@@ -46,5 +47,25 @@ export function runOpenWith(act: string, path: string, commands: OwnCommand[], t
   chrome.runtime.sendMessage({ type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload }, res => {
     if (chrome.runtime.lastError || !res?.ok) toast('Could not open it. Is the launcher installed (native/install.sh)?');
     else if (res.response?.success === false) toast(`Could not open it: ${res.response.error}`);
+  });
+}
+
+/** A split button: the main part opens the file in its default app, the arrow lists the other ways to open it. */
+export function openSplitHtml(main: string, more: string): string {
+  return `<span class="fe-split"><button type="button" class="btn" data-icon ${main} title="Open in the default app">${UI_ICON.external}</button>`
+    + `<button type="button" class="btn fe-split-more" data-icon ${more} title="Other ways to open it" aria-label="Other ways to open it" aria-haspopup="menu">${UI_ICON.chevronDown}</button></span>`;
+}
+
+/** The menu under that arrow: other apps, then the person's own commands. */
+export function openWithMenu(anchor: HTMLElement, path: string, isDir: boolean, commands: OwnCommand[], toast: (m: string) => void): void {
+  const menu = document.createElement('div');
+  menu.className = 'fe-ctx fe-export-menu';
+  menu.innerHTML = openWithItems(commands, isDir);
+  const layer = openLayer(menu, { kind: 'popover', anchor, align: 'end', role: 'menu', group: 'menu', label: 'Open with' });
+  menu.addEventListener('click', e => {
+    const act = (e.target as Element).closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (!act) return;
+    layer.close('pick');
+    runOpenWith(act, path, commands, toast);
   });
 }

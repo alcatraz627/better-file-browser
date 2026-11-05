@@ -163,12 +163,18 @@ const LANGS: Record<string, LangDef> = {
             ] },
   cfg:    { line: ['#', ';'], strings: [`"`, `'`], vars: true, kw: [] },
   cstyle: { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`], deco: true, namedTypes: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
-  css:    { block: ['/*', '*/'], strings: [`"`, `'`], kw: [] },
+  css:    { block: ['/*', '*/'], strings: [`"`, `'`], deco: true, kw: [], kwCats: { lit: sp('none auto inherit initial unset transparent important') },
+            special: [
+              // A selector runs from the start of a line up to its opening brace; a property sits before its colon.
+              { kind: 'tag', pattern: '(?<=^[ \\t]*)(?![@/*])[^\\s{};:][^{};\\n]*(?=[ \\t]*\\{)|(?<=^[ \\t]*):[^{};\\n]*(?=[ \\t]*\\{)' },
+              { kind: 'key', pattern: '(?<=^[ \\t]*|[{;][ \\t]*)-{0,2}[A-Za-z][\\w-]*(?=[ \\t]*:)' },
+              { kind: 'num', pattern: '#[0-9a-fA-F]{3,8}\\b|-?(?:\\d*\\.)?\\d+(?:px|em|rem|vh|vw|vmin|vmax|ch|ex|fr|deg|ms|s|%)?(?![\\w-])' },
+            ] },
   jsonc:  { line: ['//'], block: ['/*', '*/'], strings: [`"`], kw: [], kwCats: { lit: sp('true false null') } },
   graphql:{ line: ['#'], strings: [`"`], kw: sp(KW_GQL), kwCats: { ctrl: sp('query mutation subscription fragment on'), type: sp('type interface union enum input scalar'), lit: sp('true false null') } },
   proto:  { line: ['//'], block: ['/*', '*/'], strings: [`"`], kw: sp(KW_PROTO), namedTypes: true,
             kwCats: { ctrl: sp('import rpc returns'), type: sp('message enum service oneof map'), lit: sp('true false') } },
-  html:   { block: ['<!--', '-->'], strings: [], kw: [], special: [{ kind: 'tag', pattern: '<\\/?[A-Za-z][^>\\n]*>' }] },
+  html:   { block: ['<!--', '-->'], strings: [], kw: [], special: [{ kind: 'tag', pattern: '<\\/?[A-Za-z][^>]*>' }] },
   // Keys, anchors and plain values each get a colour; indentation and the list
   // dash stay outside the key, and an unquoted value like it's is one value.
   yaml:   { line: ['#'], strings: [`"`, `'`], kw: [], kwCats: { lit: sp('true false null yes no True False Null') },
@@ -276,6 +282,25 @@ export function highlightCode(src: string, ext: string): string {
   const langKey = EXT_LANG[FENCE_ALIAS[key] ?? key] ?? 'plain';
   const lang = LANGS[langKey];
   if (langKey === 'plain') return esc(src);
+  // A page's style and script blocks are their own languages.
+  if (langKey === 'html') {
+    const embedded = /(<(style|script)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi;
+    if (embedded.test(src)) {
+      embedded.lastIndex = 0;
+      let html = '', from = 0;
+      for (const m of src.matchAll(embedded)) {
+        html += highlightMarkup(src.slice(from, m.index) + m[1], lang);
+        html += highlightCode(m[3], m[2].toLowerCase() === 'style' ? 'css' : 'js');
+        html += highlightMarkup(m[4], lang);
+        from = m.index + m[0].length;
+      }
+      return html + highlightMarkup(src.slice(from), lang);
+    }
+  }
+  return highlightMarkup(src, lang);
+}
+
+function highlightMarkup(src: string, lang: LangDef): string {
   const wmap = wordClasses(lang);
   const { re, kinds } = compile(buildRules(lang));
   let out = '';
