@@ -29,6 +29,45 @@
       "js": ["content.js"],
       "run_at": "document_end",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://*.booking.com/*",
+        "https://*.airbnb.com/*", "https://*.airbnb.co.in/*", "https://*.airbnb.co.uk/*",
+        "https://*.airbnb.ca/*", "https://*.airbnb.com.au/*", "https://*.airbnb.co.nz/*",
+        "https://*.airbnb.ie/*", "https://*.airbnb.de/*", "https://*.airbnb.fr/*",
+        "https://*.airbnb.es/*", "https://*.airbnb.it/*", "https://*.airbnb.nl/*",
+        "https://*.airbnb.be/*", "https://*.airbnb.ch/*", "https://*.airbnb.at/*",
+        "https://*.airbnb.pt/*", "https://*.airbnb.se/*", "https://*.airbnb.dk/*",
+        "https://*.airbnb.no/*", "https://*.airbnb.fi/*", "https://*.airbnb.pl/*",
+        "https://*.airbnb.cz/*", "https://*.airbnb.gr/*", "https://*.airbnb.jp/*",
+        "https://*.airbnb.co.kr/*", "https://*.airbnb.com.sg/*", "https://*.airbnb.com.hk/*",
+        "https://*.airbnb.com.tw/*", "https://*.airbnb.com.br/*", "https://*.airbnb.mx/*",
+        "https://*.airbnb.ae/*", "https://*.airbnb.co.za/*"
+      ],
+      "js": ["site-plugins.js"],
+      "run_at": "document_idle",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://*.booking.com/*",
+        "https://*.airbnb.com/*", "https://*.airbnb.co.in/*", "https://*.airbnb.co.uk/*",
+        "https://*.airbnb.ca/*", "https://*.airbnb.com.au/*", "https://*.airbnb.co.nz/*",
+        "https://*.airbnb.ie/*", "https://*.airbnb.de/*", "https://*.airbnb.fr/*",
+        "https://*.airbnb.es/*", "https://*.airbnb.it/*", "https://*.airbnb.nl/*",
+        "https://*.airbnb.be/*", "https://*.airbnb.ch/*", "https://*.airbnb.at/*",
+        "https://*.airbnb.pt/*", "https://*.airbnb.se/*", "https://*.airbnb.dk/*",
+        "https://*.airbnb.no/*", "https://*.airbnb.fi/*", "https://*.airbnb.pl/*",
+        "https://*.airbnb.cz/*", "https://*.airbnb.gr/*", "https://*.airbnb.jp/*",
+        "https://*.airbnb.co.kr/*", "https://*.airbnb.com.sg/*", "https://*.airbnb.com.hk/*",
+        "https://*.airbnb.com.tw/*", "https://*.airbnb.com.br/*", "https://*.airbnb.mx/*",
+        "https://*.airbnb.ae/*", "https://*.airbnb.co.za/*"
+      ],
+      "js": ["site-bridge.js"],
+      "run_at": "document_start",
+      "all_frames": false
     }
   ]
 }

@@ -47,7 +47,21 @@ async function main() {
     logLevel: 'info',
   });
 
-  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx, webCtx];
+  // Plugins for ordinary websites, such as the metro switch on Booking and Airbnb maps.
+  const sitesCtx = await esbuild.context({
+    entryPoints: ['src/site-plugins.ts'], bundle: true, outfile: 'site-plugins.js',
+    format: 'iife', target: 'chrome111', platform: 'browser', minify: true,
+    logLevel: 'info',
+  });
+
+  // The same plugins' link to the network and the extension's cache.
+  const bridgeCtx = await esbuild.context({
+    entryPoints: ['src/site-bridge.ts'], bundle: true, outfile: 'site-bridge.js',
+    format: 'iife', target: 'chrome111', platform: 'browser', minify: true,
+    logLevel: 'info',
+  });
+
+  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx, webCtx, sitesCtx, bridgeCtx];
   if (watch) {
     await Promise.all(all.map(c => c.watch()));
     console.log('Watching for changes…');
