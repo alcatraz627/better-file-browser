@@ -38,6 +38,8 @@ const railTabPref = choicePref('bfb-page-rail-tab-v1', ['toc', 'cm'], 'toc');
 /** The reading column's width; v1 held a plain on or off. */
 export const columnPref = textPref('bfb-page-column-v2');
 const oldColumnPref = textPref('bfb-page-column-v1');
+/// The page whose side card was opened on request, so a reload of it opens the card again.
+const askedPref = textPref('bfb-page-asked-v1', '', 'tab');
 /// The file to open for editing when its page loads: one just renamed while being edited.
 const editAgain = textPref('bfb-edit-again-v1', '', 'tab');
 type ColumnMode = 'unset' | 'xl' | 'lg' | 'md';
@@ -255,7 +257,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // A pane too narrow for a full text column beside the card folds the card
   // to its button; opening it then lays it over the text for a moment
   // instead of squeezing the column.
-  let tight = false, peek = false;
+  let tight = false, peek = askedPref.get() === opts.rawPath;
   let column = savedColumnMode(opts.column);
   const fe = document.getElementById('fe')!;
 
@@ -339,10 +341,11 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   let railTab = railTabPref.get();
   // Show the rail on one pane; the remembered open state follows.
   // Whether the reader opened the card themselves, rather than it opening as remembered.
-  let asked = false;
+  let asked = peek;
+  const setAsked = (v: boolean) => { asked = v; askedPref.set(v ? rawPath : ''); };
   const showPane = (t: 'toc' | 'cm') => {
     railTab = t; railTabPref.set(t);
-    asked = true;
+    setAsked(true);
     tight = measureTight();
     if (tight) peek = true; else if (!tocOpen) { tocOpen = true; tocPref.set(true); }
     paint();
@@ -351,7 +354,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // The bar's button for a pane hides the rail when that pane is showing.
   const togglePane = (t: 'toc' | 'cm') => {
     if (rail.hidden || rail.dataset.tab !== t) { showPane(t); return; }
-    asked = false;
+    setAsked(false);
     if (tight) peek = false; else { tocOpen = false; tocPref.set(false); }
     paint();
   };
@@ -374,7 +377,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const refit = () => {
     const was = tight;
     tight = measureTight();
-    if (tight !== was) { peek = tight && asked && !rail.hidden; paint(); }
+    if (tight !== was) { peek = tight && asked; paint(); }
   };
   // The card moves and resizes by hand; once it has, it no longer folds to fit.
   const railBox = wireRailBox(rail, () => refit());
@@ -384,7 +387,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   render();
   refit();
   if (fp) new ResizeObserver(refit).observe(fp);
-  toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; paint(); } });
+  toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; setAsked(false); paint(); } });
   colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; columnPref.set(column); paint(); refit(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
   // A problem's line number opens the source at that line.
@@ -527,7 +530,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
         editor = null; editBox.hidden = true; restore(); page.style.display = ''; editBtn.classList.remove('on'); sideBack();
         fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
-      comments: comments ? { marks: () => comments!.marks(), open: id => { showComments(); comments!.show(id); } } : undefined,
+      comments: comments ? { marks: () => comments!.marks(), open: id => { showComments(); comments!.show(id); }, fromSelection: () => { showComments(); return comments!.fromSelection(); } } : undefined,
     });
     editBtn.classList.remove('busy');
     paint();
@@ -543,6 +546,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     allow: askToAllow, status, toast, changed: () => { paint(); editor?.marks(); },
     reveal: showComments, toggle: toggleComments,
     picked: span => editor?.select(span.offset, span.offset + span.length),
+    view: () => (editor && !editor.dirty() ? document.querySelector<HTMLElement>('#fe-fe-view:not([hidden])') : null),
     editing: () => !!editor,
     edited: fresh => { text = fresh; paintMeta(); render(); },
   });
@@ -598,11 +602,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   return {
     toggleRaw,
     edit: () => void edit(),
-    comment: a => !editor && !raw && !!comments?.act(a),
-    commentable: () => !editor && !raw && !!comments,
+    comment: a => {
+      if (raw && !editor && comments) { toast('Comments sit on the rendered page; leave Raw to use them'); return true; }
+      return !editor && !!comments?.act(a);
+    },
+    commentable: () => !editor && !!comments,
     commentHeld: () => !editor && !raw && !!comments?.held(),
     peeking: () => tight && peek && !rail.hidden && !comments?.held(),
-    closePeek: () => { peek = false; asked = false; paint(); },
+    closePeek: () => { peek = false; setAsked(false); paint(); },
     editing: () => !!editor,
     unsaved: () => !!editor?.dirty(),
     setText(fresh) {

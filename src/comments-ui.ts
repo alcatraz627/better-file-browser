@@ -128,6 +128,8 @@ export interface CommentsPanel {
   act(a: CommentAction): boolean;
   /** Whether a thread is being looked at or a comment written, which Esc lets go of. */
   held(): boolean;
+  /** Start a comment on the words selected on the rendered page; false when none are. */
+  fromSelection(): boolean;
 }
 
 export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev' | 'clear' | 'link' | 'brief' | 'send' | 'due' | 'attach';
@@ -137,6 +139,8 @@ interface Draft extends SourceSpan { quote: string; attach?: string }
 export function mountComments(o: {
   page: HTMLElement; box: HTMLElement; href: string; path: string;
   root: () => string | null; rel: () => string; text: () => string;
+  /** The rendered side of the editor while it shows the saved text, which can take a comment too. */
+  view?: () => HTMLElement | null;
   allow: () => Promise<boolean>; status: (t: string) => void; changed: () => void;
   /** Show the rail on the Comments tab; show or hide it. */
   reveal: () => void; toggle: () => void;
@@ -509,10 +513,12 @@ export function mountComments(o: {
   // ── Starting a thread from a selection on the page ───────────────────────
   const selected = (): { span: SourceSpan; range: Range } | null => {
     const sel = window.getSelection();
-    if (!sel || !sel.rangeCount || sel.isCollapsed || o.page.style.display === 'none') return null;
+    if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
     const range = sel.getRangeAt(0);
-    if (!o.page.contains(range.commonAncestorContainer)) return null;
-    const span = sourceSpan(o.page, o.text(), range);
+    const view = o.view?.();
+    const inView = !!view?.contains(range.commonAncestorContainer);
+    if (!inView && (o.page.style.display === 'none' || !o.page.contains(range.commonAncestorContainer))) return null;
+    const span = sourceSpan(inView ? view! : o.page, o.text(), range);
     return span ? { span, range } : null;
   };
   // A selection seen just before a click in the panel, which may clear it.
@@ -995,6 +1001,7 @@ export function mountComments(o: {
     act,
     redraw,
     open: () => threads.filter(t => t.status !== 'done').length,
+    fromSelection: () => { const s = selected(); if (s) void startDraft(s.span); return !!s; },
     show: (id?: string) => { if (id) focusThread(id); else paint(); },
     marks: () => placed().map(t => ({ id: t.id, offset: t.place.offset!, length: t.place.length })),
     held: () => !!active || !!draft,

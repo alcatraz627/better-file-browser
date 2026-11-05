@@ -21670,6 +21670,11 @@ and ${diags.length - 12} more` : "");
       const k = e.key.toLowerCase();
       if (mod && e.shiftKey && k === "p") return;
       if (mod && !e.shiftKey && k === "k") return;
+      if (k === "c" && !mod && !e.altKey && !e.shiftKey && view?.contains(getSelection()?.anchorNode ?? null) && !getSelection()?.isCollapsed && host.comments?.fromSelection()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       const fmtName = isMd ? formatKey(e) : null;
       if (fmtName) {
         e.preventDefault();
@@ -22370,10 +22375,12 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     };
     const selected = () => {
       const sel = window.getSelection();
-      if (!sel || !sel.rangeCount || sel.isCollapsed || o.page.style.display === "none") return null;
+      if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
       const range = sel.getRangeAt(0);
-      if (!o.page.contains(range.commonAncestorContainer)) return null;
-      const span = sourceSpan(o.page, o.text(), range);
+      const view = o.view?.();
+      const inView = !!view?.contains(range.commonAncestorContainer);
+      if (!inView && (o.page.style.display === "none" || !o.page.contains(range.commonAncestorContainer))) return null;
+      const span = sourceSpan(inView ? view : o.page, o.text(), range);
       return span ? { span, range } : null;
     };
     let held3 = null;
@@ -23075,6 +23082,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       act,
       redraw,
       open: () => threads.filter((t) => t.status !== "done").length,
+      fromSelection: () => {
+        const s = selected();
+        if (s) void startDraft(s.span);
+        return !!s;
+      },
       show: (id) => {
         if (id) focusThread(id);
         else paint();
@@ -23912,6 +23924,7 @@ ${body}
   var railTabPref = choicePref("bfb-page-rail-tab-v1", ["toc", "cm"], "toc");
   var columnPref = textPref("bfb-page-column-v2");
   var oldColumnPref = textPref("bfb-page-column-v1");
+  var askedPref = textPref("bfb-page-asked-v1", "", "tab");
   var editAgain = textPref("bfb-edit-again-v1", "", "tab");
   var COLUMN_MODES = ["unset", "xl", "lg", "md"];
   var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "80ch" };
@@ -24078,7 +24091,7 @@ ${d.message}` : d.message;
     let raw = false;
     let headings = 0;
     let tocOpen = tocPref.get();
-    let tight = false, peek = false;
+    let tight = false, peek = askedPref.get() === opts.rawPath;
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
     const paintMeta = (shown2 = text) => {
@@ -24150,11 +24163,15 @@ ${d.message}` : d.message;
     const cmBtnN = document.getElementById("fe-fp-cm-n");
     let comments = null;
     let railTab = railTabPref.get();
-    let asked = false;
+    let asked = peek;
+    const setAsked = (v) => {
+      asked = v;
+      askedPref.set(v ? rawPath : "");
+    };
     const showPane = (t) => {
       railTab = t;
       railTabPref.set(t);
-      asked = true;
+      setAsked(true);
       tight = measureTight();
       if (tight) peek = true;
       else if (!tocOpen) {
@@ -24169,7 +24186,7 @@ ${d.message}` : d.message;
         showPane(t);
         return;
       }
-      asked = false;
+      setAsked(false);
       if (tight) peek = false;
       else {
         tocOpen = false;
@@ -24190,7 +24207,7 @@ ${d.message}` : d.message;
       const was = tight;
       tight = measureTight();
       if (tight !== was) {
-        peek = tight && asked && !rail.hidden;
+        peek = tight && asked;
         paint();
       }
     };
@@ -24202,6 +24219,7 @@ ${d.message}` : d.message;
     toc.addEventListener("click", (e) => {
       if (tight && e.target.closest("a")) {
         peek = false;
+        setAsked(false);
         paint();
       }
     });
@@ -24404,6 +24422,9 @@ ${d.message}` : d.message;
         comments: comments ? { marks: () => comments.marks(), open: (id) => {
           showComments();
           comments.show(id);
+        }, fromSelection: () => {
+          showComments();
+          return comments.fromSelection();
         } } : void 0
       });
       editBtn.classList.remove("busy");
@@ -24442,6 +24463,7 @@ ${d.message}` : d.message;
       reveal: showComments,
       toggle: toggleComments,
       picked: (span) => editor?.select(span.offset, span.offset + span.length),
+      view: () => editor && !editor.dirty() ? document.querySelector("#fe-fe-view:not([hidden])") : null,
       editing: () => !!editor,
       edited: (fresh) => {
         text = fresh;
@@ -24498,13 +24520,19 @@ ${d.message}` : d.message;
     return {
       toggleRaw,
       edit: () => void edit2(),
-      comment: (a) => !editor && !raw && !!comments?.act(a),
-      commentable: () => !editor && !raw && !!comments,
+      comment: (a) => {
+        if (raw && !editor && comments) {
+          toast("Comments sit on the rendered page; leave Raw to use them");
+          return true;
+        }
+        return !editor && !!comments?.act(a);
+      },
+      commentable: () => !editor && !!comments,
       commentHeld: () => !editor && !raw && !!comments?.held(),
       peeking: () => tight && peek && !rail.hidden && !comments?.held(),
       closePeek: () => {
         peek = false;
-        asked = false;
+        setAsked(false);
         paint();
       },
       editing: () => !!editor,

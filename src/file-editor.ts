@@ -89,7 +89,7 @@ export interface FileEditorHost {
   /** Move the file to .trash and leave the page. False when it stayed. */
   del?(): Promise<boolean>;
   /** Comment threads on the file, marked in the gutter; offsets are in the text as last saved. */
-  comments?: { marks(): { id: string; offset: number; length: number }[]; open(id: string): void };
+  comments?: { marks(): { id: string; offset: number; length: number }[]; open(id: string): void; fromSelection(): boolean };
 }
 
 export interface FileEditor {
@@ -685,6 +685,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     const k = e.key.toLowerCase();
     if (mod && e.shiftKey && k === 'p') return;   // the box cycles the view
     if (mod && !e.shiftKey && k === 'k') return;   // the palette, here as everywhere
+    // Words selected on the rendered side leave focus here, so c means comment on them, not a letter in the text.
+    if (k === 'c' && !mod && !e.altKey && !e.shiftKey && view?.contains(getSelection()?.anchorNode ?? null) && !getSelection()?.isCollapsed && host.comments?.fromSelection()) { e.preventDefault(); e.stopPropagation(); return; }
     const fmtName = isMd ? formatKey(e) : null;
     if (fmtName) {
       e.preventDefault();
