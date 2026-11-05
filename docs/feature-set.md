@@ -82,6 +82,11 @@ already produces the picture; the batch adds the third frame.
   preview panel.
 - Rename and delete are the row's hover actions, like Saved. Delete moves to
   `.trash/` in the folder, never unlinks.
+- The editor on a file's own tab offers what the peek offers, from the same
+  code in `src/note-tools.ts`: the format bar and keys, pictures pasted or
+  dropped, Versions, Rename and Delete. Code files get the last three. ⌘K stays
+  the palette there, so Link has no key. A picture in a file outside Notes goes
+  to an `attachments` folder beside that file.
 - The host refuses any path outside the folder, and a save carries the mtime
   the editor read, so another tool writing the same file makes the next save
   a visible conflict with a reload button instead of a silent overwrite.

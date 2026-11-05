@@ -7,7 +7,7 @@ import { makeToast } from './toast';
 import { notes } from './notes';
 import { errorText } from './errors';
 import { askYesNo } from './ask-yes-no';
-import { esc, whenText } from './utils';
+import { esc, whenText, fileHref } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -19,6 +19,7 @@ import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON, GLYPH } from './control-icons';
 import { openLayer } from './layer';
 import { getSettings, saveSettings, textPref, jsonPref, flagPref, choicePref } from './storage';
+import { go } from './nav';
 import { editableRoot, editableFoldersOf, openFileEditor, type FileEditor } from './file-editor';
 import { setSidebarShown, sidebarShown } from './motion';
 import { attachFind } from './find-in-page';
@@ -37,6 +38,8 @@ const railTabPref = choicePref('bfb-page-rail-tab-v1', ['toc', 'cm'], 'toc');
 /** The reading column's width; v1 held a plain on or off. */
 export const columnPref = textPref('bfb-page-column-v2');
 const oldColumnPref = textPref('bfb-page-column-v1');
+/// The file to open for editing when its page loads: one just renamed while being edited.
+const editAgain = textPref('bfb-edit-again-v1', '', 'tab');
 type ColumnMode = 'unset' | 'xl' | 'lg' | 'md';
 const COLUMN_MODES: ColumnMode[] = ['unset', 'xl', 'lg', 'md'];
 const COLUMN_WIDTHS: Record<ColumnMode, string> = { unset: 'full', xl: '150ch', lg: '130ch', md: '80ch' };
@@ -222,7 +225,12 @@ function readingOffset(page: HTMLElement, text: string): number {
   return 0;
 }
 
-export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode; editableFolders?: string[] }): FileContent {
+export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode; editableFolders?: string[];
+  /** Rename this file on disk, asking beside `anchor`; `done` hears the new path. */
+  rename?(anchor: HTMLElement, done: (to: string) => void): void;
+  /** Move this file to .trash and go elsewhere. False when it stayed. */
+  del?(root: string, rel: string): Promise<boolean>;
+}): FileContent {
   const { ext, rawPath, href } = opts;
   let text = opts.text;
   const page = document.getElementById('fe-page')!;
@@ -508,6 +516,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       typed: t => paintMeta(t),
       cannotEdit: why => { status(why); noteAtButton(why); },
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
+      // The renamed file opens on its own page, still being edited.
+      rename: opts.rename && (anchor => opts.rename!(anchor, to => { editAgain.set(to); go(fileHref(to)); })),
+      del: opts.del && (() => opts.del!(root!, rawPath.slice(root!.length + 1))),
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
         editor = null; editBox.hidden = true; restore(); page.style.display = ''; editBtn.classList.remove('on'); sideBack();
@@ -520,6 +531,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (!editor) { editBox.hidden = true; restore(); page.style.display = ''; editBtn.classList.remove('on'); sideBack(); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
+  if (editAgain.get() === rawPath) { editAgain.set(''); void edit(); }
   const showComments = () => showPane('cm');
   const toggleComments = () => togglePane('cm');
   if (isMd) comments = mountComments({

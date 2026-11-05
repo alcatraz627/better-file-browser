@@ -90,7 +90,7 @@ try {
   check(existsSync(join(store, target)), `saving does not rename a Switchboard note (its id is its file name)`);
 
   // 4. Versions read from the store's git history.
-  await page.evaluate(() => document.querySelector('#fe-ed-bar [data-act="versions"], [data-act="versions"]')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+  await page.evaluate(() => document.querySelector('#fe-ed-bar [data-act="versions"], [data-act="versions"]')?.click());
   await page.evaluate(() => document.querySelector('[data-act="versions"]')?.click());
   await page.waitForFunction(() => !/reading versions/.test(document.body.innerText), { timeout: 8_000 }).catch(() => null);
   const gitCount = Number(execFileSync('git', ['-C', store, 'rev-list', '--count', 'HEAD', '--', target]).toString().trim());

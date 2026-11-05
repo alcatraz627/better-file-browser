@@ -4639,6 +4639,383 @@ ${text}
     return false;
   }
 
+  // src/editor.ts
+  var BUF_CAP = 60;
+  var BUF_COALESCE = 600;
+  var BUF_RUN = 1500;
+  var BUF_CHARS = 8e6;
+  var bufHist = /* @__PURE__ */ new Map();
+  function diffText(a, b) {
+    let p = 0;
+    const max = Math.min(a.length, b.length);
+    while (p < max && a.charCodeAt(p) === b.charCodeAt(p)) p++;
+    let s = 0;
+    while (s < max - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s++;
+    return { at: p, len: a.length - p - s, ins: b.slice(p, b.length - s) };
+  }
+  var applyPatch = (t, p) => t.slice(0, p.at) + p.ins + t.slice(p.at + p.len);
+  function mapCaret(pos, p) {
+    if (pos <= p.at) return pos;
+    if (pos >= p.at + p.len) return pos + p.ins.length - p.len;
+    return p.at + p.ins.length;
+  }
+  function insertAtCursor(el2, text) {
+    const a = el2.selectionStart ?? el2.value.length, b = el2.selectionEnd ?? a;
+    el2.value = el2.value.slice(0, a) + text + el2.value.slice(b);
+    const at = a + text.length;
+    el2.setSelectionRange(at, at);
+    el2.dispatchEvent(new Event("input", { bubbles: true }));
+    el2.focus();
+  }
+  function lineSpan(text, sel) {
+    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
+    let to = text.indexOf("\n", Math.max(sel.end - (sel.end > sel.start && text[sel.end - 1] === "\n" ? 1 : 0), sel.start));
+    if (to < 0) to = text.length;
+    return { from, to };
+  }
+  function moveLines(text, sel, dir) {
+    const { from, to } = lineSpan(text, sel);
+    const block = text.slice(from, to);
+    if (dir < 0) {
+      if (from === 0) return { text, ...sel };
+      const prevFrom = text.lastIndexOf("\n", from - 2) + 1;
+      const prev = text.slice(prevFrom, from - 1);
+      const out2 = text.slice(0, prevFrom) + block + "\n" + prev + text.slice(to);
+      const shift2 = -(prev.length + 1);
+      return { text: out2, start: sel.start + shift2, end: sel.end + shift2 };
+    }
+    if (to >= text.length) return { text, ...sel };
+    let nextTo = text.indexOf("\n", to + 1);
+    if (nextTo < 0) nextTo = text.length;
+    const next = text.slice(to + 1, nextTo);
+    const out = text.slice(0, from) + next + "\n" + block + text.slice(nextTo);
+    const shift = next.length + 1;
+    return { text: out, start: sel.start + shift, end: sel.end + shift };
+  }
+  function duplicateLines(text, sel) {
+    const { from, to } = lineSpan(text, sel);
+    const block = text.slice(from, to);
+    const out = text.slice(0, to) + "\n" + block + text.slice(to);
+    const shift = block.length + 1;
+    return { text: out, start: sel.start + shift, end: sel.end + shift };
+  }
+  function indentLines(text, sel, outdent, unit = "  ") {
+    const { from, to } = lineSpan(text, sel);
+    const lines = text.slice(from, to).split("\n");
+    let firstDelta = 0, total = 0;
+    const changed = lines.map((l, i3) => {
+      let d;
+      if (outdent) {
+        const n = l.startsWith(unit) ? unit.length : l.startsWith(" ") ? 1 : 0;
+        d = -n;
+        l = l.slice(n);
+      } else {
+        l = unit + l;
+        d = unit.length;
+      }
+      if (i3 === 0) firstDelta = d;
+      total += d;
+      return l;
+    });
+    const out = text.slice(0, from) + changed.join("\n") + text.slice(to);
+    return { text: out, start: Math.max(from, sel.start + firstDelta), end: Math.max(from, sel.end + total) };
+  }
+  function continueList(text, sel) {
+    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
+    const line2 = text.slice(from, sel.start);
+    const m = line2.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
+    if (!m) return null;
+    const [, ind, marker, box, rest] = m;
+    if (!rest.trim()) {
+      const gap = from === 0 || /\n\n$/.test(text.slice(0, from)) ? "" : "\n";
+      const below = text.slice(sel.end).replace(/^\n+/, "");
+      const out2 = text.slice(0, from) + gap + (below ? (gap ? "" : "\n") + below : "");
+      const at = below ? from : from + gap.length;
+      return { text: out2, start: at, end: at };
+    }
+    const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
+    const ins = "\n" + ind + nextMarker + " " + (box ? "[ ] " : "");
+    const out = text.slice(0, sel.start) + ins + text.slice(sel.end);
+    return { text: out, start: sel.start + ins.length, end: sel.start + ins.length };
+  }
+  function autoMarkerAfter(edit2) {
+    const lineStart2 = edit2.text.lastIndexOf("\n", edit2.start - 1) + 1;
+    const prefix = edit2.text.slice(lineStart2, edit2.start);
+    return /^\s*([-*+]|\d+[.)])\s(\[[ xX]\]\s)?$/.test(prefix) && lineStart2 > 0 ? { lineStart: lineStart2, prefix } : null;
+  }
+  var TYPED_MARKER = /^([-*+]|\d+[.)])\s(\[[ xX]\]\s)?/;
+  function absorbTypedMarker(text, sel, auto) {
+    if (sel.start !== sel.end || !text.startsWith(auto.prefix, auto.lineStart) || sel.start < auto.lineStart + auto.prefix.length) return null;
+    const typed = text.slice(auto.lineStart + auto.prefix.length, sel.start);
+    const m = typed.match(TYPED_MARKER);
+    if (!m) return null;
+    const rest = typed.slice(m[0].length);
+    const autoBox = /\[[ xX]\]\s$/.test(auto.prefix);
+    if (!m[2] && autoBox && /^\[[ xX]?\]?$|^$/.test(rest)) return null;
+    const ind = auto.prefix.match(/^\s*/)[0];
+    const keep = (m[2] ? ind + m[0] : auto.prefix) + rest;
+    const out = text.slice(0, auto.lineStart) + keep + text.slice(sel.start);
+    return { text: out, start: auto.lineStart + keep.length, end: auto.lineStart + keep.length };
+  }
+  function wrapSelection(text, sel, left, right = left) {
+    const inner = text.slice(sel.start, sel.end);
+    const out = text.slice(0, sel.start) + left + inner + right + text.slice(sel.end);
+    return { text: out, start: sel.start + left.length, end: sel.end + left.length };
+  }
+  function tableSnippet(cols = 2, rows = 2) {
+    const head = "| " + Array.from({ length: cols }, (_, i3) => `Column ${i3 + 1}`).join(" | ") + " |";
+    const sep = "|" + Array.from({ length: cols }, () => " --- |").join("");
+    const body = Array.from({ length: rows }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
+    return `${head}
+${sep}
+${body}
+`;
+  }
+  function attachBuffer(el2, id, io2 = {
+    get: () => el2.value,
+    set: (v) => {
+      el2.value = v;
+    },
+    // Focusing again is what makes a textarea scroll its caret into view.
+    caret: (at) => {
+      el2.setSelectionRange(at, at);
+      if (document.activeElement === el2) {
+        el2.blur();
+        el2.focus();
+      }
+    }
+  }) {
+    const h = bufHist.get(id) ?? { cur: "", past: [], future: [], timer: null };
+    bufHist.set(id, h);
+    h.cur = io2.get() ?? "";
+    h.past = [];
+    h.future = [];
+    let runStart = 0;
+    const snap = () => {
+      runStart = 0;
+      const now = io2.get() ?? "";
+      if (now === h.cur) return;
+      h.past.push(diffText(now, h.cur));
+      h.cur = now;
+      let chars = h.past.reduce((n, p) => n + p.ins.length, 0);
+      while (h.past.length > BUF_CAP || h.past.length > 1 && chars > BUF_CHARS) chars -= h.past.shift().ins.length;
+      h.future = [];
+    };
+    const record = () => {
+      if (h.timer) clearTimeout(h.timer);
+      const now = Date.now();
+      if (runStart && now - runStart > BUF_RUN) snap();
+      runStart ||= now;
+      h.timer = setTimeout(snap, BUF_COALESCE);
+    };
+    const put = (v) => {
+      const change = diffText(h.cur, v);
+      h.cur = v;
+      io2.set(v);
+      io2.caret?.(change.at + change.ins.length);
+      el2.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const step2 = (from, to) => {
+      const prev = applyPatch(h.cur, from.pop());
+      to.push(diffText(prev, h.cur));
+      put(prev);
+    };
+    const undo = () => {
+      if (h.timer) clearTimeout(h.timer);
+      snap();
+      if (!h.past.length) return false;
+      step2(h.past, h.future);
+      return true;
+    };
+    const redo = () => {
+      if (!h.future.length) return false;
+      step2(h.future, h.past);
+      return true;
+    };
+    el2.addEventListener("input", record);
+    el2.addEventListener("keydown", (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        if (undo()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      } else if (k === "z" && e.shiftKey || k === "y") {
+        if (redo()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    });
+    return { undo, redo, snap, depth: () => h.past.length + 1, insert: (t) => insertAtCursor(el2, t) };
+  }
+
+  // src/note-tools.ts
+  var button = (act, icon2, title) => `<button type="button" class="btn" data-icon data-act="${act}" title="${title}" aria-label="${title.replace(/ \(.*$/, "")}">${icon2}</button>`;
+  function formatButtons(o) {
+    return button("bold", UI_ICON.fmtBold, "Bold (\u2318B)") + button("italic", UI_ICON.fmtItalic, "Italic (\u2318I)") + button("code", UI_ICON.fmtCode, "Code (\u2318E)") + button("strike", UI_ICON.fmtStrike, "Strikethrough (\u2318\u21E7X)") + button("heading", UI_ICON.fmtHeading, "Heading, deeper each press (\u2318\u21E7H)") + button("link", UI_ICON.link, o.linkKey ? "Link (\u2318K)" : "Link") + button("quote", UI_ICON.fmtQuote, "Quote (\u2318\u21E7.)") + button("olist", UI_ICON.fmtOlist, "Numbered list (\u2318\u21E77)") + button("list", UI_ICON.list, "Bullet list") + button("task", UI_ICON.task, "Task list") + button("table", UI_ICON.table, "Insert a table") + button("image", UI_ICON.image, "Insert an image (or paste or drop one)") + `<input type="file" class="fe-ed-file" accept="image/*" hidden>`;
+  }
+  function fileButtons(o) {
+    return button("versions", UI_ICON.versions, "Versions, every save from git history") + (o.steps ? button("prev", UI_ICON.prev, "Previous note in the list (\u2325\u2318\u2191)") + button("next", UI_ICON.next, "Next note in the list (\u2325\u2318\u2193)") : "") + (o.manage ? button("rename", UI_ICON.rename, "Rename (F2)") + button("delete", UI_ICON.trash, "Move to .trash (\u2318\u21E7\u232B)") : "");
+  }
+  function wireBar(bar, act) {
+    bar.addEventListener("mousedown", (e) => {
+      if (e.target.closest("[data-act]")) e.preventDefault();
+    });
+    bar.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-act]");
+      if (b) act(b.dataset.act, b);
+    });
+  }
+  function prefixed(text, sel, line2) {
+    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
+    let to = text.indexOf("\n", sel.end);
+    if (to < 0) to = text.length;
+    const lines = text.slice(from, to).split("\n").map(line2).join("\n");
+    return { text: text.slice(0, from) + lines + text.slice(to), start: from, end: from + lines.length };
+  }
+  function formatEdit(name2, text, sel) {
+    switch (name2) {
+      case "bold":
+        return wrapSelection(text, sel, "**");
+      case "italic":
+        return wrapSelection(text, sel, "_");
+      case "code":
+        return wrapSelection(text, sel, "`");
+      case "strike":
+        return wrapSelection(text, sel, "~~");
+      case "quote":
+        return prefixed(text, sel, (l) => "> " + l);
+      case "list":
+        return prefixed(text, sel, (l) => "- " + l);
+      case "task":
+        return prefixed(text, sel, (l) => "- [ ] " + l);
+      case "olist":
+        return prefixed(text, sel, (l, n) => `${n + 1}. ${l}`);
+      case "heading": {
+        const from = text.lastIndexOf("\n", sel.start - 1) + 1;
+        let to = text.indexOf("\n", from);
+        if (to < 0) to = text.length;
+        const line2 = text.slice(from, to);
+        const level2 = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
+        const plain4 = line2.replace(/^#{1,6} /, "");
+        const next = level2 >= 3 ? plain4 : "#".repeat(level2 + 1) + " " + plain4;
+        return { text: text.slice(0, from) + next + text.slice(to), start: from + next.length, end: from + next.length };
+      }
+      case "link": {
+        const label = text.slice(sel.start, sel.end) || "text";
+        const at = sel.start + label.length + 3;
+        return { text: text.slice(0, sel.start) + `[${label}](url)` + text.slice(sel.end), start: at, end: at + 3 };
+      }
+      default:
+        return null;
+    }
+  }
+  function tableAt(text, at) {
+    return (!at || text.slice(0, at).endsWith("\n") ? "" : "\n") + tableSnippet();
+  }
+  function formatKey(e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return null;
+    const k = e.key.toLowerCase();
+    if (!e.shiftKey) return k === "b" ? "bold" : k === "i" ? "italic" : k === "e" ? "code" : null;
+    return k === "x" ? "strike" : k === "h" ? "heading" : k === "." || k === ">" ? "quote" : k === "7" || k === "&" ? "olist" : null;
+  }
+  function picturePlace(root2, rel, notesRoot, ext2, now = Date.now()) {
+    const full = root2.replace(/\/$/, "") + "/" + rel;
+    const home = notesRoot.replace(/\/$/, "");
+    if (home && full.startsWith(home + "/")) {
+      const inNotes = full.slice(home.length + 1);
+      const file2 = attachmentRel(inNotes, ext2, now);
+      return { root: home, rel: file2, ref: "../".repeat(inNotes.split("/").length - 1) + file2 };
+    }
+    const file = attachmentRel(rel, ext2, now);
+    const dir = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/") + 1) : "";
+    return { root: root2, rel: dir + file, ref: file };
+  }
+  var MAX_PICTURE = 20 * 1024 * 1024;
+  var BIG_PICTURE = 5 * 1024 * 1024;
+  async function addPicture(file, host) {
+    if (file.size > MAX_PICTURE) {
+      host.failed("Adding the image: over 20 MB, so it is not added");
+      return;
+    }
+    if (file.size > BIG_PICTURE) host.warn("That picture is over 5 MB and stays in the notes history for good");
+    const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+    const place = picturePlace(host.root(), host.rel(), host.notesRoot(), ext2);
+    const b64 = await new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(",")[1] || "");
+      r.readAsDataURL(file);
+    });
+    try {
+      await notes.writeBinary(place.root, place.rel, b64);
+      host.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${place.ref})`);
+    } catch (err) {
+      host.failed(errorText(err, "Adding the image"));
+    }
+  }
+  function wirePictures(ta, input, host) {
+    const images = (dt) => [...dt?.files ?? []].filter((f) => f.type.startsWith("image/"));
+    const take = (e, dt) => {
+      const fs = images(dt);
+      if (!fs.length) return;
+      e.preventDefault();
+      fs.forEach((f) => void addPicture(f, host));
+    };
+    ta.addEventListener("paste", (e) => take(e, e.clipboardData));
+    ta.addEventListener("drop", (e) => take(e, e.dataTransfer));
+    ta.addEventListener("dragover", (e) => e.preventDefault());
+    input?.addEventListener("change", () => {
+      [...input.files ?? []].forEach((f) => void addPicture(f, host));
+      input.value = "";
+    });
+  }
+  function mountVersions(panel, host) {
+    const draw = async () => {
+      panel.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
+      try {
+        const { versions, repo } = await notes.history(host.root(), host.rel());
+        if (!versions.length) {
+          panel.innerHTML = emptyHtml("empty", "No versions yet", { inline: true, hint: host.emptyHint(repo === false) });
+          return;
+        }
+        panel.innerHTML = versions.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${esc(v.sha)}"><span>${whenText(v.when)}</span><span>${esc(v.reason)}</span><code>${esc(v.sha)}</code></button>`).join("") + (versions.length > 30 ? `<span class="fe-ed-hint">and ${versions.length - 30} older</span>` : "");
+      } catch (err) {
+        panel.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
+      }
+    };
+    const open = async (sha) => {
+      panel.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
+      try {
+        const v = await notes.version(host.root(), host.rel(), sha);
+        host.show(`<div class="fe-hist-head"><span>version ${esc(sha)}</span><button class="btn" id="fe-hist-use" title="Use this text; today's stays in versions">${UI_ICON.check}<span>Use this version</span></button><button class="btn" id="fe-hist-back" title="Back to the text as it is now">${UI_ICON.close}<span>Back to now</span></button></div>`, v.text);
+        document.getElementById("fe-hist-use")?.addEventListener("click", () => {
+          panel.hidden = true;
+          host.use(v.text);
+        });
+        document.getElementById("fe-hist-back")?.addEventListener("click", () => host.back());
+      } catch (err) {
+        panel.textContent = errorText(err, "Reading that version");
+      }
+    };
+    panel.addEventListener("click", (e) => {
+      const t = e.target;
+      const row2 = t.closest(".fe-hist-row");
+      if (row2) void open(row2.dataset.sha);
+      else if (t.closest('[data-a="retry"]')) void draw();
+    });
+    return () => {
+      if (panel.hidden) {
+        panel.hidden = false;
+        void draw();
+      } else {
+        panel.hidden = true;
+        host.back();
+      }
+    };
+  }
+
   // src/note-meta-ui.ts
   var colorDot = (c) => dotIcon(c ? `var(--nc-${c})` : null);
   var openMenu = null;
@@ -5066,218 +5443,6 @@ ${text}
       zoomAround({ ...v, fit: false, zoom: zoomNow() < 1 ? 1 : 2 }, e.clientX, e.clientY);
     });
     return { state: () => ({ view: { ...v }, left: stage.scrollLeft, top: stage.scrollTop }) };
-  }
-
-  // src/editor.ts
-  var BUF_CAP = 60;
-  var BUF_COALESCE = 600;
-  var BUF_RUN = 1500;
-  var BUF_CHARS = 8e6;
-  var bufHist = /* @__PURE__ */ new Map();
-  function diffText(a, b) {
-    let p = 0;
-    const max = Math.min(a.length, b.length);
-    while (p < max && a.charCodeAt(p) === b.charCodeAt(p)) p++;
-    let s = 0;
-    while (s < max - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s++;
-    return { at: p, len: a.length - p - s, ins: b.slice(p, b.length - s) };
-  }
-  var applyPatch = (t, p) => t.slice(0, p.at) + p.ins + t.slice(p.at + p.len);
-  function mapCaret(pos, p) {
-    if (pos <= p.at) return pos;
-    if (pos >= p.at + p.len) return pos + p.ins.length - p.len;
-    return p.at + p.ins.length;
-  }
-  function insertAtCursor(el2, text) {
-    const a = el2.selectionStart ?? el2.value.length, b = el2.selectionEnd ?? a;
-    el2.value = el2.value.slice(0, a) + text + el2.value.slice(b);
-    const at = a + text.length;
-    el2.setSelectionRange(at, at);
-    el2.dispatchEvent(new Event("input", { bubbles: true }));
-    el2.focus();
-  }
-  function lineSpan(text, sel) {
-    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
-    let to = text.indexOf("\n", Math.max(sel.end - (sel.end > sel.start && text[sel.end - 1] === "\n" ? 1 : 0), sel.start));
-    if (to < 0) to = text.length;
-    return { from, to };
-  }
-  function moveLines(text, sel, dir) {
-    const { from, to } = lineSpan(text, sel);
-    const block = text.slice(from, to);
-    if (dir < 0) {
-      if (from === 0) return { text, ...sel };
-      const prevFrom = text.lastIndexOf("\n", from - 2) + 1;
-      const prev = text.slice(prevFrom, from - 1);
-      const out2 = text.slice(0, prevFrom) + block + "\n" + prev + text.slice(to);
-      const shift2 = -(prev.length + 1);
-      return { text: out2, start: sel.start + shift2, end: sel.end + shift2 };
-    }
-    if (to >= text.length) return { text, ...sel };
-    let nextTo = text.indexOf("\n", to + 1);
-    if (nextTo < 0) nextTo = text.length;
-    const next = text.slice(to + 1, nextTo);
-    const out = text.slice(0, from) + next + "\n" + block + text.slice(nextTo);
-    const shift = next.length + 1;
-    return { text: out, start: sel.start + shift, end: sel.end + shift };
-  }
-  function duplicateLines(text, sel) {
-    const { from, to } = lineSpan(text, sel);
-    const block = text.slice(from, to);
-    const out = text.slice(0, to) + "\n" + block + text.slice(to);
-    const shift = block.length + 1;
-    return { text: out, start: sel.start + shift, end: sel.end + shift };
-  }
-  function indentLines(text, sel, outdent, unit = "  ") {
-    const { from, to } = lineSpan(text, sel);
-    const lines = text.slice(from, to).split("\n");
-    let firstDelta = 0, total = 0;
-    const changed = lines.map((l, i3) => {
-      let d;
-      if (outdent) {
-        const n = l.startsWith(unit) ? unit.length : l.startsWith(" ") ? 1 : 0;
-        d = -n;
-        l = l.slice(n);
-      } else {
-        l = unit + l;
-        d = unit.length;
-      }
-      if (i3 === 0) firstDelta = d;
-      total += d;
-      return l;
-    });
-    const out = text.slice(0, from) + changed.join("\n") + text.slice(to);
-    return { text: out, start: Math.max(from, sel.start + firstDelta), end: Math.max(from, sel.end + total) };
-  }
-  function continueList(text, sel) {
-    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
-    const line2 = text.slice(from, sel.start);
-    const m = line2.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
-    if (!m) return null;
-    const [, ind, marker, box, rest] = m;
-    if (!rest.trim()) {
-      const gap = from === 0 || /\n\n$/.test(text.slice(0, from)) ? "" : "\n";
-      const below = text.slice(sel.end).replace(/^\n+/, "");
-      const out2 = text.slice(0, from) + gap + (below ? (gap ? "" : "\n") + below : "");
-      const at = below ? from : from + gap.length;
-      return { text: out2, start: at, end: at };
-    }
-    const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
-    const ins = "\n" + ind + nextMarker + " " + (box ? "[ ] " : "");
-    const out = text.slice(0, sel.start) + ins + text.slice(sel.end);
-    return { text: out, start: sel.start + ins.length, end: sel.start + ins.length };
-  }
-  function autoMarkerAfter(edit2) {
-    const lineStart2 = edit2.text.lastIndexOf("\n", edit2.start - 1) + 1;
-    const prefix = edit2.text.slice(lineStart2, edit2.start);
-    return /^\s*([-*+]|\d+[.)])\s(\[[ xX]\]\s)?$/.test(prefix) && lineStart2 > 0 ? { lineStart: lineStart2, prefix } : null;
-  }
-  var TYPED_MARKER = /^([-*+]|\d+[.)])\s(\[[ xX]\]\s)?/;
-  function absorbTypedMarker(text, sel, auto) {
-    if (sel.start !== sel.end || !text.startsWith(auto.prefix, auto.lineStart) || sel.start < auto.lineStart + auto.prefix.length) return null;
-    const typed = text.slice(auto.lineStart + auto.prefix.length, sel.start);
-    const m = typed.match(TYPED_MARKER);
-    if (!m) return null;
-    const rest = typed.slice(m[0].length);
-    const autoBox = /\[[ xX]\]\s$/.test(auto.prefix);
-    if (!m[2] && autoBox && /^\[[ xX]?\]?$|^$/.test(rest)) return null;
-    const ind = auto.prefix.match(/^\s*/)[0];
-    const keep = (m[2] ? ind + m[0] : auto.prefix) + rest;
-    const out = text.slice(0, auto.lineStart) + keep + text.slice(sel.start);
-    return { text: out, start: auto.lineStart + keep.length, end: auto.lineStart + keep.length };
-  }
-  function wrapSelection(text, sel, left, right = left) {
-    const inner = text.slice(sel.start, sel.end);
-    const out = text.slice(0, sel.start) + left + inner + right + text.slice(sel.end);
-    return { text: out, start: sel.start + left.length, end: sel.end + left.length };
-  }
-  function tableSnippet(cols = 2, rows = 2) {
-    const head = "| " + Array.from({ length: cols }, (_, i3) => `Column ${i3 + 1}`).join(" | ") + " |";
-    const sep = "|" + Array.from({ length: cols }, () => " --- |").join("");
-    const body = Array.from({ length: rows }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
-    return `${head}
-${sep}
-${body}
-`;
-  }
-  function attachBuffer(el2, id, io2 = {
-    get: () => el2.value,
-    set: (v) => {
-      el2.value = v;
-    },
-    // Focusing again is what makes a textarea scroll its caret into view.
-    caret: (at) => {
-      el2.setSelectionRange(at, at);
-      if (document.activeElement === el2) {
-        el2.blur();
-        el2.focus();
-      }
-    }
-  }) {
-    const h = bufHist.get(id) ?? { cur: "", past: [], future: [], timer: null };
-    bufHist.set(id, h);
-    h.cur = io2.get() ?? "";
-    h.past = [];
-    h.future = [];
-    let runStart = 0;
-    const snap = () => {
-      runStart = 0;
-      const now = io2.get() ?? "";
-      if (now === h.cur) return;
-      h.past.push(diffText(now, h.cur));
-      h.cur = now;
-      let chars = h.past.reduce((n, p) => n + p.ins.length, 0);
-      while (h.past.length > BUF_CAP || h.past.length > 1 && chars > BUF_CHARS) chars -= h.past.shift().ins.length;
-      h.future = [];
-    };
-    const record = () => {
-      if (h.timer) clearTimeout(h.timer);
-      const now = Date.now();
-      if (runStart && now - runStart > BUF_RUN) snap();
-      runStart ||= now;
-      h.timer = setTimeout(snap, BUF_COALESCE);
-    };
-    const put = (v) => {
-      const change = diffText(h.cur, v);
-      h.cur = v;
-      io2.set(v);
-      io2.caret?.(change.at + change.ins.length);
-      el2.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    const step2 = (from, to) => {
-      const prev = applyPatch(h.cur, from.pop());
-      to.push(diffText(prev, h.cur));
-      put(prev);
-    };
-    const undo = () => {
-      if (h.timer) clearTimeout(h.timer);
-      snap();
-      if (!h.past.length) return false;
-      step2(h.past, h.future);
-      return true;
-    };
-    const redo = () => {
-      if (!h.future.length) return false;
-      step2(h.future, h.past);
-      return true;
-    };
-    el2.addEventListener("input", record);
-    el2.addEventListener("keydown", (e) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      const k = e.key.toLowerCase();
-      if (k === "z" && !e.shiftKey) {
-        if (undo()) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      } else if (k === "z" && e.shiftKey || k === "y") {
-        if (redo()) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }
-    });
-    return { undo, redo, snap, depth: () => h.past.length + 1, insert: (t) => insertAtCursor(el2, t) };
   }
 
   // src/watch.ts
@@ -12249,25 +12414,9 @@ ${end.comment}` : end.comment;
     body.innerHTML = `
     <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar" class="bar">
-      <button class="btn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
-      <button class="btn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
-      <button class="btn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
-      <button class="btn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
-      <button class="btn" data-act="heading" title="Heading, deeper each press (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
-      <button class="btn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
-      <button class="btn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
-      <button class="btn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
-      <button class="btn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
-      <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
-      <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
-      <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      ${formatButtons({ linkKey: true })}
       <span class="bar-sep" aria-hidden="true"></span>
-      <button class="btn" data-act="versions" title="Every save, from git history">${UI_ICON.versions}<span>Versions</span></button>
-      ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
-      <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
-      <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="btn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
-      <input type="file" id="fe-ed-file" accept="image/*" hidden>
+      ${fileButtons({ steps: !!actions, manage: !!actions })}
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
     <div id="fe-ed-hist" hidden></div>
@@ -12286,144 +12435,46 @@ ${end.comment}` : end.comment;
       ta.focus();
     };
     const sel = () => ({ start: ta.selectionStart, end: ta.selectionEnd });
-    const prefixLines = (prefix) => {
-      const s = sel();
-      const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
-      let to = ta.value.indexOf("\n", s.end);
-      if (to < 0) to = ta.value.length;
-      const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
-      apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
-    };
     const act = (name2) => {
-      if (name2 === "bold") apply(wrapSelection(ta.value, sel(), "**"));
-      if (name2 === "italic") apply(wrapSelection(ta.value, sel(), "_"));
-      if (name2 === "code") apply(wrapSelection(ta.value, sel(), "`"));
-      if (name2 === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
-      if (name2 === "quote") prefixLines("> ");
-      if (name2 === "olist") {
-        const s = sel();
-        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
-        let to = ta.value.indexOf("\n", s.end);
-        if (to < 0) to = ta.value.length;
-        const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
-        apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
+      const change2 = formatEdit(name2, ta.value, sel());
+      if (change2) {
+        apply(change2);
+        return;
       }
-      if (name2 === "heading") {
-        const s = sel();
-        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
-        let to = ta.value.indexOf("\n", from);
-        if (to < 0) to = ta.value.length;
-        const line2 = ta.value.slice(from, to);
-        const level2 = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
-        const next = level2 >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level2 + 1) + " " + line2.replace(/^#{1,6} /, "");
-        apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
-      }
-      if (name2 === "link") {
-        const s = sel();
-        const label = ta.value.slice(s.start, s.end) || "text";
-        const t = `[${label}](url)`;
-        const at = s.start + label.length + 3;
-        apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
-      }
-      if (name2 === "list") prefixLines("- ");
-      if (name2 === "task") prefixLines("- [ ] ");
-      if (name2 === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
-      if (name2 === "image") document.getElementById("fe-ed-file").click();
-      if (name2 === "versions") void toggleVersions();
+      if (name2 === "table") buf.insert(tableAt(ta.value, ta.selectionStart));
+      if (name2 === "image") body.querySelector(".fe-ed-file").click();
+      if (name2 === "versions") toggleVersions();
       if (name2 === "prev") actions?.step(edit.rel, -1);
       if (name2 === "next") actions?.step(edit.rel, 1);
       if (name2 === "rename") actions?.rename(edit.rel);
       if (name2 === "delete") actions?.del(edit.rel);
     };
-    const hist = document.getElementById("fe-ed-hist");
-    const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    const toggleVersions = async () => {
-      if (!hist.hidden) {
-        hist.hidden = true;
-        renderView();
-        return;
-      }
-      hist.hidden = false;
-      hist.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
-      try {
-        const { versions: vs, repo } = await notes.history(root2, edit?.rel ?? doc.rel);
-        if (!vs.length) {
-          hist.innerHTML = emptyHtml("empty", "No versions yet", { inline: true, hint: repo === false ? "The notes folder is not a git repository; Switchboard makes it one on its first save." : "This note has not been committed to the notes folder's git history." });
-          return;
-        }
-        hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
-        hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
-      } catch (err) {
-        hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
-        hist.querySelector('[data-a="retry"]')?.addEventListener("click", () => {
-          hist.hidden = true;
-          void toggleVersions();
-        });
-      }
-    };
-    const showVersion = async (sha) => {
-      hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
-      try {
-        const v = await notes.version(root2, edit?.rel ?? doc.rel, sha);
-        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Use this text; today's stays in versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
-        document.getElementById("fe-hist-use").addEventListener("click", () => {
-          buf.snap();
-          ta.value = splitNote(v.text).body;
-          ta.dispatchEvent(new Event("input", { bubbles: true }));
-          hist.hidden = true;
-          ta.focus();
-        });
-        document.getElementById("fe-hist-back").addEventListener("click", () => renderView());
-      } catch (err) {
-        hist.textContent = errorText(err, "Reading that version");
-      }
-    };
-    document.getElementById("fe-ed-bar").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      act(b.dataset.act);
-    }));
-    const addImage = async (file) => {
-      const st2 = edit;
-      if (!st2 || st2.root !== root2) return;
-      if (file.size > 20 * 1024 * 1024) {
-        editHeader("Adding the image: over 20 MB, so it is not added");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) deps.toast?.("That picture is over 5 MB and stays in the notes history for good");
-      const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const rel = attachmentRel(st2.rel, ext2);
-      const b64 = await new Promise((res) => {
-        const r = new FileReader();
-        r.onload = () => res(String(r.result).split(",")[1] || "");
-        r.readAsDataURL(file);
-      });
-      try {
-        await notes.writeBinary(root2, rel, b64);
-        const depth = st2.rel.split("/").length - 1;
-        buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
-      } catch (err) {
-        editHeader(errorText(err, "Adding the image"));
-      }
-    };
-    const imageFiles = (dt) => [...dt?.files ?? []].filter((f) => f.type.startsWith("image/"));
-    ta.addEventListener("paste", (e) => {
-      const fs = imageFiles(e.clipboardData);
-      if (fs.length) {
-        e.preventDefault();
-        fs.forEach((f) => void addImage(f));
-      }
+    const toggleVersions = mountVersions(document.getElementById("fe-ed-hist"), {
+      root: () => root2,
+      // The note may have been renamed since it opened (a first save names it), so ask under its current name.
+      rel: () => edit?.rel ?? doc.rel,
+      show: (head2, text) => {
+        view.innerHTML = head2 + renderMarkdown(stripFrontMatter(text), nameEl.href);
+      },
+      use: (text) => {
+        buf.snap();
+        ta.value = splitNote(text).body;
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        ta.focus();
+      },
+      back: () => renderView(),
+      emptyHint: (notRepo) => notRepo ? "The notes folder is not a git repository; Switchboard makes it one on its first save." : "This note has not been committed to the notes folder's git history."
     });
-    ta.addEventListener("drop", (e) => {
-      const fs = imageFiles(e.dataTransfer);
-      if (fs.length) {
-        e.preventDefault();
-        fs.forEach((f) => void addImage(f));
-      }
-    });
-    ta.addEventListener("dragover", (e) => e.preventDefault());
-    document.getElementById("fe-ed-file").addEventListener("change", function() {
-      [...this.files ?? []].forEach((f) => void addImage(f));
-      this.value = "";
+    wireBar(document.getElementById("fe-ed-bar"), act);
+    wirePictures(ta, body.querySelector(".fe-ed-file"), {
+      root: () => root2,
+      rel: () => edit?.rel ?? doc.rel,
+      notesRoot: () => root2,
+      insert: (t) => {
+        if (edit?.root === root2) buf.insert(t);
+      },
+      failed: (t) => editHeader(t),
+      warn: (t) => deps.toast?.(t)
     });
     const drawInto = morphInto(view);
     const renderView = () => {
@@ -12487,30 +12538,12 @@ ${end.comment}` : end.comment;
       } else if (e.key === "Escape") {
         stop();
         closePreview();
-      } else if (mod && !e.shiftKey && k === "b") {
-        stop();
-        act("bold");
-      } else if (mod && !e.shiftKey && k === "i") {
-        stop();
-        act("italic");
-      } else if (mod && !e.shiftKey && k === "e") {
-        stop();
-        act("code");
       } else if (mod && !e.shiftKey && k === "k") {
         stop();
         act("link");
-      } else if (mod && e.shiftKey && k === "x") {
+      } else if (formatKey(e)) {
         stop();
-        act("strike");
-      } else if (mod && e.shiftKey && k === "h") {
-        stop();
-        act("heading");
-      } else if (mod && e.shiftKey && (k === "." || k === ">")) {
-        stop();
-        act("quote");
-      } else if (mod && e.shiftKey && (k === "7" || k === "&")) {
-        stop();
-        act("olist");
+        act(formatKey(e));
       } else if (mod && e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && actions) {
         stop();
         actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
@@ -18528,7 +18561,9 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 .fe-keep-msg{margin:0;font-size:var(--fs-sm);color:var(--mt)}
 .fe-keep-msg:empty{display:none}
 #fe-fp-reload{animation:fe-fade-in var(--t-base) var(--ease);font-size:var(--fs-sm);color:var(--dm)}
-#fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+#fe-ed-bar,#fe-fe-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+/* The pill floats inside this, so it never covers the bar above. */
+#fe-fe-stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:var(--sp-4);align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:var(--sp-2) var(--sp-3);color:var(--tx);cursor:pointer;font:inherit}
@@ -20921,6 +20956,12 @@ button.chip:disabled{opacity:.45;cursor:default}
     box.innerHTML = `
     <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
     <div id="fe-fe-diff" hidden></div>
+    <div id="fe-fe-bar" class="bar" role="toolbar" aria-label="Format and file">
+      ${isMd ? `${formatButtons({ linkKey: false })}<span class="bar-sep" aria-hidden="true"></span>` : ""}
+      ${fileButtons({ steps: false, manage: !!host.rename })}
+    </div>
+    <div id="fe-ed-hist" hidden></div>
+    <div id="fe-fe-stage">
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -20935,6 +20976,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       <button type="button" class="btn" id="fe-fe-diag" data-act="diag" hidden></button>
       ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map((m) => `<button type="button" class="fe-seg-b" data-mode="${m.id}" title="${m.hint} (\u2318\u21E7P cycles)">${m.label}</button>`).join("")}</span>` : ""}
       <button type="button" class="btn" data-variant="solid" data-shape="pill" data-act="done" title="Back to reading (Esc)">Done</button>
+    </div>
     </div>`;
     const ta = box.querySelector("#fe-fe-ta");
     const paintEl = box.querySelector("#fe-fe-paint");
@@ -21336,12 +21378,17 @@ and ${diags.length - 12} more` : "");
       paintSource();
       vp.scrollTop = top;
     }
-    const close = async () => {
+    const settle2 = async () => {
       clearTimeout(timer3);
       clearTimeout(retryTimer);
       if (saving && inflight) await inflight;
       if (isDirty() && banner.hidden) await write(doc.mtime);
-      if (isDirty() && !await (host.confirm ?? ((m) => Promise.resolve(confirm(m))))("Your last changes are not saved. Leave anyway?", "Leave without saving")) return;
+      return !isDirty();
+    };
+    const close = async () => {
+      if (!await settle2() && !await (host.confirm ?? ((m) => Promise.resolve(confirm(m))))("Your last changes are not saved. Leave anyway?", "Leave without saving")) return;
+      clearTimeout(timer3);
+      clearTimeout(retryTimer);
       window.removeEventListener("beforeunload", onUnload);
       window.removeEventListener("keydown", strayKey, true);
       stopWatch();
@@ -21517,6 +21564,78 @@ and ${diags.length - 12} more` : "");
       later();
       checkLater();
     };
+    const whenSaved = async (then) => {
+      if (await settle2()) then();
+      else (host.notify ?? host.status)("Not saved yet, so the file stays where it is.");
+    };
+    const rename = () => {
+      const b = box.querySelector('#fe-fe-bar [data-act="rename"]');
+      if (b) void whenSaved(() => host.rename?.(b));
+    };
+    const del = () => {
+      void whenSaved(() => void host.del?.());
+    };
+    const fileName2 = () => host.rel.split("/").pop() ?? host.rel;
+    let modeWas = null;
+    const leaveVersion = () => {
+      diffBox.hidden = true;
+      if (view) {
+        view.innerHTML = "";
+        shown = "";
+        if (modeWas && modeWas !== mode) setMode(modeWas);
+        else renderView();
+      }
+      modeWas = null;
+    };
+    const toggleVersions = mountVersions(box.querySelector("#fe-ed-hist"), {
+      root: () => host.root,
+      rel: () => host.rel,
+      show: (head, text) => {
+        if (view && fmt) {
+          modeWas ??= mode;
+          if (mode === "raw") setMode("split");
+          clearTimeout(renderTimer);
+          shown = tw.text();
+          view.innerHTML = head + fmt.rich(text, host.href);
+        } else {
+          diffBox.innerHTML = head + lineDiffHtml(text, tw.text());
+          diffBox.hidden = false;
+        }
+      },
+      use: (text) => {
+        buf.snap();
+        tw.set(text);
+        leaveVersion();
+        paintSource();
+        paint();
+        later();
+        checkLater();
+        host.typed?.(text);
+        ta.focus({ preventScroll: true });
+      },
+      back: leaveVersion,
+      emptyHint: (notRepo) => notRepo ? "This folder is not a git repository, so earlier saves are not kept here." : `${fileName2()} has not been committed to this folder's git history.`
+    });
+    wireBar(box.querySelector("#fe-fe-bar"), (name2) => {
+      const change = formatEdit(name2, ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
+      if (change) {
+        applyEdit(change);
+        return;
+      }
+      if (name2 === "table") buf.insert(tableAt(ta.value, ta.selectionStart));
+      if (name2 === "image") box.querySelector(".fe-ed-file")?.click();
+      if (name2 === "versions") toggleVersions();
+      if (name2 === "rename") rename();
+      if (name2 === "delete") del();
+    });
+    if (isMd) wirePictures(ta, box.querySelector(".fe-ed-file"), {
+      root: () => host.root,
+      rel: () => host.rel,
+      notesRoot: () => getSettings().notesRoot ?? "",
+      insert: (t) => buf.insert(t),
+      failed: (t) => (host.notify ?? host.status)(t),
+      warn: (t) => (host.notify ?? host.status)(t)
+    });
     if (listy) ta.addEventListener("input", () => {
       if (!autoMarker) return;
       const fix = absorbTypedMarker(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, autoMarker);
@@ -21537,9 +21656,16 @@ and ${diags.length - 12} more` : "");
       const k = e.key.toLowerCase();
       if (mod && e.shiftKey && k === "p") return;
       if (mod && !e.shiftKey && k === "k") return;
-      if (mod && !e.shiftKey && (k === "b" || k === "i" || k === "e") && listy) {
+      const fmtName = isMd ? formatKey(e) : null;
+      if (fmtName) {
         e.preventDefault();
-        applyEdit(wrapSelection(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, k === "b" ? "**" : k === "i" ? "_" : "`"));
+        applyEdit(formatEdit(fmtName, ta.value, { start: ta.selectionStart, end: ta.selectionEnd }));
+      } else if (e.key === "F2" && host.rename) {
+        e.preventDefault();
+        rename();
+      } else if (mod && e.shiftKey && e.key === "Backspace" && host.del) {
+        e.preventDefault();
+        del();
       } else if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         e.preventDefault();
         const s = { start: ta.selectionStart, end: ta.selectionEnd };
@@ -21588,7 +21714,7 @@ and ${diags.length - 12} more` : "");
     window.addEventListener("beforeunload", onUnload);
     function strayKey(e) {
       const on = document.activeElement;
-      const lost = !on || on === document.body || on === document.documentElement || !!on.closest?.("#fe-fe-pill, #fe-status, #fe-ed-meta");
+      const lost = !on || on === document.body || on === document.documentElement || !!on.closest?.("#fe-fe-pill, #fe-fe-bar, #fe-ed-hist, #fe-status, #fe-ed-meta");
       if (!lost || e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1 || mode === "rich" || [...document.querySelectorAll('[role="dialog"], .fe-dlg')].some((d) => d.checkVisibility())) return;
       e.stopPropagation();
       ta.focus({ preventScroll: true });
@@ -23774,6 +23900,7 @@ ${body}
   var railTabPref = choicePref("bfb-page-rail-tab-v1", ["toc", "cm"], "toc");
   var columnPref = textPref("bfb-page-column-v2");
   var oldColumnPref = textPref("bfb-page-column-v1");
+  var editAgain = textPref("bfb-edit-again-v1", "", "tab");
   var COLUMN_MODES = ["unset", "xl", "lg", "md"];
   var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "80ch" };
   var COLUMN_NAMES = { unset: "Full", xl: "Wide", lg: "Medium", md: "Narrow" };
@@ -24236,6 +24363,12 @@ ${d.message}` : d.message;
           paintMeta();
         },
         // the pill shows Saved
+        // The renamed file opens on its own page, still being edited.
+        rename: opts.rename && ((anchor) => opts.rename(anchor, (to) => {
+          editAgain.set(to);
+          go(fileHref(to));
+        })),
+        del: opts.del && (() => opts.del(root2, rawPath.slice(root2.length + 1))),
         // The file may have changed while editing (a reload from disk), so read it again.
         closed: () => {
           editor = null;
@@ -24267,6 +24400,10 @@ ${d.message}` : d.message;
       }
     };
     editBtn.addEventListener("click", () => void edit2());
+    if (editAgain.get() === rawPath) {
+      editAgain.set("");
+      void edit2();
+    }
     const showComments = () => showPane("cm");
     const toggleComments = () => togglePane("cm");
     if (isMd) comments = mountComments({
@@ -25037,6 +25174,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       retarget(from, to) {
         commit(retargetTabs(state, from, to));
       },
+      closeHere,
       move(id, dir) {
         const i3 = state.list.findIndex((t) => t.id === id);
         const to = state.list[i3 + dir];
@@ -32895,6 +33033,7 @@ ${rows.join("\n")}`, name: subject };
   var initHomePage = (box, go2, app) => mountHome(box, go2, "page", app);
 
   // src/main.ts
+  var afterGo = jsonPref("bfb-after-go-v1", null, () => true, "tab");
   async function showClosedSets(strip, visible2) {
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
@@ -33188,9 +33327,36 @@ ${rows.join("\n")}`, name: subject };
         if (found) goTab(found);
       }).catch((err) => app.toast(errorText(err, "Opening the chooser")));
     });
+    const left = afterGo.get();
+    if (left) {
+      afterGo.set(null);
+      app.toast(left.text, 8e3, { label: "Undo", run: () => {
+        notes.restore(left.root, left.trashed, left.rel).then(() => go(fileHref(left.path))).catch((err) => app.toast(errorText(err, "Putting the file back")));
+      } });
+    }
     if (fileMode) {
       const href = viewHref || location.href;
-      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: editableFoldersOf(settings) });
+      app.filePage = mountFileContent({
+        ext: fileExt,
+        text: fileText,
+        rawPath,
+        href,
+        column: settings.readerColumn,
+        editableFolders: editableFoldersOf(settings),
+        rename: (anchor, done) => askRename(app, anchor, rawPath, done),
+        del: async (root2, rel) => {
+          try {
+            const { trashed } = await notes.delete(root2, rel);
+            afterGo.set({ text: "Moved to .trash", root: root2, trashed, rel, path: rawPath });
+            app.refreshNotes();
+            app.strip.closeHere();
+            return true;
+          } catch (err) {
+            app.toast(errorText(err, "Moving the file to .trash"));
+            return false;
+          }
+        }
+      });
       if (fetchSource) fetchFileText(href).then((text) => app.filePage?.setText(text)).catch(() => {
         app.filePage?.setText("Could not read this file.");
       });

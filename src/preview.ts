@@ -21,11 +21,12 @@ import {
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
 import { hasClash, isoNow } from './notefmt';
-import { notes, NotesError, attachmentRel, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
+import { formatButtons, fileButtons, wireBar, formatEdit, formatKey, tableAt, mountVersions, wirePictures } from './note-tools';
+import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
 import {
-  attachBuffer, moveLines, duplicateLines, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, type AutoMarker, wrapSelection, tableSnippet, type TextEdit,
+  attachBuffer, moveLines, duplicateLines, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, type AutoMarker, type TextEdit,
   diffText, mapCaret,
 } from './editor';
 import { watch } from './watch';
@@ -426,25 +427,9 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   body.innerHTML = `
     <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar" class="bar">
-      <button class="btn" data-icon data-act="bold" title="Bold (⌘B)">${UI_ICON.fmtBold}</button>
-      <button class="btn" data-icon data-act="italic" title="Italic (⌘I)">${UI_ICON.fmtItalic}</button>
-      <button class="btn" data-icon data-act="code" title="Code (⌘E)">${UI_ICON.fmtCode}</button>
-      <button class="btn" data-icon data-act="strike" title="Strikethrough (⌘⇧X)">${UI_ICON.fmtStrike}</button>
-      <button class="btn" data-act="heading" title="Heading, deeper each press (⌘⇧H)" data-icon>${UI_ICON.fmtHeading}</button>
-      <button class="btn" data-icon data-act="link" title="Link (⌘K)">${UI_ICON.link}</button>
-      <button class="btn" data-icon data-act="quote" title="Quote (⌘⇧.)">${UI_ICON.fmtQuote}</button>
-      <button class="btn" data-icon data-act="olist" title="Numbered list (⌘⇧7)">${UI_ICON.fmtOlist}</button>
-      <button class="btn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
-      <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
-      <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
-      <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      ${formatButtons({ linkKey: true })}
       <span class="bar-sep" aria-hidden="true"></span>
-      <button class="btn" data-act="versions" title="Every save, from git history">${UI_ICON.versions}<span>Versions</span></button>
-      ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
-      <button class="btn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
-      <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="btn" data-act="delete" title="Move this note to .trash (⌘⇧⌫)">${UI_ICON.trash}<span>Delete</span></button>` : ''}
-      <input type="file" id="fe-ed-file" accept="image/*" hidden>
+      ${fileButtons({ steps: !!actions, manage: !!actions })}
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
     <div id="fe-ed-hist" hidden></div>
@@ -463,119 +448,36 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     ta.focus();
   };
   const sel = () => ({ start: ta.selectionStart, end: ta.selectionEnd });
-  const prefixLines = (prefix: string) => {
-    const s = sel();
-    const from = ta.value.lastIndexOf('\n', s.start - 1) + 1;
-    let to = ta.value.indexOf('\n', s.end); if (to < 0) to = ta.value.length;
-    const lines = ta.value.slice(from, to).split('\n').map(l => prefix + l);
-    apply({ text: ta.value.slice(0, from) + lines.join('\n') + ta.value.slice(to), start: from, end: from + lines.join('\n').length });
-  };
   const act = (name: string) => {
-    if (name === 'bold')   apply(wrapSelection(ta.value, sel(), '**'));
-    if (name === 'italic') apply(wrapSelection(ta.value, sel(), '_'));
-    if (name === 'code')   apply(wrapSelection(ta.value, sel(), '`'));
-    if (name === 'strike') apply(wrapSelection(ta.value, sel(), '~~'));
-    if (name === 'quote')  prefixLines('> ');
-    if (name === 'olist') {
-      const s = sel();
-      const from = ta.value.lastIndexOf('\n', s.start - 1) + 1;
-      let to = ta.value.indexOf('\n', s.end); if (to < 0) to = ta.value.length;
-      const lines = ta.value.slice(from, to).split('\n').map((l, n) => `${n + 1}. ${l}`).join('\n');
-      apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
-    }
-    if (name === 'heading') {
-      const s = sel();
-      const from = ta.value.lastIndexOf('\n', s.start - 1) + 1;
-      let to = ta.value.indexOf('\n', from); if (to < 0) to = ta.value.length;
-      const line = ta.value.slice(from, to);
-      const level = line.match(/^(#{1,6}) /)?.[1].length ?? 0;
-      const next = level >= 3 ? line.replace(/^#{1,6} /, '') : '#'.repeat(level + 1) + ' ' + line.replace(/^#{1,6} /, '');
-      apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
-    }
-    if (name === 'link') {
-      const s = sel();
-      const label = ta.value.slice(s.start, s.end) || 'text';
-      const t = `[${label}](url)`;
-      const at = s.start + label.length + 3;
-      apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
-    }
-    if (name === 'list')   prefixLines('- ');
-    if (name === 'task')   prefixLines('- [ ] ');
-    if (name === 'table')  buf.insert((ta.value.slice(0, ta.selectionStart).endsWith('\n') || !ta.selectionStart ? '' : '\n') + tableSnippet());
-    if (name === 'image')  (document.getElementById('fe-ed-file') as HTMLInputElement).click();
-    if (name === 'versions') void toggleVersions();
+    const change = formatEdit(name, ta.value, sel());
+    if (change) { apply(change); return; }
+    if (name === 'table')  buf.insert(tableAt(ta.value, ta.selectionStart));
+    if (name === 'image')  body.querySelector<HTMLInputElement>('.fe-ed-file')!.click();
+    if (name === 'versions') toggleVersions();
     if (name === 'prev')   actions?.step(edit!.rel, -1);
     if (name === 'next')   actions?.step(edit!.rel, 1);
     if (name === 'rename') actions?.rename(edit!.rel);
     if (name === 'delete') actions?.del(edit!.rel);
   };
-
-  // Versions: the folder's git log for this file (Switchboard commits every save).
-  // A row shows that version rendered where the preview is; "Use this version"
-  // puts its text in the editor, and the save that follows keeps today's text in the log.
-  const hist = document.getElementById('fe-ed-hist')!;
-  const escHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-  const toggleVersions = async () => {
-    if (!hist.hidden) { hist.hidden = true; renderView(); return; }
-    hist.hidden = false;
-    hist.innerHTML = emptyHtml('loading', 'Reading versions…', { inline: true });
-    try {
-      // The note may have been renamed since it opened (a first save names it), so ask under its current name.
-      const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
-      if (!vs.length) {
-        hist.innerHTML = emptyHtml('empty', 'No versions yet', { inline: true, hint: repo === false
-          ? 'The notes folder is not a git repository; Switchboard makes it one on its first save.'
-          : 'This note has not been committed to the notes folder\'s git history.' });
-        return;
-      }
-      hist.innerHTML = vs.slice(0, 30).map(v =>
-        `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join('')
-        + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : '');
-      hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.addEventListener('click', () => void showVersion(b.dataset.sha!)));
-    } catch (err) {
-      hist.innerHTML = emptyHtml('failed', 'Versions could not be read', { inline: true, hint: errorText(err), actions: [{ a: 'retry', label: 'Try again', title: 'Read the versions again' }] });
-      hist.querySelector('[data-a="retry"]')?.addEventListener('click', () => { hist.hidden = true; void toggleVersions(); });
-    }
-  };
-  const showVersion = async (sha: string) => {
-    hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.classList.toggle('active', b.dataset.sha === sha));
-    try {
-      const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
-      view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span>`
-        + `<button class="btn" id="fe-hist-use" title="Use this text; today's stays in versions">Use this version</button>`
-        + `<button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
-      document.getElementById('fe-hist-use')!.addEventListener('click', () => {
-        buf.snap(); ta.value = splitNote(v.text).body; ta.dispatchEvent(new Event('input', { bubbles: true }));
-        hist.hidden = true; ta.focus();
-      });
-      document.getElementById('fe-hist-back')!.addEventListener('click', () => renderView());
-    } catch (err) { hist.textContent = errorText(err, 'Reading that version'); }
-  };
-  document.getElementById('fe-ed-bar')!.querySelectorAll<HTMLElement>('[data-act]').forEach(b =>
-    b.addEventListener('mousedown', e => { e.preventDefault(); act(b.dataset.act!); }));
-
-  // Images: paste, drop, or the file button. Stored beside the note under
-  // attachments/ and referenced by relative path, per the contract.
-  const addImage = async (file: File) => {
-    const st = edit; if (!st || st.root !== root) return;
-    // Spec: up to 20 MB a file, and a warning over 5 MB because a file stays in history for good.
-    if (file.size > 20 * 1024 * 1024) { editHeader('Adding the image: over 20 MB, so it is not added'); return; }
-    if (file.size > 5 * 1024 * 1024) deps.toast?.('That picture is over 5 MB and stays in the notes history for good');
-    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-    const rel = attachmentRel(st.rel, ext);
-    const b64 = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(file); });
-    try {
-      await notes.writeBinary(root, rel, b64);
-      const depth = st.rel.split('/').length - 1;
-      buf.insert(`![${file.name.replace(/\.[^.]+$/, '')}](${'../'.repeat(depth)}${rel})`);
-    } catch (err) { editHeader(errorText(err, 'Adding the image')); }
-  };
-  const imageFiles = (dt: DataTransfer | null) => [...(dt?.files ?? [])].filter(f => f.type.startsWith('image/'));
-  ta.addEventListener('paste', e => { const fs = imageFiles(e.clipboardData); if (fs.length) { e.preventDefault(); fs.forEach(f => void addImage(f)); } });
-  ta.addEventListener('drop', e => { const fs = imageFiles(e.dataTransfer); if (fs.length) { e.preventDefault(); fs.forEach(f => void addImage(f)); } });
-  ta.addEventListener('dragover', e => e.preventDefault());
-  (document.getElementById('fe-ed-file') as HTMLInputElement).addEventListener('change', function () {
-    [...(this.files ?? [])].forEach(f => void addImage(f)); this.value = '';
+  const toggleVersions = mountVersions(document.getElementById('fe-ed-hist')!, {
+    root: () => root,
+    // The note may have been renamed since it opened (a first save names it), so ask under its current name.
+    rel: () => edit?.rel ?? doc.rel,
+    show: (head, text) => { view.innerHTML = head + renderMarkdown(stripFrontMatter(text), nameEl.href); },
+    use: text => { buf.snap(); ta.value = splitNote(text).body; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus(); },
+    back: () => renderView(),
+    emptyHint: notRepo => notRepo
+      ? 'The notes folder is not a git repository; Switchboard makes it one on its first save.'
+      : 'This note has not been committed to the notes folder\'s git history.',
+  });
+  wireBar(document.getElementById('fe-ed-bar')!, act);
+  wirePictures(ta, body.querySelector<HTMLInputElement>('.fe-ed-file'), {
+    root: () => root,
+    rel: () => edit?.rel ?? doc.rel,
+    notesRoot: () => root,
+    insert: t => { if (edit?.root === root) buf.insert(t); },
+    failed: t => editHeader(t),
+    warn: t => deps.toast?.(t),
   });
   const drawInto = morphInto(view);
   const renderView = () => { drawInto(renderMarkdown(ta.value, nameEl.href)); };
@@ -623,14 +525,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
     if (mod && k === 's') { stop(); void saveNote(); }
     else if (e.key === 'Escape') { stop(); closePreview(); }
-    else if (mod && !e.shiftKey && k === 'b') { stop(); act('bold'); }
-    else if (mod && !e.shiftKey && k === 'i') { stop(); act('italic'); }
-    else if (mod && !e.shiftKey && k === 'e') { stop(); act('code'); }
     else if (mod && !e.shiftKey && k === 'k') { stop(); act('link'); }
-    else if (mod && e.shiftKey && k === 'x') { stop(); act('strike'); }
-    else if (mod && e.shiftKey && k === 'h') { stop(); act('heading'); }
-    else if (mod && e.shiftKey && (k === '.' || k === '>')) { stop(); act('quote'); }
-    else if (mod && e.shiftKey && (k === '7' || k === '&')) { stop(); act('olist'); }
+    else if (formatKey(e)) { stop(); act(formatKey(e)!); }
     else if (mod && e.altKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && actions) {
       stop(); actions.step(edit!.rel, e.key === 'ArrowDown' ? 1 : -1);
     }

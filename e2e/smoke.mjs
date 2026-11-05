@@ -385,7 +385,7 @@ try {
   src = await page.$eval('#fe-ed-src', el => el.value);
   check(src.includes('- eggs\n- bread'), `Enter continued the bullet list: ${JSON.stringify(src.split('\n').slice(2, 5))}`);
   await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
-  await page.evaluate(() => document.querySelector('#fe-ed-bar [data-act="table"]').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+  await page.evaluate(() => document.querySelector('#fe-ed-bar [data-act="table"]').click());
   await page.waitForFunction(() => document.querySelectorAll('#fe-ed-view table').length === 1, { timeout: 3_000 }).catch(() => null);
   const tableCells = await page.$$eval('#fe-ed-view table th', els => els.map(e => e.textContent));
   check(tableCells.join() === 'Column 1,Column 2', `table inserted and rendered: ${JSON.stringify(tableCells)}`);
@@ -427,7 +427,7 @@ try {
   // Another program changes the file on disk: the next save shows the conflict
   // banner instead of overwriting, and Reload from disk takes the disk text.
   await new Promise(r => setTimeout(r, 60));
-  writeFileSync(join(h.notesDir, 'grocery-list.md'), '# Grocery list\n\n- changed elsewhere\n');
+  writeFileSync(join(h.notesDir, 'grocery-list.md'), `---\ncreated: ${new Date().toISOString()}\n---\n# Grocery list\n\n- changed elsewhere\n`);
   await page.evaluate(() => {
     const ta = document.getElementById('fe-ed-src');
     ta.value += '\n- butter\n';

@@ -8,9 +8,10 @@
 import { esc } from './utils';
 import { highlightCode, splitHighlighted } from './renderers';
 import { formatFor, diagnose, type Diagnostic } from './formats';
-import { textPref } from './storage';
+import { textPref, getSettings } from './storage';
 import { notes, NotesError } from './notes';
-import { attachBuffer, diffText, mapCaret, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, moveLines, duplicateLines, wrapSelection, type AutoMarker, type TextEdit } from './editor';
+import { attachBuffer, diffText, mapCaret, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, moveLines, duplicateLines, type AutoMarker, type TextEdit } from './editor';
+import { formatButtons, fileButtons, wireBar, formatEdit, formatKey, tableAt, mountVersions, wirePictures } from './note-tools';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
 import { carrier } from './comment-anchor';
@@ -81,6 +82,10 @@ export interface FileEditorHost {
   /** The text as it stands while editing, so the counts around the page follow it. */
   typed?(text: string): void;
   closed(): void;
+  /** Ask for a new name beside `anchor`. The page goes to the renamed file, so the editor needs nothing back. */
+  rename?(anchor: HTMLElement): void;
+  /** Move the file to .trash and leave the page. False when it stayed. */
+  del?(): Promise<boolean>;
   /** Comment threads on the file, marked in the gutter; offsets are in the text as last saved. */
   comments?: { marks(): { id: string; offset: number; length: number }[]; open(id: string): void };
 }
@@ -106,6 +111,12 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   box.innerHTML = `
     <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
     <div id="fe-fe-diff" hidden></div>
+    <div id="fe-fe-bar" class="bar" role="toolbar" aria-label="Format and file">
+      ${isMd ? `${formatButtons({ linkKey: false })}<span class="bar-sep" aria-hidden="true"></span>` : ''}
+      ${fileButtons({ steps: false, manage: !!host.rename })}
+    </div>
+    <div id="fe-ed-hist" hidden></div>
+    <div id="fe-fe-stage">
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -121,6 +132,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map(m =>
         `<button type="button" class="fe-seg-b" data-mode="${m.id}" title="${m.hint} (⌘⇧P cycles)">${m.label}</button>`).join('')}</span>` : ''}
       <button type="button" class="btn" data-variant="solid" data-shape="pill" data-act="done" title="Back to reading (Esc)">Done</button>
+    </div>
     </div>`;
   const ta = box.querySelector<HTMLTextAreaElement>('#fe-fe-ta')!;
   const paintEl = box.querySelector<HTMLElement>('#fe-fe-paint')!;
@@ -465,12 +477,17 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   }
 
   // Done saves what is pending first; only a failed or conflicting save asks.
-  const close = async () => {
+  const settle = async () => {
     clearTimeout(timer);
     clearTimeout(retryTimer);
     if (saving && inflight) await inflight;
     if (isDirty() && banner.hidden) await write(doc.mtime);
-    if (isDirty() && !(await (host.confirm ?? (m => Promise.resolve(confirm(m))))('Your last changes are not saved. Leave anyway?', 'Leave without saving'))) return;
+    return !isDirty();
+  };
+  const close = async () => {
+    if (!(await settle()) && !(await (host.confirm ?? (m => Promise.resolve(confirm(m))))('Your last changes are not saved. Leave anyway?', 'Leave without saving'))) return;
+    clearTimeout(timer);
+    clearTimeout(retryTimer);
     window.removeEventListener('beforeunload', onUnload);
     window.removeEventListener('keydown', strayKey, true);
     stopWatch();
@@ -600,6 +617,57 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     ta.value = r.text; ta.setSelectionRange(r.start, r.end);
     paintSource(); paint(); later(); checkLater();
   };
+  // Renaming or deleting takes the words typed so far along; if they cannot be saved, nothing moves.
+  const whenSaved = async (then: () => void) => {
+    if (await settle()) then();
+    else (host.notify ?? host.status)('Not saved yet, so the file stays where it is.');
+  };
+  const rename = () => { const b = box.querySelector<HTMLElement>('#fe-fe-bar [data-act="rename"]'); if (b) void whenSaved(() => host.rename?.(b)); };
+  const del = () => { void whenSaved(() => void host.del?.()); };
+  const fileName = () => host.rel.split('/').pop() ?? host.rel;
+  // Looking at an old version: Markdown shows it rendered, in Split so the text stays
+  // in sight; other files show how it differs from the text now.
+  let modeWas: Mode | null = null;
+  const leaveVersion = () => {
+    diffBox.hidden = true;
+    if (view) { view.innerHTML = ''; shown = ''; if (modeWas && modeWas !== mode) setMode(modeWas); else renderView(); }
+    modeWas = null;
+  };
+  const toggleVersions = mountVersions(box.querySelector<HTMLElement>('#fe-ed-hist')!, {
+    root: () => host.root,
+    rel: () => host.rel,
+    show: (head, text) => {
+      if (view && fmt) {
+        modeWas ??= mode;
+        if (mode === 'raw') setMode('split');
+        clearTimeout(renderTimer);
+        shown = tw.text();
+        view.innerHTML = head + fmt.rich(text, host.href);
+      } else { diffBox.innerHTML = head + lineDiffHtml(text, tw.text()); diffBox.hidden = false; }
+    },
+    use: text => { buf.snap(); tw.set(text); leaveVersion(); paintSource(); paint(); later(); checkLater(); host.typed?.(text); ta.focus({ preventScroll: true }); },
+    back: leaveVersion,
+    emptyHint: notRepo => notRepo
+      ? 'This folder is not a git repository, so earlier saves are not kept here.'
+      : `${fileName()} has not been committed to this folder's git history.`,
+  });
+  wireBar(box.querySelector<HTMLElement>('#fe-fe-bar')!, name => {
+    const change = formatEdit(name, ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
+    if (change) { applyEdit(change); return; }
+    if (name === 'table') buf.insert(tableAt(ta.value, ta.selectionStart));
+    if (name === 'image') box.querySelector<HTMLInputElement>('.fe-ed-file')?.click();
+    if (name === 'versions') toggleVersions();
+    if (name === 'rename') rename();
+    if (name === 'delete') del();
+  });
+  if (isMd) wirePictures(ta, box.querySelector<HTMLInputElement>('.fe-ed-file'), {
+    root: () => host.root,
+    rel: () => host.rel,
+    notesRoot: () => getSettings().notesRoot ?? '',
+    insert: t => buf.insert(t),
+    failed: t => (host.notify ?? host.status)(t),
+    warn: t => (host.notify ?? host.status)(t),
+  });
   if (listy) ta.addEventListener('input', () => {
     if (!autoMarker) return;
     const fix = absorbTypedMarker(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, autoMarker);
@@ -613,10 +681,13 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     const k = e.key.toLowerCase();
     if (mod && e.shiftKey && k === 'p') return;   // the box cycles the view
     if (mod && !e.shiftKey && k === 'k') return;   // the palette, here as everywhere
-    if (mod && !e.shiftKey && (k === 'b' || k === 'i' || k === 'e') && listy) {
+    const fmtName = isMd ? formatKey(e) : null;
+    if (fmtName) {
       e.preventDefault();
-      applyEdit(wrapSelection(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, k === 'b' ? '**' : k === 'i' ? '_' : '`'));
+      applyEdit(formatEdit(fmtName, ta.value, { start: ta.selectionStart, end: ta.selectionEnd })!);
     }
+    else if (e.key === 'F2' && host.rename) { e.preventDefault(); rename(); }
+    else if (mod && e.shiftKey && e.key === 'Backspace' && host.del) { e.preventDefault(); del(); }
     else if (e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       const s = { start: ta.selectionStart, end: ta.selectionEnd };
@@ -660,7 +731,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // A plain key then belongs in the text, never to the page commands behind it.
   function strayKey(e: KeyboardEvent): void {
     const on = document.activeElement as HTMLElement | null;
-    const lost = !on || on === document.body || on === document.documentElement || !!on.closest?.('#fe-fe-pill, #fe-status, #fe-ed-meta');
+    const lost = !on || on === document.body || on === document.documentElement || !!on.closest?.('#fe-fe-pill, #fe-fe-bar, #fe-ed-hist, #fe-status, #fe-ed-meta');
     if (!lost || e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1 || mode === 'rich' || [...document.querySelectorAll<HTMLElement>('[role="dialog"], .fe-dlg')].some(d => d.checkVisibility())) return;
     e.stopPropagation();
     ta.focus({ preventScroll: true });

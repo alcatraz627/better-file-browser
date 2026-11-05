@@ -49,12 +49,16 @@ import { initDpLens } from './dp-lens';
 import { initHomeLens, initHomePage } from './home-lens';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
+import { jsonPref } from './storage';
 import { setLinkHome } from './renderers';
 import { errorText } from './errors';
 import { initPhoneSeed, initPhoneButtons, initAddressRouting } from './phone';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
+/// What to say on the next page, in this Chrome tab, about a file just deleted from its own page.
+const afterGo = jsonPref<{ text: string; root: string; trashed: string; rel: string; path: string } | null>('bfb-after-go-v1', null, () => true, 'tab');
+
 async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
   const box = document.getElementById('fe-rc-sets');
   if (!box) return;
@@ -290,9 +294,28 @@ loadKv().catch(() => {}).then(function () {
     notes.pick(rawPath, 'any').then(async p => { const path = p && absPath(p, ''); const found = path && await resolvePath(path); if (found) goTab(found); })
       .catch(err => app.toast(errorText(err, 'Opening the chooser')));
   });
+  // A file just deleted from its own page: this page is where the offer to undo lands.
+  const left = afterGo.get();
+  if (left) {
+    afterGo.set(null);
+    app.toast(left.text, 8000, { label: 'Undo', run: () => {
+      notes.restore(left.root, left.trashed, left.rel).then(() => go(fileHref(left.path)))
+        .catch(err => app.toast(errorText(err, 'Putting the file back')));
+    } });
+  }
   if (fileMode) {
     const href = viewHref || location.href;
-    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: editableFoldersOf(settings) });
+    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: editableFoldersOf(settings),
+      rename: (anchor, done) => askRename(app, anchor, rawPath, done),
+      del: async (root, rel) => {
+        try {
+          const { trashed } = await notes.delete(root, rel);
+          afterGo.set({ text: 'Moved to .trash', root, trashed, rel, path: rawPath });
+          app.refreshNotes();
+          app.strip.closeHere();
+          return true;
+        } catch (err) { app.toast(errorText(err, 'Moving the file to .trash')); return false; }
+      } });
     if (fetchSource) fetchFileText(href).then(text => app.filePage?.setText(text)).catch(() => {
       app.filePage?.setText('Could not read this file.');
     });

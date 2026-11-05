@@ -73,9 +73,9 @@ try {
     tokens: document.querySelectorAll('#fe-fe-paint span[class^="tok-"]').length,
     toc: document.getElementById('fe-toc-rail').hidden ? 'none' : 'shown',
     pill: !!document.querySelector('#fe-fe-pill [data-act="done"]'),
-    oldBar: !!document.getElementById('fe-fe-bar'),
+    stateInBar: !!document.querySelector('#fe-fe-bar #fe-fe-state, #fe-fe-bar [data-act="done"], #fe-fe-bar [data-mode]'),
   }));
-  check(src.lines.join() === '1,2,3,4' && src.tokens > 0 && src.toc === 'none' && src.pill && !src.oldBar, `source is coloured and numbered, Contents hides, one pill: ${JSON.stringify(src)}`);
+  check(src.lines.join() === '1,2,3,4' && src.tokens > 0 && src.toc === 'none' && src.pill && !src.stateInBar, `source is coloured and numbered, Contents hides, one pill: ${JSON.stringify(src)}`);
 
   await typeAtEnd(page, 'second line\n');
   const edited = await page.$eval('#fe-fe-state', el => ({ cls: el.className, text: el.textContent }));

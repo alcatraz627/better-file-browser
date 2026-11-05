@@ -131,8 +131,8 @@ const PHONE_CSS = `
   .bfb-web #fe-ed-src{border:0;font-size:16px}
   .bfb-web .fe-ed:not(.bfb-ed-preview) #fe-ed-view,.bfb-web .fe-ed.bfb-ed-preview #fe-ed-src{display:none}
   .bfb-web #bfb-ed-switch{display:flex;margin:4px 6px 0;align-self:flex-start}
-  .bfb-web #fe-ed-bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:0;padding:2px 4px}
-  .bfb-web #fe-ed-bar > *{flex-shrink:0}
+  .bfb-web :is(#fe-ed-bar,#fe-fe-bar){flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:0;padding:2px 4px}
+  .bfb-web :is(#fe-ed-bar,#fe-fe-bar) > *{flex-shrink:0}
   .bfb-web #fe-ed-bar .btn > span,.bfb-web .fe-ed-hint{display:none}
 
   /* Tiles fill the width in even columns instead of fixed widths with a gap at the end. */

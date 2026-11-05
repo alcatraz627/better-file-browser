@@ -60,6 +60,8 @@ export interface Strip {
   onChange(fn: () => void): void;
   // A file was renamed on disk: its tab follows it.
   retarget(from: string, to: string): void;
+  // Close the page you are on and go to the tab that takes its place, or Home.
+  closeHere(): void;
 }
 
 const storageArea = () => (typeof chrome !== 'undefined' && chrome.storage?.local) || null;
@@ -466,6 +468,7 @@ export function mountStrip(host: StripHost): Strip {
   return {
     handleKey,
     retarget(from, to) { commit(retargetTabs(state, from, to)); },
+    closeHere,
     move(id, dir) {
       const i = state.list.findIndex(t => t.id === id);
       const to = state.list[i + dir];

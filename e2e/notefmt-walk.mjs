@@ -57,7 +57,7 @@ try {
   await page.click('#fe-nt-list .fe-nt-item[data-rel="20261010-203425-f574.md"] .fe-si-link');
   await page.waitForFunction(() => document.getElementById('fe-ed-src')?.value.includes('from the phone'), { timeout: 8_000 });
   const before = new Set(readdirSync(join(store, 'attachments')));
-  const input = await page.$('#fe-ed-file');
+  const input = await page.$('.fe-ed-file');
   await input.uploadFile(pic);
   await sleep(1500);
   const added = readdirSync(join(store, 'attachments')).filter(f => !before.has(f));
