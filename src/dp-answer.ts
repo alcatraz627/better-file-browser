@@ -40,9 +40,9 @@ const codeOf = (e: unknown) => (e as { code?: string })?.code ?? '';
 
 // One group, so at a narrow width the three wrap to the next line together.
 export const answerBarHtml = (): string => `<span class="fe-dp-bar-end">
-  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">Answer</button>
+  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">${UI_ICON.eye}Answer</button>
   <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
-  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or ⌘↩)">Submit</button></span>`;
+  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or ⌘↩)">${UI_ICON.send}Submit</button></span>`;
 
 export const answerPanelHtml = (): string => `
   <section class="card fe-dp-answer" id="fe-dp-answer" hidden aria-label="The answer as it will be sent">

@@ -181,7 +181,7 @@ try {
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="notes"]');
   const ph = await page.evaluate(() => [document.getElementById('fe-st-notes-root').placeholder, document.querySelector('#fe-st-edit-roots input').placeholder]);
-  check(ph[0] === 'Not set' && /Not set/.test(ph[1]) && !/~\/Code/.test(ph[1]), `the folder placeholders read "Not set": ${JSON.stringify(ph)}`);
+  check(ph[0] === 'Not set' && /Add a folder/.test(ph[1]), `the folder fields say what goes in them: ${JSON.stringify(ph)}`);
   await shot(page, 'seatd-notset');
 
   // 23: Export saves a dated file without passing state; Import says what changes; Reset has an Undo.
@@ -200,7 +200,7 @@ try {
   await page.waitForSelector('#fe-st-import-plan:not([hidden])');
   const planText = await page.$eval('#fe-st-import-plan-tx', t => t.textContent);
   const stillOld = await h.store.get('bfb-density');
-  check(/changes 1 setting/.test(planText) && /adds 1/.test(planText) && stillOld !== '2', `Import says what it will change before applying: ${planText}`);
+  check(/changes 1 item/.test(planText) && /adds 1/.test(planText) && stillOld !== '2', `Import says what it will change before applying: ${planText}`);
   await shot(page, 'seatd-import-plan');
   await page.click('#fe-st-import-cancel');
   check(await page.$eval('#fe-st-import-plan', p => p.hidden) && (await h.store.get('bfb-density')) !== '2', 'Cancel applies nothing');

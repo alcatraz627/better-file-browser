@@ -29,7 +29,7 @@ export const isLaidOut = (text: string): boolean => /[─│┌┐└┘├┤�
 const preHtml = (text: string, base: string) => {
   const raw = isLaidOut(text);
   return `<div class="fe-dp-preview" data-view="${raw ? 'raw' : 'md'}">
-    <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">Raw</button>
+    <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">${UI_ICON.fmtCode}Raw</button>
     ${md(text, base)}
     <pre class="fe-dp-pre">${esc(text)}</pre>
   </div>`;

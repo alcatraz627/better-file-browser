@@ -65,7 +65,7 @@ try {
 
   // Dropdown: the chosen option, and the keyboard cursor.
   await page.keyboard.press(','); await page.waitForSelector('#fe-settings-modal .fe-dlg-box', { visible: true }); await sleep(300);
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]'); await sleep(200);
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="tools"]'); await sleep(200);
   await page.click('#fe-st-terminal'); await sleep(300);
   await selected('dropdown chosen', '.fe-dd-opt[aria-selected="true"]');
   await page.keyboard.press('ArrowDown'); await sleep(150);

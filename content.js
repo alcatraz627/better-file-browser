@@ -5218,7 +5218,7 @@ ${body}
       <label class="fe-rem-keep"><input id="fe-rem-expire" type="checkbox"><span>Also expire the note then</span></label>
       <div class="fe-rem-acts">
         <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? "Update" : "Set reminder"}</span></button>
-        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ""}
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">${UI_ICON.check}Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">${UI_ICON.close}Clear</button>` : ""}
       </div>
     </form>`;
     const done = async (c) => {
@@ -5257,7 +5257,7 @@ ${body}
       <input id="fe-exp-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
       <div class="fe-rem-acts">
         <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.expires ? "Update" : "Set expiry"}</span></button>
-        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">No expiry</button>` : ""}
+        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">${UI_ICON.close}No expiry</button>` : ""}
       </div>
     </form>`;
     const done = async (c) => {
@@ -12972,7 +12972,7 @@ ${end.comment}` : end.comment;
       body.innerHTML = `
       <div class="fe-ql-center">
         <div class="notice fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
-        <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
+        <button id="fe-ql-force" class="btn" title="Render despite the size">${UI_ICON.eye}Load anyway</button>
       </div>`;
       document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq2));
       return;
@@ -12992,7 +12992,7 @@ ${end.comment}` : end.comment;
       if (seq2 !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
       const stale = err instanceof FileFetchError && err.code === "context-invalidated";
-      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
+      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">${UI_ICON.refresh}Refresh page</button></div>` : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">${UI_ICON.refresh}Retry</button></div>`;
       document.getElementById("fe-ql-retry").addEventListener("click", () => {
         if (stale) reload();
         else fetchAndRender(e, ext2, seq2);
@@ -13503,7 +13503,7 @@ ${end.comment}` : end.comment;
       const linked = !s || !props || s.label === props.title;
       box.innerHTML = `
       <label class="fe-keep-f"><span class="fe-keep-l">File name</span>
-        <span class="fe-keep-row"><input class="tb" data-k="name" value="${esc(baseOf2(path))}" spellcheck="false" autocomplete="off" aria-label="File name"><button type="submit" class="btn" data-variant="outline" data-k="go" title="Rename the file on disk (Enter)">Rename</button></span></label>
+        <span class="fe-keep-row"><input class="tb" data-k="name" value="${esc(baseOf2(path))}" spellcheck="false" autocomplete="off" aria-label="File name"><button type="submit" class="btn" data-variant="outline" data-k="go" title="Rename the file on disk (Enter)">${UI_ICON.rename}Rename</button></span></label>
       <div class="fe-keep-sec">
         <div class="fe-keep-h">${switchHtml({ id: "fe-keep-saved", title: "Keep this file in Saved", label: "In Saved", checked: !!s, small: true })}<span>Saved</span></div>
         <label class="fe-keep-f"><span class="fe-keep-l">Name in Saved</span>
@@ -15902,7 +15902,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
 
   // src/docview-clamp.ts
-  var clampHtml = (inner, lines = 3) => `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-variant="ghost" data-size="sm" aria-expanded="false" hidden>More</button></div>`;
+  var clampHtml = (inner, lines = 3) => `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-variant="ghost" data-size="sm" aria-expanded="false" hidden>${UI_ICON.chevronDown}More</button></div>`;
   function wireClamps(root2) {
     const check = (c) => {
       if (c.classList.contains("open")) return;
@@ -15929,7 +15929,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   var preHtml = (text, base2) => {
     const raw = isLaidOut(text);
     return `<div class="fe-dp-preview" data-view="${raw ? "raw" : "md"}">
-    <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">Raw</button>
+    <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">${UI_ICON.fmtCode}Raw</button>
     ${md(text, base2)}
     <pre class="fe-dp-pre">${esc(text)}</pre>
   </div>`;
@@ -16252,9 +16252,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   var DOWN = /* @__PURE__ */ new Set(["unavailable", "dp_unavailable"]);
   var codeOf2 = (e) => e?.code ?? "";
   var answerBarHtml = () => `<span class="fe-dp-bar-end">
-  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">Answer</button>
+  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">${UI_ICON.eye}Answer</button>
   <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
-  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or \u2318\u21A9)">Submit</button></span>`;
+  <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or \u2318\u21A9)">${UI_ICON.send}Submit</button></span>`;
   var answerPanelHtml = () => `
   <section class="card fe-dp-answer" id="fe-dp-answer" hidden aria-label="The answer as it will be sent">
     <p class="notice" id="fe-dp-answer-note" hidden></p>
@@ -16485,10 +16485,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     <div class="fe-dp-bar" id="fe-dp-bar">
       <span id="fe-dp-meter"></span>
       <span class="fe-dp-progress" id="fe-dp-progress" aria-live="polite"></span>
-      ${cfg.notes !== false ? '<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">Notes</button>' : ""}
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>Marks</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">Flagged only</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">Reset</button>
+      ${cfg.notes !== false ? `<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">${UI_ICON.notes}Notes</button>` : ""}
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>${UI_ICON.tag}Marks</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">${UI_ICON.pin}Flagged only</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">${UI_ICON.reset}Reset</button>
       <span class="fe-dp-bar-gap"></span>${answerBarHtml()}
     </div>
     ${answerPanelHtml()}`;
@@ -21203,7 +21203,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       <span id="fe-fe-state"></span>
       <button type="button" class="btn" id="fe-fe-diag" data-act="diag" hidden></button>
       ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map((m) => `<button type="button" class="fe-seg-b" data-mode="${m.id}" title="${m.hint} (\u2318\u21E7P cycles)">${m.label}</button>`).join("")}</span>` : ""}
-      <button type="button" class="btn" data-variant="solid" data-shape="pill" data-act="done" title="Back to reading (Esc)">Done</button>
+      <button type="button" class="btn" data-variant="solid" data-shape="pill" data-act="done" title="Back to reading (Esc)">${UI_ICON.check}Done</button>
     </div>
     </div>`;
     const ta = box.querySelector("#fe-fe-ta");
@@ -22419,8 +22419,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const cs = t.comments.map((c) => {
         const mine = on && c.author.kind === "human" && !c.deleted;
         const body = editing === c.id ? `${box("edit:" + c.id, "Edit comment", "", c.text || "")}<div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
-            <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
-            <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (\u2318\u21B5)">Save</button></div>` : `<div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : commentHtml(c.text || "")}</div>`;
+            <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">${UI_ICON.close}Cancel</button>
+            <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (\u2318\u21B5)">${UI_ICON.check}Save</button></div>` : `<div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : commentHtml(c.text || "")}</div>`;
         return `
       <div class="fe-cm-c${c.deleted ? " gone" : ""}" data-c="${esc(c.id)}">
         <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(whenText(c.created))}">${esc(ago2(c.created))}${c.edited ? " \xB7 edited" : ""}</time>
@@ -22456,7 +22456,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       ${draft.block ? notice("On the whole block", "These words could not be placed exactly, so the comment covers the whole block.") : ""}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag")}
       <div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
-        <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">Cancel</button>
+        <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">${UI_ICON.close}Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
     </form>` : "";
     const noneHtml = () => threads.length ? emptyHtml("filtered", "Nothing here", { icon: UI_ICON.comment, actions: [{ a: "show-all", label: "Show all", title: "Show every thread, open and done" }] }) : emptyHtml("empty", "No comments yet", { icon: UI_ICON.comment, hintHtml: "Select some text,<br>then press <kbd>c</kbd>" });
@@ -24583,9 +24583,9 @@ ${d.message}` : d.message;
       const short = home && folder.startsWith(home + "/") ? "~" + folder.slice(home.length) : folder;
       pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
       <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
-      <div class="fe-allow-acts"><button type="button" class="btn" data-a="cancel">Cancel</button>
-      <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
-      <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
+      <div class="fe-allow-acts"><button type="button" class="btn" data-a="cancel">${UI_ICON.close}Cancel</button>
+      <button type="button" class="btn" data-variant="outline" data-a="file">${UI_ICON.file}Just this file</button>
+      <button type="button" class="btn" data-variant="solid" data-a="folder">${UI_ICON.folderOpen}Allow folder</button></div>`;
       let ok = false;
       const layer = openLayer(pop, {
         kind: "popover",
@@ -25843,7 +25843,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Open on my phone", "This Mac\u2019s folders on your tailnet only", sw("fe-st-phone", "Put bfb on your tailnet")) + row("Link", "", `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn("fe-st-phone-copy", UI_ICON.copy, "Copy the link")}`) + note("", "fe-st-phone-hint")
         ) + card2(
           "Your data",
-          row("Export", "Settings, Saved, History and Ask chats, as a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
+          row("Export", "Settings, Saved, History and Ask chats, as a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">${UI_ICON.check}Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">${UI_ICON.close}Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
         ) }
       ]
     };
@@ -26061,7 +26061,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ${icon2}<span class="fe-sl fe-pl-label">${esc(name2)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
-      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="Two versions after a merge. Choose one.">Two versions</button>` : ""}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="Two versions after a merge. Choose one.">${UI_ICON.versions}Two versions</button>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
       ${web ? "" : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy link" aria-label="Copy link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
@@ -26193,7 +26193,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Names and tags; #work for tags only">
-          <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
+          <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">${UI_ICON.file}Names</button>
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
@@ -29513,9 +29513,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           const menu = document.createElement("div");
           menu.className = "fe-pmenu fe-clash-menu";
           menu.innerHTML = `<div class="fe-pm-lbl">Keep</div>
-          <button class="btn" data-size="sm" data-keep="first" role="menuitem">The first version</button>
-          <button class="btn" data-size="sm" data-keep="second" role="menuitem">The second version</button>
-          <button class="btn" data-size="sm" data-keep="both" role="menuitem">Both</button>`;
+          <button class="btn" data-size="sm" data-keep="first" role="menuitem">${UI_ICON.file}The first version</button>
+          <button class="btn" data-size="sm" data-keep="second" role="menuitem">${UI_ICON.file}The second version</button>
+          <button class="btn" data-size="sm" data-keep="both" role="menuitem">${UI_ICON.copy}Both</button>`;
           let layer = null;
           menu.addEventListener("click", (ev) => {
             const k = ev.target.closest("[data-keep]")?.dataset.keep;
@@ -31147,7 +31147,7 @@ ${rows.join("\n")}`, name: subject };
     const paintError = (turn, code, message, keep = false) => {
       const canned = LLM_ERROR_TEXT[code];
       const why = canned && message && message !== canned ? `${canned} (${message})` : canned ?? (message || "The model did not answer.");
-      const card5 = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(why)}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+      const card5 = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(why)}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">${UI_ICON.refresh}Retry</button></div>`;
       const out = turn.querySelector(".fe-ask-a");
       if (keep) out.insertAdjacentHTML("beforeend", card5);
       else out.innerHTML = card5;
@@ -31830,7 +31830,7 @@ ${rows.join("\n")}`, name: subject };
     bar.className = "notice";
     bar.dataset.tone = "warn";
     bar.setAttribute("role", "status");
-    bar.innerHTML = `<span>The extension was reloaded, so this page can no longer open files or ask the model. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">Refresh page</button>`;
+    bar.innerHTML = `<span>The extension was reloaded, so this page can no longer open files or ask the model. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">${UI_ICON.refresh}Refresh page</button>`;
     bar.querySelector("#fe-conn-reload").addEventListener("click", () => reload());
     const body = document.getElementById("fe-body");
     fe.insertBefore(bar, body);
@@ -31901,7 +31901,7 @@ ${rows.join("\n")}`, name: subject };
       box.className = "fe-tc-pop";
       box.setAttribute("role", "dialog");
       box.setAttribute("aria-label", `Colour of ${tag}`);
-      box.innerHTML = TAG_COLORS.map((c) => `<button type="button" class="fe-rp-c${c === cur ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("") + `<button type="button" class="btn" data-size="sm" data-c=""${cur ? "" : ' aria-pressed="true"'} title="Back to the tag's own colour">Default</button>`;
+      box.innerHTML = TAG_COLORS.map((c) => `<button type="button" class="fe-rp-c${c === cur ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("") + `<button type="button" class="btn" data-size="sm" data-c=""${cur ? "" : ' aria-pressed="true"'} title="Back to the tag's own colour">${UI_ICON.reset}Default</button>`;
       const pop = openLayer(box, { kind: "popover", anchor: b, offset: 6, group: "menu", focus: "first" });
       box.addEventListener("click", (ev) => {
         const pick2 = ev.target.closest("[data-c]");
@@ -33113,7 +33113,7 @@ ${rows.join("\n")}`, name: subject };
   </button>`;
   };
   var none = (text) => `<p class="fe-home-none">${esc(text)}</p>`;
-  var moreBtn = (shown2, all) => shown2 < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${all}</button>` : "";
+  var moreBtn = (shown2, all) => shown2 < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">${UI_ICON.list}Show all ${all}</button>` : "";
   var group = (id, label, n, body, open) => `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? " open" : ""}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
   function paintSide(d, allShown, folded) {
     const asks = d.repos.filter((r) => r.onYou);
@@ -33376,7 +33376,7 @@ ${rows.join("\n")}`, name: subject };
       form.className = "fe-hp-edit panel";
       form.innerHTML = `<label><span>Name</span><input class="tb" data-size="md" name="label" spellcheck="false" title="Name shown for this place"></label>
       <label><span>Tags</span><input class="tb" data-size="md" name="tags" spellcheck="false" placeholder="work, docs" title="Tags, separated by commas"></label>
-      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">Save</button></div>`;
+      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">${UI_ICON.close}Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">${UI_ICON.check}Save</button></div>`;
       const label = form.querySelector('[name="label"]'), tags = form.querySelector('[name="tags"]');
       label.value = place.label || name(path);
       tags.value = (place.tags ?? []).join(", ");

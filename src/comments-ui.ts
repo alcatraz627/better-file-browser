@@ -338,8 +338,8 @@ export function mountComments(o: {
       const mine = on && c.author.kind === 'human' && !c.deleted;
       const body = editing === c.id
         ? `${box('edit:' + c.id, 'Edit comment', '', c.text || '')}<div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
-            <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
-            <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (⌘↵)">Save</button></div>`
+            <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">${UI_ICON.close}Cancel</button>
+            <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (⌘↵)">${UI_ICON.check}Save</button></div>`
         : `<div class="fe-cm-tx">${c.deleted ? '<i>Deleted</i>' : commentHtml(c.text || '')}</div>`;
       return `
       <div class="fe-cm-c${c.deleted ? ' gone' : ''}" data-c="${esc(c.id)}">
@@ -385,7 +385,7 @@ export function mountComments(o: {
       ${draft.block ? notice('On the whole block', 'These words could not be placed exactly, so the comment covers the whole block.') : ''}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box('new', 'New comment', 'Comment… @ to mention, # to tag')}
       <div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
-        <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">Cancel</button>
+        <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">${UI_ICON.close}Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? 'Attach' : 'Comment'} (⌘↵)">${draft.attach ? 'Attach here' : 'Comment'}</button></div>
     </form>` : '';
 

@@ -17,6 +17,16 @@ describe('controls stay short', () => {
     }
     expect(long).toEqual([]);
   });
+  it('a labelled button carries an icon', () => {
+    const bare: string[] = [];
+    for (const f of files) for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/<button\b[^>]*class="btn\b[^"]*"[^>]*>([A-Za-z][^<]*)<\/button>/g)) bare.push(`${f}: ${m[1]}`);
+    expect(bare).toEqual([]);
+  });
+  it('no icon is written out as text inside a plain string', () => {
+    const literal: string[] = [];
+    for (const f of files) for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/'<button[^'`\n]*\$\{UI_ICON[^'`\n]*'/g)) literal.push(`${f}: ${m[0].slice(0, 60)}`);
+    expect(literal).toEqual([]);
+  });
   it(`no button label runs past ${MAX_LABEL} words`, () => {
     const long: string[] = [];
     for (const f of files) for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/<button\b[^>]*>([^<>$`]+)<\/button>/g)) {

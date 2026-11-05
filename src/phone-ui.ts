@@ -364,9 +364,9 @@ function selectMode(): void {
   bar.id = 'bfb-select-bar';
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', 'Selection');
-  bar.innerHTML = '<span id="bfb-select-n"></span><button type="button" class="btn" data-sel="select-shown">All</button>'
-    + '<button type="button" class="btn" data-sel="copy-paths">Copy paths</button>'
-    + '<button type="button" class="btn" data-variant="solid" data-sel="select-mode">Done</button>';
+  bar.innerHTML = '<span id="bfb-select-n"></span><button type="button" class="btn" data-sel="select-shown">' + `${UI_ICON.list}All</button>`
+    + '<button type="button" class="btn" data-sel="copy-paths">' + `${UI_ICON.copy}Copy paths</button>`
+    + '<button type="button" class="btn" data-variant="solid" data-sel="select-mode">' + `${UI_ICON.check}Done</button>`;
   bar.addEventListener('click', e => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-sel]');
     if (b) runCommand(b.dataset.sel!);

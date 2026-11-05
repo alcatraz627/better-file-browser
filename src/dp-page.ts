@@ -90,10 +90,10 @@ function headHtml(cfg: DpConfig, base: string): string {
     <div class="fe-dp-bar" id="fe-dp-bar">
       <span id="fe-dp-meter"></span>
       <span class="fe-dp-progress" id="fe-dp-progress" aria-live="polite"></span>
-      ${cfg.notes !== false ? '<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">Notes</button>' : ''}
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>Marks</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">Flagged only</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">Reset</button>
+      ${cfg.notes !== false ? `<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">${UI_ICON.notes}Notes</button>` : ''}
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>${UI_ICON.tag}Marks</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">${UI_ICON.pin}Flagged only</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">${UI_ICON.reset}Reset</button>
       <span class="fe-dp-bar-gap"></span>${answerBarHtml()}
     </div>
     ${answerPanelHtml()}`;

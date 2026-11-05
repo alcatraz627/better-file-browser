@@ -105,7 +105,7 @@ export function openReminderMenu(anchor: HTMLElement, props: NoteProps, apply: A
       <label class="fe-rem-keep"><input id="fe-rem-expire" type="checkbox"><span>Also expire the note then</span></label>
       <div class="fe-rem-acts">
         <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? 'Update' : 'Set reminder'}</span></button>
-        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? 'Move to the next time' : 'Done: clear it'}">Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">Clear</button>` : ''}
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? 'Move to the next time' : 'Done: clear it'}">${UI_ICON.check}Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">${UI_ICON.close}Clear</button>` : ''}
       </div>
     </form>`;
   const done = async (c: PropChange) => { await apply(c); closePropsMenu(); };
@@ -144,7 +144,7 @@ export function openExpiryMenu(anchor: HTMLElement, props: NoteProps, apply: App
       <input id="fe-exp-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
       <div class="fe-rem-acts">
         <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.expires ? 'Update' : 'Set expiry'}</span></button>
-        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">No expiry</button>` : ''}
+        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">${UI_ICON.close}No expiry</button>` : ''}
       </div>
     </form>`;
   const done = async (c: PropChange) => { await apply(c); closePropsMenu(); };

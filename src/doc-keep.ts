@@ -4,6 +4,7 @@
 // button holds all of it, in reading and in editing alike. The rename here is
 // also what the listing and the preview use, so a renamed file's Saved entry
 // and tab follow it wherever the rename started.
+import { UI_ICON } from './control-icons';
 import { notes, NotesError, readProps, retitle, applyChange } from './notes';
 import { getSaved, saveSaved, getSettings, removeSavedWithUndo } from './storage';
 import { retargetPlace, upsertPlace, removePlace, samePlace, renamePlace } from './places';
@@ -82,7 +83,7 @@ export function mountKeep(app: App): void {
     const linked = !s || !props || s.label === props.title;
     box.innerHTML = `
       <label class="fe-keep-f"><span class="fe-keep-l">File name</span>
-        <span class="fe-keep-row"><input class="tb" data-k="name" value="${esc(baseOf(path))}" spellcheck="false" autocomplete="off" aria-label="File name"><button type="submit" class="btn" data-variant="outline" data-k="go" title="Rename the file on disk (Enter)">Rename</button></span></label>
+        <span class="fe-keep-row"><input class="tb" data-k="name" value="${esc(baseOf(path))}" spellcheck="false" autocomplete="off" aria-label="File name"><button type="submit" class="btn" data-variant="outline" data-k="go" title="Rename the file on disk (Enter)">${UI_ICON.rename}Rename</button></span></label>
       <div class="fe-keep-sec">
         <div class="fe-keep-h">${switchHtml({ id: 'fe-keep-saved', title: 'Keep this file in Saved', label: 'In Saved', checked: !!s, small: true })}<span>Saved</span></div>
         <label class="fe-keep-f"><span class="fe-keep-l">Name in Saved</span>

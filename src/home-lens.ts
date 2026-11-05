@@ -77,7 +77,7 @@ const repoRow = (r: RepoSummary) => {
 };
 const none = (text: string) => `<p class="fe-home-none">${esc(text)}</p>`;
 const moreBtn = (shown: number, all: number) =>
-  shown < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${all}</button>` : '';
+  shown < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">${UI_ICON.list}Show all ${all}</button>` : '';
 const group = (id: string, label: string, n: number, body: string, open: boolean) =>
   `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? ' open' : ''}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
 
@@ -357,7 +357,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
     form.className = 'fe-hp-edit panel';
     form.innerHTML = `<label><span>Name</span><input class="tb" data-size="md" name="label" spellcheck="false" title="Name shown for this place"></label>
       <label><span>Tags</span><input class="tb" data-size="md" name="tags" spellcheck="false" placeholder="work, docs" title="Tags, separated by commas"></label>
-      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">Save</button></div>`;
+      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">${UI_ICON.close}Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">${UI_ICON.check}Save</button></div>`;
     const label = form.querySelector<HTMLInputElement>('[name="label"]')!, tags = form.querySelector<HTMLInputElement>('[name="tags"]')!;
     label.value = place.label || name(path);
     tags.value = (place.tags ?? []).join(', ');

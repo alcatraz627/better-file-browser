@@ -1,5 +1,6 @@
 // The tag colours page in Settings: every tag on a note or a save, with its colour and its name.
 // Renaming a tag renames it on every note and save that carries it, and the colour goes along.
+import { UI_ICON } from './control-icons';
 import { notes, NotesError, applyChange, readProps, frontmatterDrift, changedKeys, type NoteMeta } from './notes';
 import { getSaved, saveSaved, getTags, setTagColour, renameTagColour } from './storage';
 import { askYesNo } from './ask-yes-no';
@@ -81,7 +82,7 @@ export function mountTagColours(host: HTMLElement, o: { root: () => string; toas
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', `Colour of ${tag}`);
     box.innerHTML = TAG_COLORS.map(c => `<button type="button" class="fe-rp-c${c === cur ? ' on' : ''}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join('')
-      + `<button type="button" class="btn" data-size="sm" data-c=""${cur ? '' : ' aria-pressed="true"'} title="Back to the tag's own colour">Default</button>`;
+      + `<button type="button" class="btn" data-size="sm" data-c=""${cur ? '' : ' aria-pressed="true"'} title="Back to the tag's own colour">${UI_ICON.reset}Default</button>`;
     const pop = openLayer(box, { kind: 'popover', anchor: b, offset: 6, group: 'menu', focus: 'first' });
     box.addEventListener('click', ev => {
       const pick = (ev.target as HTMLElement).closest<HTMLElement>('[data-c]');

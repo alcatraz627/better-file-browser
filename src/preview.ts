@@ -768,7 +768,7 @@ export function openPreview(e: Entry): void {
     body.innerHTML = `
       <div class="fe-ql-center">
         <div class="notice fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
-        <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
+        <button id="fe-ql-force" class="btn" title="Render despite the size">${UI_ICON.eye}Load anyway</button>
       </div>`;
     document.getElementById('fe-ql-force')!.addEventListener('click', () => fetchAndRender(e, ext, seq));
     return;
@@ -793,8 +793,8 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
       console.error('[BFB] preview failed:', e.href, err);
       const stale = err instanceof FileFetchError && err.code === 'context-invalidated';
       body.innerHTML = stale
-        ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>`
-        : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
+        ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">${UI_ICON.refresh}Refresh page</button></div>`
+        : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">${UI_ICON.refresh}Retry</button></div>`;
       document.getElementById('fe-ql-retry')!.addEventListener('click', () => {
         if (stale) reload(); else fetchAndRender(e, ext, seq);
       });

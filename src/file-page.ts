@@ -461,9 +461,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const short = home && folder.startsWith(home + '/') ? '~' + folder.slice(home.length) : folder;
     pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
       <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
-      <div class="fe-allow-acts"><button type="button" class="btn" data-a="cancel">Cancel</button>
-      <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
-      <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
+      <div class="fe-allow-acts"><button type="button" class="btn" data-a="cancel">${UI_ICON.close}Cancel</button>
+      <button type="button" class="btn" data-variant="outline" data-a="file">${UI_ICON.file}Just this file</button>
+      <button type="button" class="btn" data-variant="solid" data-a="folder">${UI_ICON.folderOpen}Allow folder</button></div>`;
     // Esc, a click away or a second Edit press answer no; only a pick answers yes.
     let ok = false;
     const layer = openLayer(pop, { kind: 'popover', anchor: editBtn, align: 'end', offset: 8, role: 'dialog', label: 'Allow editing', group: 'allow',

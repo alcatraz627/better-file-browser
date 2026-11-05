@@ -389,9 +389,9 @@ export function initSidebar(app: App): void {
         const menu = document.createElement('div');
         menu.className = 'fe-pmenu fe-clash-menu';
         menu.innerHTML = `<div class="fe-pm-lbl">Keep</div>
-          <button class="btn" data-size="sm" data-keep="first" role="menuitem">The first version</button>
-          <button class="btn" data-size="sm" data-keep="second" role="menuitem">The second version</button>
-          <button class="btn" data-size="sm" data-keep="both" role="menuitem">Both</button>`;
+          <button class="btn" data-size="sm" data-keep="first" role="menuitem">${UI_ICON.file}The first version</button>
+          <button class="btn" data-size="sm" data-keep="second" role="menuitem">${UI_ICON.file}The second version</button>
+          <button class="btn" data-size="sm" data-keep="both" role="menuitem">${UI_ICON.copy}Both</button>`;
         let layer: Layer | null = null;
         menu.addEventListener('click', ev => {
           const k = (ev.target as HTMLElement).closest<HTMLElement>('[data-keep]')?.dataset.keep as Keep | undefined;

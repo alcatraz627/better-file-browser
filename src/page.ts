@@ -128,7 +128,7 @@ export function renderPage(p: PageParams): string {
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Names and tags; #work for tags only">
-          <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
+          <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">${UI_ICON.file}Names</button>
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>

@@ -2,10 +2,11 @@
 // a page of many items reads as a list of items rather than a wall of text.
 // The button appears only when the text is really cut off, and is checked
 // again whenever the text's width changes.
+import { UI_ICON } from './control-icons';
 
 /** Prose shown to `lines` lines until More is pressed. */
 export const clampHtml = (inner: string, lines = 3): string =>
-  `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-variant="ghost" data-size="sm" aria-expanded="false" hidden>More</button></div>`;
+  `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-variant="ghost" data-size="sm" aria-expanded="false" hidden>${UI_ICON.chevronDown}More</button></div>`;
 
 /** Show each clamp's More button when its text is cut off, and let it open and close the text. */
 export function wireClamps(root: HTMLElement): void {

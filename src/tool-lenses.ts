@@ -333,7 +333,7 @@ function initAsk(app: App): void {
   const paintError = (turn: HTMLElement, code: string, message: string, keep = false) => {
     const canned = LLM_ERROR_TEXT[code];
     const why = canned && message && message !== canned ? `${canned} (${message})` : canned ?? (message || 'The model did not answer.');
-    const card = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(why)}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+    const card = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(why)}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">${UI_ICON.refresh}Retry</button></div>`;
     const out = turn.querySelector('.fe-ask-a')!;
     if (keep) out.insertAdjacentHTML('beforeend', card); else out.innerHTML = card;
     turn.querySelector('.fe-ask-meta')!.textContent = '';

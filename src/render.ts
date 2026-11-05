@@ -144,7 +144,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
         ${icon}<span class="fe-sl fe-pl-label">${esc(name)}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
-      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="Two versions after a merge. Choose one.">Two versions</button>` : ''}
+      ${p.clash ? `<button class="btn fe-clash-btn" data-size="sm" data-key="${esc(p.clash)}" title="Two versions after a merge. Choose one.">${UI_ICON.versions}Two versions</button>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
       ${web ? '' : `<button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy link" aria-label="Copy link">${UI_ICON.phone}</button>`}
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
