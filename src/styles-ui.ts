@@ -105,6 +105,7 @@ export const UI_CSS = `
 .fe-set-c .fe-seg{flex-wrap:wrap;height:auto;min-height:var(--seg-h)}
 #fe-st-reset:not(:hover){color:var(--tone-danger)}
 .fe-switch:disabled{opacity:.45;cursor:not-allowed}
+.fe-dv-clamp.open .fe-dv-more svg{transform:rotate(180deg)}
 .fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
 .fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}

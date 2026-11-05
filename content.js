@@ -15918,7 +15918,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       e.stopPropagation();
       const c = more.closest(".fe-dv-clamp");
       const open = c.classList.toggle("open");
-      more.textContent = open ? "Less" : "More";
+      more.innerHTML = UI_ICON.chevronDown + (open ? "Less" : "More");
       more.setAttribute("aria-expanded", String(open));
     });
   }
@@ -16279,7 +16279,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const paintButtons = () => {
       const p = progress(cfg, host.state());
       copyBtn.querySelector("span").textContent = p.flagged ? `Copy (${p.flagged})` : "Copy";
-      submitBtn.textContent = sent ? "Replace answer" : "Submit";
+      submitBtn.innerHTML = UI_ICON.send + (sent ? "Replace answer" : "Submit");
       submitBtn.disabled = mode !== "gcc" || busy2;
       submitBtn.title = mode === "outside" ? "This page is not in gcc's registry, so it cannot be sent; Copy gives the picks line" : mode === "down" ? "gcc cannot be reached, so nothing can be sent; Copy gives the picks line" : sent ? "Send a new answer in place of the one already sent (s or \u2318\u21A9)" : "Send the answer to the agent that asked (s or \u2318\u21A9)";
     };
@@ -19899,6 +19899,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c .fe-seg{flex-wrap:wrap;height:auto;min-height:var(--seg-h)}
 #fe-st-reset:not(:hover){color:var(--tone-danger)}
 .fe-switch:disabled{opacity:.45;cursor:not-allowed}
+.fe-dv-clamp.open .fe-dv-more svg{transform:rotate(180deg)}
 .fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
 .fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
@@ -29869,7 +29870,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const deep = () => deepPref.get();
     function syncDepth() {
       const on = deep(), inNotes = openLens() === "notes";
-      depthBtn.textContent = on ? "Deep" : "Names";
+      depthBtn.innerHTML = (on ? UI_ICON.contents : UI_ICON.file) + (on ? "Deep" : "Names");
       depthBtn.classList.toggle("on", on);
       depthBtn.setAttribute("aria-pressed", String(on));
       depthBtn.title = on ? `Deep: also matches ${inNotes ? "the text inside notes" : "the names inside saved folders"}. Click for names only` : "Names only. Click to search inside too";

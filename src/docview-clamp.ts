@@ -24,7 +24,7 @@ export function wireClamps(root: HTMLElement): void {
     e.stopPropagation();
     const c = more.closest<HTMLElement>('.fe-dv-clamp')!;
     const open = c.classList.toggle('open');
-    more.textContent = open ? 'Less' : 'More';
+    more.innerHTML = UI_ICON.chevronDown + (open ? 'Less' : 'More');
     more.setAttribute('aria-expanded', String(open));
   });
 }

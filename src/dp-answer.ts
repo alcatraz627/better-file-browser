@@ -77,7 +77,7 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
   const paintButtons = () => {
     const p = progress(cfg, host.state());
     copyBtn.querySelector('span')!.textContent = p.flagged ? `Copy (${p.flagged})` : 'Copy';
-    submitBtn.textContent = sent ? 'Replace answer' : 'Submit';
+    submitBtn.innerHTML = UI_ICON.send + (sent ? 'Replace answer' : 'Submit');
     submitBtn.disabled = mode !== 'gcc' || busy;
     submitBtn.title = mode === 'outside' ? 'This page is not in gcc\'s registry, so it cannot be sent; Copy gives the picks line'
       : mode === 'down' ? 'gcc cannot be reached, so nothing can be sent; Copy gives the picks line'

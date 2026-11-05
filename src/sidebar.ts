@@ -732,7 +732,7 @@ export function initSidebar(app: App): void {
   const deep = () => deepPref.get();
   function syncDepth(): void {
     const on = deep(), inNotes = openLens() === 'notes';
-    depthBtn.textContent = on ? 'Deep' : 'Names';
+    depthBtn.innerHTML = (on ? UI_ICON.contents : UI_ICON.file) + (on ? 'Deep' : 'Names');
     depthBtn.classList.toggle('on', on);
     depthBtn.setAttribute('aria-pressed', String(on));
     depthBtn.title = on ? `Deep: also matches ${inNotes ? 'the text inside notes' : 'the names inside saved folders'}. Click for names only` : 'Names only. Click to search inside too';

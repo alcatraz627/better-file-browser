@@ -22,6 +22,11 @@ describe('controls stay short', () => {
     for (const f of files) for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/<button\b[^>]*class="btn\b[^"]*"[^>]*>([A-Za-z][^<]*)<\/button>/g)) bare.push(`${f}: ${m[1]}`);
     expect(bare).toEqual([]);
   });
+  it('a button keeps its icon when its words change', () => {
+    const wiped: string[] = [];
+    for (const f of files) for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/\b(?:submitBtn|depthBtn|more)\.textContent\s*=/g)) wiped.push(`${f}: ${m[0]}`);
+    expect(wiped).toEqual([]);
+  });
   it('no icon is written out as text inside a plain string', () => {
     const literal: string[] = [];
     for (const f of files) for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/'<button[^'`\n]*\$\{UI_ICON[^'`\n]*'/g)) literal.push(`${f}: ${m[0].slice(0, 60)}`);
