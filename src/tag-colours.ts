@@ -2,6 +2,8 @@
 // Renaming a tag renames it on every note and save that carries it, and the colour goes along.
 import { notes, NotesError, applyChange, readProps, frontmatterDrift, changedKeys, type NoteMeta } from './notes';
 import { getSaved, saveSaved, getTags, setTagColour, renameTagColour } from './storage';
+import { askYesNo } from './ask-yes-no';
+import type { Toast } from './toast';
 import { TAG_COLORS } from './places';
 import type { Place, Tag } from './types';
 import { esc } from './utils';
@@ -34,9 +36,11 @@ export function nextColour(current: string | null): string | null {
   return i < 0 || i === TAG_COLORS.length - 1 ? null : TAG_COLORS[i + 1];
 }
 
+const cleanTag = (raw: string) => raw.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+
 /** Rename a tag on every note and save. Resolves to how many files and saves changed. */
 export async function renameTag(root: string, old: string, rawNew: string): Promise<number> {
-  const next = rawNew.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+  const next = cleanTag(rawNew);
   if (!next || next === old) return 0;
   let changed = 0;
   const list: NoteMeta[] = root ? await notes.list(root) : [];
@@ -60,7 +64,7 @@ export async function renameTag(root: string, old: string, rawNew: string): Prom
 }
 
 /** Draws the page into `host` and answers with a redraw. */
-export function mountTagColours(host: HTMLElement, o: { root: () => string; toast: (m: string) => void; refresh: () => void }): () => void {
+export function mountTagColours(host: HTMLElement, o: { root: () => string; toast: Toast; refresh: () => void }): () => void {
   const draw = async () => {
     const root = o.root();
     let list: NoteMeta[] = [];
@@ -69,7 +73,7 @@ export function mountTagColours(host: HTMLElement, o: { root: () => string; toas
     host.innerHTML = rows.length ? rows.map(r => `
       <div class="fe-tc-row" data-tag="${esc(r.tag)}">
         <button class="fe-tc-sw" data-tc="colour" title="Click to change this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? 'var(--dm)')}"></i></button>
-        <input class="tb" data-size="sm" data-tc="name" value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
+        <input class="tb" data-size="sm" data-tc="name" data-own-esc value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
         <span class="fe-tc-n">${r.count} ${r.count === 1 ? 'item' : 'items'}</span>
       </div>`).join('') : '<p class="fe-set-note">No tags yet. Tag a note or a save and it shows up here.</p>';
   };
@@ -86,8 +90,35 @@ export function mountTagColours(host: HTMLElement, o: { root: () => string; toas
     const inp = (e.target as HTMLElement).closest<HTMLInputElement>('[data-tc="name"]');
     if (!inp) return;
     const tag = inp.closest<HTMLElement>('.fe-tc-row')!.dataset.tag!;
-    renameTag(o.root(), tag, inp.value).then(n => { if (n) o.toast(`Renamed on ${n} ${n === 1 ? 'item' : 'items'}`); o.refresh(); return draw(); })
-      .catch(err => { o.toast(errorText(err as NotesError, 'Renaming the tag')); void draw(); });
+    void rename(tag, inp.value);
   });
+  // The name box answers its own keys: Esc puts the name back and stays in Settings, Enter applies it.
+  host.addEventListener('keydown', e => {
+    const inp = (e.target as HTMLElement).closest<HTMLInputElement>('[data-tc="name"]');
+    if (!inp) return;
+    if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation();
+      inp.value = inp.closest<HTMLElement>('.fe-tc-row')!.dataset.tag!;
+      inp.blur();
+    } else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); inp.blur(); }
+  }, true);
+  /** Rename everywhere. Going onto a name already in use merges two tags, which cannot be pulled apart, so it asks; a plain rename can be undone. */
+  const rename = async (tag: string, typed: string) => {
+    const name = cleanTag(typed);
+    if (!name || name === tag) { await draw(); return; }
+    const taken = await inUse(name);
+    if (taken && !(await askYesNo(`"${name}" is already a tag on ${taken} ${taken === 1 ? 'item' : 'items'}. Merge "${tag}" into it? This cannot be undone.`, 'Merge tags'))) { await draw(); return; }
+    try {
+      const n = await renameTag(o.root(), tag, name);
+      if (n) o.toast(`${taken ? 'Merged' : 'Renamed'} on ${n} ${n === 1 ? 'item' : 'items'}`, 8000, taken ? undefined : { label: 'Undo', run: () => { void rename(name, tag); } });
+      o.refresh();
+    } catch (err) { o.toast(errorText(err as NotesError, 'Renaming the tag')); }
+    await draw();
+  };
+  const inUse = async (name: string) => {
+    let list: NoteMeta[] = [];
+    if (o.root()) { try { list = await notes.list(o.root()); } catch { /* the notes host is missing: saves still count */ } }
+    return tagRows(list.map(n => n.tags ?? []), getSaved(), []).find(r => r.tag === name)?.count ?? 0;
+  };
   return () => { void draw(); };
 }

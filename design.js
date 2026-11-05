@@ -938,7 +938,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rail-rz{position:absolute;left:0;bottom:0;width:14px;aspect-ratio:1;z-index:1;transform:scaleX(-1)}
 .fe-rail-rz.rz[data-axis="xy"]{cursor:nesw-resize}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
+/* Comments open beside the editor: the text and rendered sides make room rather than sit under the card. */
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-stage{margin-right:336px}
 /* The pane buttons right of find: icons only, the comment count as a small badge. */
 .fe-fp-panes{display:inline-flex;gap:var(--sp-1);flex:none}
 #fe-fp-bar .fe-fp-panes button[hidden]{display:none}
@@ -1083,7 +1084,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 .fe-md-footnotes{border-top:1px solid var(--bd);margin-top:2em;padding-top:.8em;font-size:.88em;color:var(--mt)}
 .fe-md-fnref a,.fe-md-fnback{text-decoration:none}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre,#fe-page .fe-code,#fe-ql-body .fe-code{font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1))}
-#fe.fe-notips #fe-tip{display:none}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
@@ -1626,7 +1626,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:var(--sp-2)}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
 .fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
-#fe-lens-tags,#fe-lens-colours{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags,#fe-lens-colours{flex-wrap:wrap}
 #fe-lens-tags .fe-lens-tag,#fe-lens-colours .fe-lens-tag{flex:none;white-space:nowrap}
 #fe-lens-colours[hidden]{display:none}/* A saved row is one quiet line: the name, then a tag count that gives way to
    the row's icon buttons on hover. Path and tags live in the hover card. */

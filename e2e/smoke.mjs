@@ -745,9 +745,11 @@ try {
   const imported = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
     recent: document.getElementById('fe-rail-history').hidden ? 'none' : 'block',
-    titles: document.querySelectorAll('#fe-bar [title]').length,
   }));
-  check(imported.labels.join() === 'tmp,Imported root' && imported.recent !== 'none' && imported.titles === 0, `import restores Saved and settings, and tooltips off strips titles: ${JSON.stringify(imported)}`);
+  await page.hover('#fe-bar [title]');
+  await new Promise(r => setTimeout(r, 800));
+  imported.tip = await page.evaluate(() => !!document.querySelector('#fe-hint.on'));
+  check(imported.labels.join() === 'tmp,Imported root' && imported.recent !== 'none' && !imported.tip, `import restores Saved and settings, and with tooltips off a hover shows none: ${JSON.stringify(imported)}`);
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   await page.click('#fe-st-tooltips');

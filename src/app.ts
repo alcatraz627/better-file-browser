@@ -23,6 +23,8 @@ export interface App {
   applyAll(): void;
   // Change the order every folder uses, and re-sort this one.
   setOrder(sort: SortConfig, group: GroupMode): void;
+  /** Show every folder in this view from now on. */
+  setView(view: string): void;
   refreshSaved(): void;
   refreshNotes(): void;
   newNote(): void;

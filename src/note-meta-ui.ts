@@ -22,17 +22,17 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
 
   const render = () => {
     menu.innerHTML = `
-      <button data-size="sm" class="btn fe-pm-pin${cur.pinned ? ' active' : ''}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? 'unpin' : 'pin to top'}</span></button>
+      <button data-size="sm" class="btn fe-pm-pin${cur.pinned ? ' active' : ''}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? 'Unpin' : 'Pin to top'}</span></button>
       <div class="fe-pm-lbl">Colour</div>
       <div class="fe-pm-colors">
-        <button data-size="sm" class="btn${cur.color === null ? ' active' : ''}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>none</span></button>
+        <button data-size="sm" class="btn${cur.color === null ? ' active' : ''}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>None</span></button>
         ${NOTE_COLORS.map(c => `<button data-size="sm" class="btn${cur.color === c ? ' active' : ''}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join('')}
       </div>
       <div class="fe-pm-lbl">tags</div>
       <div class="fe-pm-tags">
         ${cur.tags.map(t => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join('')}
       </div>
-      <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+      <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="New tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>Add</span></button></form>`;
   };
   const run = async (c: PropChange) => {
     const r = await apply(c);

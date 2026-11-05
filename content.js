@@ -2910,7 +2910,7 @@ ${text}
     const input = box.querySelector("input");
     const tabsEl = box.querySelector(".fe-pal-tabs");
     const list3 = box.querySelector(".fe-pal-list");
-    let shown = [];
+    let shown2 = [];
     let at = 0;
     let tab = "all";
     const matches = (it, q) => Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0);
@@ -2924,10 +2924,10 @@ ${text}
       }
       tabsEl.innerHTML = TABS.map((t) => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? " on" : ""}${counts.get(t.id) ? "" : " is-empty"}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ""}</button>`).join("");
       tabsEl.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
-      shown = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x2) => x2.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x2) => x2.it);
-      at = Math.min(at, Math.max(0, shown.length - 1));
+      shown2 = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x2) => x2.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x2) => x2.it);
+      at = Math.min(at, Math.max(0, shown2.length - 1));
       let lastGroup = "";
-      list3.innerHTML = shown.length ? shown.map((it, i3) => {
+      list3.innerHTML = shown2.length ? shown2.map((it, i3) => {
         const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
         return `${head}<div class="row fe-pal-i${i3 === at ? " on" : ""}" role="option" aria-selected="${i3 === at}" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
@@ -2940,7 +2940,7 @@ ${text}
       paint();
     };
     const fire2 = (i3, alt = false) => {
-      const it = shown[i3];
+      const it = shown2[i3];
       if (!it) return;
       layer.close("pick");
       if (alt && it.runAlt) it.runAlt();
@@ -2953,7 +2953,7 @@ ${text}
     input.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
-        at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(1, shown.length);
+        at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown2.length) % Math.max(1, shown2.length);
         paint();
       } else if (e.key === "Enter") {
         e.preventDefault();
@@ -3118,8 +3118,8 @@ ${text}
     side.classList.remove("peek");
     running?.cancel();
     running = null;
-    const shown = side.style.display !== "none";
-    if (show === shown) return;
+    const shown2 = side.style.display !== "none";
+    if (show === shown2) return;
     if (reduced()) {
       side.style.display = rz.style.display = show ? "" : "none";
       return;
@@ -3229,7 +3229,7 @@ ${text}
         box.focus();
         return;
       }
-      layer = openLayer(root2, { kind: "dialog", place: "none", focus: box, backdrop: root2.querySelector(".fe-dlg-bg"), onClose: () => {
+      layer = openLayer(root2, { kind: "dialog", place: "none", focus: box, keepOnEsc: () => !!document.activeElement?.closest("[data-own-esc]"), backdrop: root2.querySelector(".fe-dlg-bg"), onClose: () => {
         root2.hidden = true;
         hooks2.onClose?.();
       } });
@@ -4515,12 +4515,12 @@ ${text}
   function renderJsonl(text) {
     const lines = text.split("\n").map((l, i3) => ({ l, n: i3 + 1 })).filter((x2) => x2.l.trim() !== "");
     let truncNote = "";
-    let shown = lines;
+    let shown2 = lines;
     if (lines.length > RENDER_CAPS.jsonlLines) {
-      shown = lines.slice(0, RENDER_CAPS.jsonlLines);
+      shown2 = lines.slice(0, RENDER_CAPS.jsonlLines);
       truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
     }
-    const body = shown.map(({ l: line2, n }) => {
+    const body = shown2.map(({ l: line2, n }) => {
       try {
         const v = JSON.parse(line2);
         const compact = JSON.stringify(v);
@@ -5042,17 +5042,17 @@ ${body}
     let cur = props;
     const render2 = () => {
       menu.innerHTML = `
-      <button data-size="sm" class="btn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "unpin" : "pin to top"}</span></button>
+      <button data-size="sm" class="btn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "Unpin" : "Pin to top"}</span></button>
       <div class="fe-pm-lbl">Colour</div>
       <div class="fe-pm-colors">
-        <button data-size="sm" class="btn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>none</span></button>
+        <button data-size="sm" class="btn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>None</span></button>
         ${NOTE_COLORS.map((c) => `<button data-size="sm" class="btn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join("")}
       </div>
       <div class="fe-pm-lbl">tags</div>
       <div class="fe-pm-tags">
         ${cur.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
       </div>
-      <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+      <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="New tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>Add</span></button></form>`;
     };
     const run = async (c) => {
       const r = await apply(c);
@@ -16830,8 +16830,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (!filtered || k.matches("h1, .fe-dir-next, .fe-dir-sum, .fe-dir-list, .fe-md-fm")) continue;
       const table2 = k.matches("table") ? k : k.querySelector(":scope > table");
       if (table2) {
-        const shown = [...table2.querySelectorAll("tbody tr")].some((r) => !r.hidden && !r.hasAttribute("data-view-hide"));
-        k.toggleAttribute("data-view-hide", !shown);
+        const shown2 = [...table2.querySelectorAll("tbody tr")].some((r) => !r.hidden && !r.hasAttribute("data-view-hide"));
+        k.toggleAttribute("data-view-hide", !shown2);
         continue;
       }
       if (/^H[23]$/.test(k.tagName)) {
@@ -17002,11 +17002,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   };
   function cardsHtml(groups) {
     const cards2 = groups.filter((g) => g.section && g.section.kind !== "waiting").map((g) => {
-      const shown = g.rows.filter((r) => !r.el.hidden);
-      if (!shown.length) return "";
+      const shown2 = g.rows.filter((r) => !r.el.hidden);
+      if (!shown2.length) return "";
       const n = (rs, s) => rs.filter((r) => r.el.dataset.state === s).length;
-      const legend = STATES.filter((s) => n(shown, s.id)).map((s) => `<span data-state="${s.id}"><i></i>${n(shown, s.id)} ${s.label}</span>`).join("");
-      const next = shown.filter((r) => r.el.dataset.state === "needs" || r.el.dataset.state === "ready").slice(0, 3);
+      const legend = STATES.filter((s) => n(shown2, s.id)).map((s) => `<span data-state="${s.id}"><i></i>${n(shown2, s.id)} ${s.label}</span>`).join("");
+      const next = shown2.filter((r) => r.el.dataset.state === "needs" || r.el.dataset.state === "ready").slice(0, 3);
       const nextHtml = next.length ? next.map((r) => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ""}<span>${esc(plain3(r.text || "Row"))}</span></span>`).join("") : '<span class="fe-dc-none">Nothing to pick up</span>';
       return `<button type="button" class="fe-dc" data-goto="${esc(g.key)}" title="Show these rows in the list"><span class="fe-dc-hd">${ringHtml(n(g.rows, "done"), g.rows.length)}<span class="fe-dc-t">${esc(g.title)}</span></span><span class="fe-dc-legend">${legend}</span><span class="fe-dc-next">${nextHtml}</span></button>`;
     }).join("");
@@ -17018,16 +17018,16 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const linked = [...links.values()].some((ls) => ls.length);
     const cols = linked ? 5 : 4;
     const body = groups.map((g) => {
-      const shown = brief ? g.rows : g.rows.filter((r) => !r.el.hidden);
-      if (!shown.length) return "";
+      const shown2 = brief ? g.rows : g.rows.filter((r) => !r.el.hidden);
+      if (!shown2.length) return "";
       const folded = brief ? !open.has(g.key) : open.has("-" + g.key);
-      const rows = folded ? "" : shown.map((r) => {
+      const rows = folded ? "" : shown2.map((r) => {
         const st = r.el.dataset.state;
         const label = STATES.find((s) => s.id === st)?.label;
         const sub = r.need || (r.section && r.section !== g.section ? plain3(r.section.title) : "");
         return `<tr data-row="${at(r)}"${st ? ` data-state="${st}"` : ""}><td class="fe-dl-st">${st ? pillHtml(st, label) : '<span class="fe-dl-none">unmarked</span>'}</td><td class="fe-dl-id">${r.id ? esc(r.id) : ""}</td><td class="fe-dl-t"><span class="fe-dl-tx">${esc(plain3(r.text || "Row"))}</span>${sub ? `<span class="fe-dl-sub">${esc(plain3(sub))}</span>` : ""}</td>` + (linked ? `<td class="fe-dl-links">${chipsHtml2(links.get(r) ?? [])}</td>` : "") + `<td class="fe-dl-when">${r.when ?? ""}</td></tr>`;
       }).join("");
-      return `<tbody data-group="${esc(g.key)}"><tr class="fe-dl-g"><th colspan="${cols}"><span class="fe-dl-gh"><button type="button" class="fe-dl-fold" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} these rows">${esc(g.title)}</button>${meterOf(g.rows)}<span class="fe-dl-n">${shown.length}${shown.length !== g.rows.length ? ` of ${g.rows.length}` : ""}</span>${g.section ? `<button type="button" class="fe-dl-go" data-sec="${esc(g.section.el.id)}" title="Read this section in the doc">In doc</button>` : ""}</span></th></tr>${rows}</tbody>`;
+      return `<tbody data-group="${esc(g.key)}"><tr class="fe-dl-g"><th colspan="${cols}"><span class="fe-dl-gh"><button type="button" class="fe-dl-fold" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} these rows">${esc(g.title)}</button>${meterOf(g.rows)}<span class="fe-dl-n">${shown2.length}${shown2.length !== g.rows.length ? ` of ${g.rows.length}` : ""}</span>${g.section ? `<button type="button" class="fe-dl-go" data-sec="${esc(g.section.el.id)}" title="Read this section in the doc">In doc</button>` : ""}</span></th></tr>${rows}</tbody>`;
     }).join("");
     return body ? `<table class="fe-dl">${body}</table>` : '<p class="fe-dl-empty">No row matches the filter.</p>';
   }
@@ -17266,8 +17266,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       depthSeg.set(f.depth);
       chips.querySelectorAll(".fe-dv-chip").forEach((c) => c.setAttribute("aria-pressed", String(f.states.has(c.dataset.state))));
       if (qBox.value !== f.q && document.activeElement !== qBox) qBox.value = f.q;
-      const shown = tasks.filter((r) => !r.hidden).length;
-      status.innerHTML = isFiltered(f) ? `Showing ${shown} of ${tasks.length} <button type="button" class="fe-dir-clear" title="Show every row again">Clear</button>` : [
+      const shown2 = tasks.filter((r) => !r.hidden).length;
+      status.innerHTML = isFiltered(f) ? `Showing ${shown2} of ${tasks.length} <button type="button" class="fe-dir-clear" title="Show every row again">Clear</button>` : [
         `<span class="fe-dir-total" title="${all.done} of ${tasks.length} rows done">${all.done}/${tasks.length} done</span>`,
         unmarked ? `<span class="fe-dir-unmarked" title="Rows with no state mark or state word">${unmarked} unmarked</span>` : "",
         next.staleDays !== null ? `<span class="fe-dir-next-stale" title="The doc's Last updated line">updated ${next.staleDays} days ago</span>` : ""
@@ -17368,11 +17368,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     if (!views2.length) return null;
     fe.classList.add("fe-dp-pending");
     const base2 = fileHref(app.rawPath);
-    let shown = null;
+    let shown2 = null;
     for (const v of views2) {
       try {
         if (await v.mount({ root: box, base: base2, path: app.rawPath, toast: (m) => app.toast(m), app })) {
-          shown = v.id;
+          shown2 = v.id;
           break;
         }
       } catch (err) {
@@ -17381,8 +17381,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }
     }
     fe.classList.remove("fe-dp-pending");
-    if (!shown) return null;
-    markDocView(box, shown);
+    if (!shown2) return null;
+    markDocView(box, shown2);
     const filesPref = textPref("bfb-dp-files:" + app.rawPath, "", "tab");
     const back = document.createElement("button");
     back.type = "button";
@@ -17390,7 +17390,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     back.className = "btn";
     Object.assign(back.dataset, { variant: "outline", size: "sm", tone: "accent" });
     back.title = "Show this folder as its page";
-    back.innerHTML = UI_ICON.opinion + (shown === "decision-page" ? "Decision page" : "Page");
+    back.innerHTML = UI_ICON.opinion + (shown2 === "decision-page" ? "Decision page" : "Page");
     document.getElementById("fe-toolbar")?.append(back);
     const show = (page) => {
       fe.classList.toggle("fe-dp-page", page);
@@ -17401,7 +17401,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     box.querySelector("[data-docview-files]")?.addEventListener("click", () => show(false));
     back.addEventListener("click", () => show(true));
     show(filesPref.get() !== "1");
-    return shown;
+    return shown2;
   }
   function decorateFileView(root2, path, toast) {
     const base2 = fileHref(path.replace(/[^/]*$/, ""));
@@ -18347,7 +18347,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rail-rz{position:absolute;left:0;bottom:0;width:14px;aspect-ratio:1;z-index:1;transform:scaleX(-1)}
 .fe-rail-rz.rz[data-axis="xy"]{cursor:nesw-resize}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
+/* Comments open beside the editor: the text and rendered sides make room rather than sit under the card. */
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-stage{margin-right:336px}
 /* The pane buttons right of find: icons only, the comment count as a small badge. */
 .fe-fp-panes{display:inline-flex;gap:var(--sp-1);flex:none}
 #fe-fp-bar .fe-fp-panes button[hidden]{display:none}
@@ -18492,7 +18493,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 .fe-md-footnotes{border-top:1px solid var(--bd);margin-top:2em;padding-top:.8em;font-size:.88em;color:var(--mt)}
 .fe-md-fnref a,.fe-md-fnback{text-decoration:none}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre,#fe-page .fe-code,#fe-ql-body .fe-code{font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1))}
-#fe.fe-notips #fe-tip{display:none}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
@@ -19035,7 +19035,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:var(--sp-2)}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
 .fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
-#fe-lens-tags,#fe-lens-colours{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags,#fe-lens-colours{flex-wrap:wrap}
 #fe-lens-tags .fe-lens-tag,#fe-lens-colours .fe-lens-tag{flex:none;white-space:nowrap}
 #fe-lens-colours[hidden]{display:none}/* A saved row is one quiet line: the name, then a tag count that gives way to
    the row's icon buttons on hover. Path and tags live in the hover card. */
@@ -20094,17 +20094,17 @@ button.chip:disabled{opacity:.45;cursor:default}
     const typed = input.trim().replace(/^['"]|['"]$/g, "");
     const abs = absPath(typed, home);
     const tilde = !!home && (typed === "~" || typed.startsWith("~/"));
-    const shown = (p) => tilde && p.startsWith(home) ? "~" + p.slice(home.length) : p;
+    const shown2 = (p) => tilde && p.startsWith(home) ? "~" + p.slice(home.length) : p;
     const out = [];
     if (abs) {
       const dir = abs.endsWith("/") ? abs : abs.slice(0, abs.lastIndexOf("/") + 1) || "/";
       const stem = abs.slice(dir.length).toLowerCase();
       const names = await namesIn(dir).catch(() => []);
       const hits = names.filter((n) => n.name.toLowerCase().startsWith(stem) && (stem.startsWith(".") || !n.name.startsWith("."))).sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name));
-      for (const n of hits) out.push(shown(dir + n.name + (n.dir ? "/" : "")));
+      for (const n of hits) out.push(shown2(dir + n.name + (n.dir ? "/" : "")));
     }
     const needle = typed.toLowerCase();
-    for (const r of getRecents()) if (needle && r.path.toLowerCase().includes(needle.replace(/^~/, home.toLowerCase())) && !out.includes(shown(r.path))) out.push(shown(r.path));
+    for (const r of getRecents()) if (needle && r.path.toLowerCase().includes(needle.replace(/^~/, home.toLowerCase())) && !out.includes(shown2(r.path))) out.push(shown2(r.path));
     return out.slice(0, limit);
   }
   function suggestPaths(input, list3, home) {
@@ -20402,7 +20402,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const startEdit = () => {
       if (edit2) return;
       closeCrumbMenu();
-      const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
+      const shown2 = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
       edit2 = document.createElement("form");
       edit2.id = "fe-bc-edit";
       edit2.innerHTML = `<input class="tb" type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there \xB7 Esc cancels">
@@ -20410,7 +20410,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       bc.after(edit2);
       bc.hidden = true;
       const input = edit2.querySelector("input");
-      input.value = shown;
+      input.value = shown2;
       input.focus();
       input.select();
       input.addEventListener("blur", () => setTimeout(() => {
@@ -21210,11 +21210,11 @@ and ${diags.length - 12} more` : "");
       state.title = failed2 && dirty ? failed2 : "";
       renderView();
     };
-    let shown = "";
+    let shown2 = "";
     let renderTimer = 0;
     const renderView = () => {
-      if (!view || !fmt || mode === "raw" || shown === tw.text()) return;
-      if (!shown) {
+      if (!view || !fmt || mode === "raw" || shown2 === tw.text()) return;
+      if (!shown2) {
         drawView();
         return;
       }
@@ -21225,11 +21225,11 @@ and ${diags.length - 12} more` : "");
     };
     const drawView = () => {
       const t = tw.text();
-      if (!view || !fmt || mode === "raw" || shown === t) return;
+      if (!view || !fmt || mode === "raw" || shown2 === t) return;
       const top = view.scrollTop;
       morphView(fmt.rich(t, host.href));
       view.scrollTop = top;
-      shown = t;
+      shown2 = t;
     };
     const setMode = (m) => {
       if (!view) return;
@@ -21595,7 +21595,7 @@ and ${diags.length - 12} more` : "");
       diffBox.hidden = true;
       if (view) {
         view.innerHTML = "";
-        shown = "";
+        shown2 = "";
         if (modeWas && modeWas !== mode) setMode(modeWas);
         else renderView();
       }
@@ -21609,7 +21609,7 @@ and ${diags.length - 12} more` : "");
           modeWas ??= mode;
           if (mode === "raw") setMode("split");
           clearTimeout(renderTimer);
-          shown = tw.text();
+          shown2 = tw.text();
           view.innerHTML = head + fmt.rich(text, host.href);
         } else {
           diffBox.innerHTML = head + lineDiffHtml(text, tw.text());
@@ -21890,7 +21890,6 @@ and ${diags.length - 12} more` : "");
   }
 
   // src/comments-ui.ts
-  var filterPref = textPref("bfb-comments-filter-v1", "open");
   var FILTERS = [
     { id: "open", label: "Open", icon: UI_ICON.circle, hint: "Threads still open" },
     { id: "me", label: "For me", icon: UI_ICON.at, hint: "Threads waiting on you" },
@@ -21991,7 +21990,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   function mountComments(o) {
     let threads = [];
     let notesLine = [];
-    let filter = filterPref.get();
+    let filter = "open";
     let active = "";
     let loaded = false, failed2 = "";
     let lastCompanion = null, lastText = "";
@@ -22123,7 +22122,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         sugSay(commentId, "The file is open in the editor. Press Done there, then accept.");
         return;
       }
-      const shown = o.text();
+      const shown2 = o.text();
       let cur;
       try {
         cur = await notes.fileRead(root2, o.rel());
@@ -22131,7 +22130,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         sugSay(commentId, errorText(e, "Applying the suggestion"));
         return;
       }
-      if (cur.text !== shown) {
+      if (cur.text !== shown2) {
         sugSay(commentId, "The file changed on disk since this page loaded it. Reload, then accept again.");
         return;
       }
@@ -22747,7 +22746,6 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const f = el2.closest("[data-f]")?.dataset.f;
       if (f) {
         filter = f;
-        filterPref.set(f);
         paint();
         redraw();
         return;
@@ -23123,9 +23121,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     };
     const cardSize = () => ({ w: rail.offsetWidth, h: rail.offsetHeight });
     let cur = {};
-    let shown = {};
+    let shown2 = {};
     const paintBox = (b) => {
-      shown = b;
+      shown2 = b;
       rail.style.right = b.right === void 0 ? "" : `${b.right}px`;
       rail.style.top = b.top === void 0 ? "" : `${b.top}px`;
       rail.style.width = b.w === void 0 ? "" : `${b.w}px`;
@@ -23155,7 +23153,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         (dx, dy) => paintBox(clampBox({ ...cur, right: start.right - dx, top: start.top + dy }, pageSize(), cardSize())),
         () => {
           delete rail.dataset.moving;
-          keep(shown);
+          keep(shown2);
         }
       );
     });
@@ -23165,7 +23163,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       label: "Resize the card",
       size: () => cardSize(),
       apply: (w, h) => paintBox(clampBox({ ...cur, w, h }, pageSize(), cardSize())),
-      commit: () => keep(shown),
+      commit: () => keep(shown2),
       reset: () => keep({})
     });
     reset.addEventListener("click", () => keep({}));
@@ -23598,14 +23596,14 @@ ${[[1, 36], [2, 30], [3, 26], [4, 23], [5, 22], [6, 22]].map(([n, sz]) => `<w:st
       if (svg2) diagrams.push({ el: el2, ...diagramSvg(svg2) });
       else el2.remove();
     });
-    const shown = new Map([...page.querySelectorAll(".fe-md img")].map((i3) => [i3.src, i3]));
+    const shown2 = new Map([...page.querySelectorAll(".fe-md img")].map((i3) => [i3.src, i3]));
     root2.querySelectorAll("img").forEach((img) => {
       const src = img.src;
-      const data = shown.get(src) && imageData(shown.get(src));
+      const data = shown2.get(src) && imageData(shown2.get(src));
       if (data) {
         img.src = data;
-        img.setAttribute("width", String(shown.get(src).naturalWidth));
-        img.setAttribute("height", String(shown.get(src).naturalHeight));
+        img.setAttribute("width", String(shown2.get(src).naturalWidth));
+        img.setAttribute("height", String(shown2.get(src).naturalHeight));
       } else img.src = src;
     });
     const title = root2.querySelector("h1")?.textContent?.trim() || decodeURIComponent(href.split("/").pop() || "Document").replace(/\.\w+$/, "");
@@ -24083,8 +24081,8 @@ ${d.message}` : d.message;
     let tight = false, peek = false;
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
-    const paintMeta = (shown = text) => {
-      const fm = fileMeta(shown, ext2, rawPath);
+    const paintMeta = (shown2 = text) => {
+      const fm = fileMeta(shown2, ext2, rawPath);
       meta.textContent = fm.kind;
       const row2 = document.getElementById("fe-status-meta");
       if (row2) row2.innerHTML = metaChips(fm);
@@ -24112,8 +24110,10 @@ ${d.message}` : d.message;
       rail.querySelector(".fe-rail-ico").innerHTML = tab === "cm" ? UI_ICON.comment : UI_ICON.contents;
       rail.querySelector(".fe-rail-name").textContent = tab === "cm" ? "Comments" : "On this page";
       cmN.textContent = tab === "cm" && cmOpen ? String(cmOpen) : "";
-      cmBtn.hidden = !isMd || raw;
-      tocBtn.hidden = !hasToc || raw;
+      cmBtn.hidden = !isMd;
+      tocBtn.hidden = !hasToc;
+      cmBtn.disabled = tocBtn.disabled = raw;
+      cmBtn.title = raw ? "Comments sit on the rendered page; leave Raw to see them" : "Comments (\u21E7C)";
       for (const [b, t] of [[tocBtn, "toc"], [cmBtn, "cm"]]) {
         const on = !rail.hidden && tab === t;
         b.classList.toggle("on", on);
@@ -25005,7 +25005,7 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       pinSizes.disconnect();
       el2.querySelectorAll(".fe-tab.pinned").forEach((a) => pinSizes.observe(a, { box: "border-box" }));
     }
-    function shown() {
+    function shown2() {
       if (hereIn(state) || !rawPath) return state.list;
       return [...state.list, { id: "", path: rawPath, kind: kindOf(rawPath), label: labelFor(rawPath), pinned: false }];
     }
@@ -25044,7 +25044,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       onTab?.scrollIntoView({ inline: "nearest", block: "nearest" });
       if (onTab && onTab === el2.lastElementChild) el2.scrollLeft = el2.scrollWidth;
       if (listBtn) {
-        const all = shown();
+        const all = shown2();
         listBtn.hidden = all.length < 2;
         listBtn.onclick = (e) => {
           e.preventDefault();
@@ -25225,7 +25225,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         listeners.push(fn);
       },
       state: () => state,
-      shown,
+      shown: shown2,
       closedSets,
       restoreSet,
       goHome
@@ -25660,10 +25660,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   function tagChips(e, ctx) {
     if (e.isParent || !ctx.tagsOf) return "";
     const tags = ctx.tagsOf(fullPath(ctx.rawPath, e));
-    const shown = tags.length > CHIPS_SHOWN + 1 ? tags.slice(0, CHIPS_SHOWN) : tags;
-    const rest = tags.slice(shown.length);
+    const shown2 = tags.length > CHIPS_SHOWN + 1 ? tags.slice(0, CHIPS_SHOWN) : tags;
+    const rest = tags.slice(shown2.length);
     if (!tags.length) return "";
-    return '<div class="fe-chips">' + shown.map((t) => `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}"><span>${esc(t.name)}</span></span>`).join("") + (rest.length ? `<span class="chip fe-chip-more" data-size="sm" title="Also tagged: ${esc(rest.map((t) => t.name).join(", "))}">+${rest.length}</span>` : "") + "</div>";
+    return '<div class="fe-chips">' + shown2.map((t) => `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}"><span>${esc(t.name)}</span></span>`).join("") + (rest.length ? `<span class="chip fe-chip-more" data-size="sm" title="Also tagged: ${esc(rest.map((t) => t.name).join(", "))}">+${rest.length}</span>` : "") + "</div>";
   }
   function buildTipData(e, ctx) {
     if (e.isParent) {
@@ -26053,6 +26053,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   ${renderDialog(HELP_DIALOG)}
 </div>`;
     return PAGE_HTML;
+  }
+
+  // src/main-surface.ts
+  var askedFor = null;
+  var answer = false;
+  function listingShown() {
+    const fe = document.getElementById("fe"), listing = document.getElementById("fe-listing");
+    if (!fe || !listing) return false;
+    if (fe.className !== askedFor) {
+      askedFor = fe.className;
+      answer = getComputedStyle(listing).display !== "none";
+    }
+    return answer;
   }
 
   // src/selection.ts
@@ -26600,14 +26613,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         renderTree(entries, parent);
       }
       fe.classList.toggle("fe-no-tags", !entries.some((e) => c.tagsOf(fullPath(rawPath, e)).length));
-      const shown = fe.dataset.view === "tree" ? entries.length : ls.visible.filter((en) => !en.isParent).length;
+      const shown2 = fe.dataset.view === "tree" ? entries.length : ls.visible.filter((en) => !en.isParent).length;
       const filtered = !!ls.filter.q || ls.filter.type !== "all";
       if (ls.contentHits) {
-        ls.baseStatus = `${shown} file${shown !== 1 ? "s" : ""} containing "${ls.contentText}"${ls.deepOn ? ` in ${ls.deepFolders} folders` : ""}`;
+        ls.baseStatus = `${shown2} file${shown2 !== 1 ? "s" : ""} containing "${ls.contentText}"${ls.deepOn ? ` in ${ls.deepFolders} folders` : ""}`;
       } else if (ls.deepOn) {
-        ls.baseStatus = ls.deepScanning ? `Scanning\u2026 ${ls.deepFolders} folder${ls.deepFolders !== 1 ? "s" : ""}` : `${shown} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? ` (${ls.deepCap})` : ""}`;
+        ls.baseStatus = ls.deepScanning ? `Scanning\u2026 ${ls.deepFolders} folder${ls.deepFolders !== 1 ? "s" : ""}` : `${shown2} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? ` (${ls.deepCap})` : ""}`;
       } else {
-        ls.baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : countText();
+        ls.baseStatus = filtered ? `${shown2} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : countText();
       }
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus;
       lastEntries = entries;
@@ -26638,6 +26651,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         applyAll();
       }
     });
+    app.setView = (v) => {
+      el("fe-view-group").value = v;
+      fe.dataset.view = v;
+      viewPref.set(v);
+      applyAll();
+    };
     app.setOrder = (sort, group2) => {
       ls.sort = { ...sort };
       ls.group = group2;
@@ -26970,6 +26989,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       el("fe-filter-btn").click();
       document.activeElement?.blur();
     });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || !listingShown() || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? "") || filterBar.contains(document.activeElement)) return;
+      const btn = !filterBar.hidden ? el("fe-filter-btn") : !el("fe-sg-panel").hidden ? el("fe-sg-btn") : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      btn.click();
+    }, true);
     el("fe-filter-q").addEventListener("input", function() {
       stopFind();
       ls.filter.q = this.value;
@@ -27340,19 +27367,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
   }
 
-  // src/main-surface.ts
-  var askedFor = null;
-  var answer = false;
-  function listingShown() {
-    const fe = document.getElementById("fe"), listing = document.getElementById("fe-listing");
-    if (!fe || !listing) return false;
-    if (fe.className !== askedFor) {
-      askedFor = fe.className;
-      answer = getComputedStyle(listing).display !== "none";
-    }
-    return answer;
-  }
-
   // src/listing-input.ts
   function initListingInput(app, listing) {
     const { fe, toast, rawPath } = app;
@@ -27583,13 +27597,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     const lead = () => ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
     const leadRow = () => scroll.querySelector(`[data-idx="${ls.selIdx}"]`);
-    const shown = () => ls.visible.map((_, i3) => i3).filter((i3) => sel.selectable(i3) || ls.visible[i3].isParent);
+    const shown2 = () => ls.visible.map((_, i3) => i3).filter((i3) => sel.selectable(i3) || ls.visible[i3].isParent);
     const perPage = () => Math.max(1, Math.floor(scroll.clientHeight / (leadRow()?.offsetHeight || 32)) - 1);
     const jump = (to) => {
-      const list3 = shown();
+      const list3 = shown2();
       if (list3.length) sel.setSel(list3[Math.max(0, Math.min(list3.length - 1, to))]);
     };
-    const pos = () => shown().indexOf(ls.selIdx);
+    const pos = () => shown2().indexOf(ls.selIdx);
     bind("to-listing", () => {
       document.activeElement?.blur();
       if (ls.selIdx < 0) sel.moveSel(1);
@@ -27600,7 +27614,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("page-up", () => jump(pos() - perPage()), onListing);
     bind("page-down", () => jump(Math.max(0, pos()) + perPage()), onListing);
     const extend = (dir) => {
-      const list3 = shown();
+      const list3 = shown2();
       const to = list3[list3.indexOf(ls.selIdx) + dir];
       if (to !== void 0 && sel.selectable(to)) {
         if (ls.anchor < 0) ls.anchor = ls.selIdx;
@@ -27927,6 +27941,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   function setTooltipKeys(fn) {
     keysFor = fn;
   }
+  var shown = true;
+  function setTooltips(on) {
+    shown = on;
+  }
   function initTooltips(root2) {
     const tip = document.createElement("div");
     tip.id = "fe-hint";
@@ -27970,7 +27988,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         labelled = true;
       }
       timer3 = window.setTimeout(() => {
-        if (target !== el2) return;
+        if (target !== el2 || !shown) return;
         if (el2.dataset.tip === "problem") {
           const err = el2.classList.contains("err");
           const msgs = text.split("\n").map((m) => m.replace(/^Line \d+:\s*/, ""));
@@ -29494,8 +29512,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       lensNotes.count = allNotes.length;
       lensNotes.tags = [...new Set(allNotes.flatMap((n) => n.tags ?? []))];
       syncLens();
-      const shown = shownNotes();
-      ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root2}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root2}`;
+      const shown2 = shownNotes();
+      ntHint.textContent = ntFilter.value.trim() ? `${shown2.length} of ${allNotes.length} notes in ${root2}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root2}`;
       const row2 = (n) => {
         const c = colorName(n.color);
         return `
@@ -29511,17 +29529,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             </span>
           </div>`;
       };
-      const pinned = shown.filter((n) => n.pinned);
+      const pinned = shown2.filter((n) => n.pinned);
       const lane = (n) => !n.pinned && (n.agent ? "agents" : isExpired(n) ? "expired" : "");
-      const agents = shown.filter((n) => lane(n) === "agents"), expired = shown.filter((n) => lane(n) === "expired");
-      const rest = shown.filter((n) => !n.pinned && !lane(n));
+      const agents = shown2.filter((n) => lane(n) === "agents"), expired = shown2.filter((n) => lane(n) === "expired");
+      const rest = shown2.filter((n) => !n.pinned && !lane(n));
       const folded = noteFolds();
       const group2 = (key, label, list3) => {
         const open = (LANES_FOLDED.has(key) ? folded.has(key) : !folded.has(key)) || !!ntFilter.value.trim();
         return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${DISCLOSE}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
       const heldRel = document.activeElement?.matches(".fe-si-link") ? document.activeElement.closest(".fe-nt-item")?.dataset.rel : void 0;
-      ntList.innerHTML = shown.length ? pinned.length || agents.length || expired.length ? (pinned.length ? group2("pinned", "Pinned", pinned) : "") + (pinned.length || rest.length ? group2("all", "All notes", rest) : "") + (agents.length ? group2("agents", "Agents", agents) : "") + (expired.length ? group2("expired", "Expired", expired) : "") : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
+      ntList.innerHTML = shown2.length ? pinned.length || agents.length || expired.length ? (pinned.length ? group2("pinned", "Pinned", pinned) : "") + (pinned.length || rest.length ? group2("all", "All notes", rest) : "") + (agents.length ? group2("agents", "Agents", agents) : "") + (expired.length ? group2("expired", "Expired", expired) : "") : shown2.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
       attachNoteEvents(root2);
       if (heldRel) els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === heldRel)?.querySelector(".fe-si-link")?.focus();
     }
@@ -29720,8 +29738,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const noteName = (n) => n.title || noteTitle(n.rel);
     const notePath = (root2, rel) => root2.replace(/\/$/, "") + "/" + rel;
     function stepNote(root2, rel, dir) {
-      const shown = shownNotes();
-      const pool = shown.some((n) => n.rel === rel) ? shown : allNotes;
+      const shown2 = shownNotes();
+      const pool = shown2.some((n) => n.rel === rel) ? shown2 : allNotes;
       const at = pool.findIndex((n) => n.rel === rel);
       const next = at < 0 ? void 0 : pool[at + dir];
       if (!next) {
@@ -30580,8 +30598,8 @@ ${body}
     const list3 = el("fe-srch-list");
     let run = 0;
     const lastPref2 = textPref("bfb-srch-last:" + app.folderPath, "", "tab");
-    const remember = (term, shown) => {
-      const keep = shown && shown.html.length < 2e5 ? shown : void 0;
+    const remember = (term, shown2) => {
+      const keep = shown2 && shown2.html.length < 2e5 ? shown2 : void 0;
       lastPref2.set(term ? JSON.stringify({ term, deep: el("fe-srch-deep").checked, matchCase: el("fe-srch-case").checked, ...keep }) : "");
     };
     async function search() {
@@ -30926,16 +30944,16 @@ ${rows.join("\n")}`, name: subject };
     async function ask(intent, question, o = {}) {
       if (go2.disabled && !o.model) return;
       cancel?.();
-      const shown = o.shown ?? question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
+      const shown2 = o.shown ?? question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
       const files = about?.image && !attached.includes(key) ? [key, ...attached] : attached.slice();
       const useModel = o.model ?? model();
-      const turn = turnEl(shown, attached, o.via);
+      const turn = turnEl(shown2, attached, o.via);
       asks.set(turn, { intent, question, ...o });
       turn.scrollIntoView({ block: "end" });
       const started = Date.now();
       if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const base2 = {
-        q: shown,
+        q: shown2,
         model: bareModel(useModel) || modelName(),
         at: started,
         ...intent === "qa" ? {} : { intent },
@@ -31548,8 +31566,9 @@ ${rows.join("\n")}`, name: subject };
     const i3 = TAG_COLORS.indexOf(current);
     return i3 < 0 || i3 === TAG_COLORS.length - 1 ? null : TAG_COLORS[i3 + 1];
   }
+  var cleanTag = (raw) => raw.replace(/,/g, " ").replace(/\s+/g, " ").trim();
   async function renameTag(root2, old, rawNew) {
-    const next = rawNew.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+    const next = cleanTag(rawNew);
     if (!next || next === old) return 0;
     let changed = 0;
     const list3 = root2 ? await notes.list(root2) : [];
@@ -31585,7 +31604,7 @@ ${rows.join("\n")}`, name: subject };
       host.innerHTML = rows.length ? rows.map((r) => `
       <div class="fe-tc-row" data-tag="${esc(r.tag)}">
         <button class="fe-tc-sw" data-tc="colour" title="Click to change this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? "var(--dm)")}"></i></button>
-        <input class="tb" data-size="sm" data-tc="name" value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
+        <input class="tb" data-size="sm" data-tc="name" data-own-esc value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
         <span class="fe-tc-n">${r.count} ${r.count === 1 ? "item" : "items"}</span>
       </div>`).join("") : '<p class="fe-set-note">No tags yet. Tag a note or a save and it shows up here.</p>';
     };
@@ -31602,15 +31621,54 @@ ${rows.join("\n")}`, name: subject };
       const inp = e.target.closest('[data-tc="name"]');
       if (!inp) return;
       const tag = inp.closest(".fe-tc-row").dataset.tag;
-      renameTag(o.root(), tag, inp.value).then((n) => {
-        if (n) o.toast(`Renamed on ${n} ${n === 1 ? "item" : "items"}`);
-        o.refresh();
-        return draw();
-      }).catch((err) => {
-        o.toast(errorText(err, "Renaming the tag"));
-        void draw();
-      });
+      void rename(tag, inp.value);
     });
+    host.addEventListener("keydown", (e) => {
+      const inp = e.target.closest('[data-tc="name"]');
+      if (!inp) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        inp.value = inp.closest(".fe-tc-row").dataset.tag;
+        inp.blur();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        inp.blur();
+      }
+    }, true);
+    const rename = async (tag, typed) => {
+      const name2 = cleanTag(typed);
+      if (!name2 || name2 === tag) {
+        await draw();
+        return;
+      }
+      const taken = await inUse(name2);
+      if (taken && !await askYesNo(`"${name2}" is already a tag on ${taken} ${taken === 1 ? "item" : "items"}. Merge "${tag}" into it? This cannot be undone.`, "Merge tags")) {
+        await draw();
+        return;
+      }
+      try {
+        const n = await renameTag(o.root(), tag, name2);
+        if (n) o.toast(`${taken ? "Merged" : "Renamed"} on ${n} ${n === 1 ? "item" : "items"}`, 8e3, taken ? void 0 : { label: "Undo", run: () => {
+          void rename(name2, tag);
+        } });
+        o.refresh();
+      } catch (err) {
+        o.toast(errorText(err, "Renaming the tag"));
+      }
+      await draw();
+    };
+    const inUse = async (name2) => {
+      let list3 = [];
+      if (o.root()) {
+        try {
+          list3 = await notes.list(o.root());
+        } catch {
+        }
+      }
+      return tagRows(list3.map((n) => n.tags ?? []), getSaved(), []).find((r) => r.tag === name2)?.count ?? 0;
+    };
     return () => {
       void draw();
     };
@@ -31823,7 +31881,7 @@ ${rows.join("\n")}`, name: subject };
         if (av.kind === "unavailable") {
           head.classList.add("off");
           state.textContent = "Not set up";
-          sub.textContent = "Ask and the AI bar stay hidden";
+          sub.textContent = "Ask stays hidden";
           hint.innerHTML = `Run <code>native/install.sh &lt;extension-id&gt;</code>, then reload. <span class="fe-dm">(${esc(av.reason)})</span>`;
           aiModel.setOptions([]);
           return;
@@ -31971,10 +32029,12 @@ ${rows.join("\n")}`, name: subject };
     el("fe-st-tooltips").addEventListener("change", function() {
       settings.tooltips = this.checked;
       saveSettings(settings);
-      fe.classList.toggle("fe-notips", !this.checked);
-      if (this.checked) toast("Tooltips come back after a reload");
+      setTooltips(this.checked);
     });
-    v("fe-st-defview").addEventListener("change", () => viewPref.set(v("fe-st-defview").value));
+    v("fe-st-defview").addEventListener("change", () => {
+      viewPref.set(v("fe-st-defview").value);
+      app.setView(v("fe-st-defview").value);
+    });
     const applyOrder = () => app.setOrder(
       { col: v("fe-st-sort").value || null, dir: v("fe-st-sort-dir").value },
       v("fe-st-group").value
@@ -32362,7 +32422,8 @@ ${rows.join("\n")}`, name: subject };
       const img = t.closest(".fe-md img");
       if (img && !img.closest("a, [data-docview]")) {
         e.preventDefault();
-        go(img.src, "chrome-tab");
+        const set2 = [...img.closest(".fe-md").querySelectorAll("img")].filter((i3) => !i3.closest("a"));
+        openFocus(set2.map((i3) => ({ src: i3.src, name: i3.alt || decodeURIComponent(i3.src.split("/").pop() || ""), kind: "img" })), set2.indexOf(img), (m) => toast(m));
       }
     });
   }
@@ -32649,7 +32710,7 @@ ${rows.join("\n")}`, name: subject };
   </button>`;
   };
   var none = (text) => `<p class="fe-home-none">${esc(text)}</p>`;
-  var moreBtn = (shown, all) => shown < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${all}</button>` : "";
+  var moreBtn = (shown2, all) => shown2 < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${all}</button>` : "";
   var group = (id, label, n, body, open) => `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? " open" : ""}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
   function paintSide(d, allShown, folded) {
     const asks = d.repos.filter((r) => r.onYou);
@@ -33261,7 +33322,6 @@ ${rows.join("\n")}`, name: subject };
       if (k === SETTINGS_KEY) Object.assign(settings, getSettings());
       if (k === SETTINGS_KEY || k === PALETTE_KEY || k === THEME_KEY || k.startsWith("bfb-font-")) applyLook();
     });
-    if (settings.tooltips === false) fe.classList.add("fe-notips");
     const app = {
       fileMode,
       rawPath,
@@ -33277,6 +33337,8 @@ ${rows.join("\n")}`, name: subject };
       applyAll: () => {
       },
       setOrder: () => {
+      },
+      setView: () => {
       },
       refreshSaved: () => {
       },
@@ -33427,12 +33489,7 @@ ${rows.join("\n")}`, name: subject };
     }
     listing.applyAll();
     listing.applyFindFromHash();
-    if (settings.tooltips === false) {
-      const strip = () => document.querySelectorAll("[title]").forEach((x2) => x2.removeAttribute("title"));
-      strip();
-      new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
-    } else {
-      initTooltips(document.body);
-    }
+    setTooltips(settings.tooltips !== false);
+    initTooltips(document.body);
   });
 })();

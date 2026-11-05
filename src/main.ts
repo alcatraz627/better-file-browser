@@ -41,7 +41,7 @@ import { watchConnection } from './connection';
 import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
 import { loadKv, onKvChange } from './kv';
-import { initTooltips } from './tooltip';
+import { initTooltips, setTooltips } from './tooltip';
 import { installColumnResize } from './col-resize';
 import { mountGoto, absPath, resolvePath } from './goto';
 import { initDocsLens } from './docs-lens';
@@ -254,14 +254,13 @@ loadKv().catch(() => {}).then(function () {
     if (k === SETTINGS_KEY) Object.assign(settings, getSettings());
     if (k === SETTINGS_KEY || k === PALETTE_KEY || k === THEME_KEY || k.startsWith('bfb-font-')) applyLook();
   });
-  if (settings.tooltips === false) fe.classList.add('fe-notips');
 
   const app: App = {
     fileMode, rawPath, folderPath, fileName, fe, settings, iconRules, entryNames: nonPar.map(e => e.name),
     toast: makeToast(el('fe-toast')),
     strip: null as unknown as App['strip'],
     filePage: null,
-    applyAll: () => {}, setOrder: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, newNoteFromClipboard: () => {}, newNoteCopyPath: () => {}, paintSync: () => {}, pickNotesFolder: () => {},
+    applyAll: () => {}, setOrder: () => {}, setView: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, newNoteFromClipboard: () => {}, newNoteCopyPath: () => {}, paintSync: () => {}, pickNotesFolder: () => {},
     openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
       if (fileMode) { go(fileHref(folderPath), 'here', { exact: true }); return; }
@@ -363,12 +362,6 @@ loadKv().catch(() => {}).then(function () {
   // Apply the saved view after all listing handlers exist.
   listing.applyAll();
   listing.applyFindFromHash();
-  // Tooltips off: strip every title now and after each listing render.
-  if (settings.tooltips === false) {
-    const strip = () => document.querySelectorAll('[title]').forEach(x => x.removeAttribute('title'));
-    strip();
-    new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
-  } else {
-    initTooltips(document.body);
-  }
+  setTooltips(settings.tooltips !== false);
+  initTooltips(document.body);
 });

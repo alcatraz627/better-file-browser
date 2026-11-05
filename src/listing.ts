@@ -14,6 +14,7 @@ import {
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode, dirsFirstPref,
 } from './storage';
 import { upsertPlace } from './places';
+import { listingShown } from './main-surface';
 import { selectionRange } from './selection';
 import { applyFilter, applySort, buildGroups, rowSetKey } from './sort-filter';
 import { crawl } from './deep-search';
@@ -285,6 +286,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   }
   app.applyAll = applyAll;
   void loadOpenCounts(all).then(m => { if (m.size) { openComments = m; applyAll(); } });
+  app.setView = v => { el<ValuedEl>('fe-view-group').value = v; fe.dataset.view = v; viewPref.set(v); applyAll(); };
   app.setOrder = (sort, group) => { ls.sort = { ...sort }; ls.group = group; syncSortUi(); applyAll(); };
 
   function refreshNameMatches(): void {
@@ -580,13 +582,20 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     el('fe-filter-btn').setAttribute('aria-expanded', String(open));
     if (open) el<HTMLInputElement>('fe-filter-q').focus();
   });
-  // The panel closes on Esc like every other panel, and focus goes back to the button that opened it.
+  // The panels close on Esc like every other panel. A field in the filter bar sees it first, since it may be holding results.
   filterBar.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     e.stopPropagation();
     el('fe-filter-btn').click();
     (document.activeElement as HTMLElement | null)?.blur();
   });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !listingShown() || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '') || filterBar.contains(document.activeElement)) return;
+    const btn = !filterBar.hidden ? el('fe-filter-btn') : !el('fe-sg-panel').hidden ? el('fe-sg-btn') : null;
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    btn.click();
+  }, true);
   el<HTMLInputElement>('fe-filter-q').addEventListener('input', function () { stopFind(); ls.filter.q = this.value; refreshNameMatches(); });
   el('fe-regex-btn').addEventListener('click', function () {
     stopFind();

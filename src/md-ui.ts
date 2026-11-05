@@ -1,6 +1,6 @@
 // Behaviour inside rendered markdown, wherever it appears (file page, panel,
 // help): the copy and save-as-picture buttons on a code block or table, and
-// an image that opens natively.
+// a picture that opens in the large viewer with its neighbours.
 import { copyWithCheck } from './copy-done';
 import { linkGccRefs } from './gcc-refs';
 import type { Toast } from './toast';
@@ -9,7 +9,7 @@ import { esc, fileBase } from './utils';
 import { go } from './nav';
 import { decorateFileView } from './docviews';
 import { mountDiagram } from './diagram-lab';
-import { openDiagram } from './docview-media';
+import { openDiagram, openFocus } from './docview-media';
 import { openBlockMenu } from './doc-export';
 
 export function initMarkdownUi(toast: Toast): void {
@@ -67,7 +67,11 @@ export function initMarkdownUi(toast: Toast): void {
       return;
     }
     const img = t.closest<HTMLImageElement>('.fe-md img');
-    if (img && !img.closest('a, [data-docview]')) { e.preventDefault(); go(img.src, 'chrome-tab'); }
+    if (img && !img.closest('a, [data-docview]')) {
+      e.preventDefault();
+      const set = [...img.closest('.fe-md')!.querySelectorAll<HTMLImageElement>('img')].filter(i => !i.closest('a'));
+      openFocus(set.map(i => ({ src: i.src, name: i.alt || decodeURIComponent(i.src.split('/').pop() || ''), kind: 'img' as const })), set.indexOf(img), m => toast(m));
+    }
   });
 }
 

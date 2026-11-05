@@ -123,7 +123,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
     root.hidden = false;
     if (layer?.open) { box.focus(); return; }
     // Esc and focus going back to the opener come from the layer.
-    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, backdrop: root.querySelector<HTMLElement>('.fe-dlg-bg'), onClose: () => { root.hidden = true; hooks.onClose?.(); } });
+    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, keepOnEsc: () => !!document.activeElement?.closest('[data-own-esc]'), backdrop: root.querySelector<HTMLElement>('.fe-dlg-bg'), onClose: () => { root.hidden = true; hooks.onClose?.(); } });
   }
   function close(): void {
     if (inSide()) {

@@ -22,7 +22,6 @@ import { watch } from './watch';
 
 export { visibleOf };
 
-const filterPref = textPref('bfb-comments-filter-v1', 'open');
 type Filter = 'open' | 'me' | 'done' | 'all';
 const FILTERS: { id: Filter; label: string; icon: string; hint: string }[] = [
   { id: 'open', label: 'Open', icon: UI_ICON.circle, hint: 'Threads still open' },
@@ -152,7 +151,7 @@ export function mountComments(o: {
 }): CommentsPanel {
   let threads: DocThread[] = [];
   let notesLine: string[] = [];
-  let filter = filterPref.get() as Filter;
+  let filter: Filter = 'open';
   let active = '';
   let loaded = false, failed = '';
   let lastCompanion: string | null = null, lastText = '';
@@ -783,7 +782,7 @@ export function mountComments(o: {
   o.box.addEventListener('click', async e => {
     const el = e.target as HTMLElement;
     const f = el.closest<HTMLElement>('[data-f]')?.dataset.f as Filter | undefined;
-    if (f) { filter = f; filterPref.set(f); paint(); redraw(); return; }
+    if (f) { filter = f; paint(); redraw(); return; }
     const act = el.closest<HTMLElement>('[data-a]');
     const a = act?.dataset.a;
     if (a === 'allow') { if (await o.allow()) { loaded = false; paint(); void load(); } return; }

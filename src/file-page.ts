@@ -293,8 +293,10 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     rail.querySelector('.fe-rail-ico')!.innerHTML = tab === 'cm' ? UI_ICON.comment : UI_ICON.contents;
     rail.querySelector('.fe-rail-name')!.textContent = tab === 'cm' ? 'Comments' : 'On this page';
     cmN.textContent = tab === 'cm' && cmOpen ? String(cmOpen) : '';
-    cmBtn.hidden = !isMd || raw;
-    tocBtn.hidden = !hasToc || raw;
+    cmBtn.hidden = !isMd;
+    tocBtn.hidden = !hasToc;
+    (cmBtn as HTMLButtonElement).disabled = (tocBtn as HTMLButtonElement).disabled = raw;
+    cmBtn.title = raw ? 'Comments sit on the rendered page; leave Raw to see them' : 'Comments (⇧C)';
     for (const [b, t] of [[tocBtn, 'toc'], [cmBtn, 'cm']] as const) {
       const on = !rail.hidden && tab === t;
       b.classList.toggle('on', on);

@@ -35,6 +35,10 @@ export function tipParts(text: string, keys: string[] = []): { title: string; su
 let keysFor: (el: HTMLElement) => string[] = () => [];
 export function setTooltipKeys(fn: (el: HTMLElement) => string[]): void { keysFor = fn; }
 
+let shown = true;
+/** Switch tooltips on or off for this page. Off also keeps the browser's own label from showing. */
+export function setTooltips(on: boolean): void { shown = on; }
+
 export function initTooltips(root: HTMLElement): void {
   const tip = document.createElement('div');
   tip.id = 'fe-hint';
@@ -80,7 +84,7 @@ export function initTooltips(root: HTMLElement): void {
     // anything else that reads names) still has it during the hover.
     if (!el.hasAttribute('aria-label')) { el.setAttribute('aria-label', text); labelled = true; }
     timer = window.setTimeout(() => {
-      if (target !== el) return;
+      if (target !== el || !shown) return;
       // A control (a button or a link that draws an icon, or anything with
       // keys) gets the full pattern; content keeps a plain label.
       // A line with a problem: its line number and kind, then each message.

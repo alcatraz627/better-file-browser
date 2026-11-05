@@ -29,6 +29,7 @@ const reloadWhenSaved = (): void => { void Promise.all([kvFlush(), new Promise(r
 import { errorText } from './errors';
 import { initPhoneSettings } from './phone';
 import { mountTagColours } from './tag-colours';
+import { setTooltips } from './tooltip';
 
 /// Home's address (~/#home), the same one the toolbar button and a new tab open; empty until bfb has seen the home folder.
 function homeAddress(): string {
@@ -189,7 +190,7 @@ export function initSettingsUi(app: App): void {
       if (av.kind === 'unavailable') {
         head.classList.add('off');
         state.textContent = 'Not set up';
-        sub.textContent = 'Ask and the AI bar stay hidden';
+        sub.textContent = 'Ask stays hidden';
         hint.innerHTML = `Run <code>native/install.sh &lt;extension-id&gt;</code>, then reload. <span class="fe-dm">(${esc(av.reason)})</span>`;
         aiModel.setOptions([]);
         return;
@@ -319,12 +320,11 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLInputElement>('fe-st-tooltips').addEventListener('change', function () {
     settings.tooltips = this.checked; saveSettings(settings);
-    fe.classList.toggle('fe-notips', !this.checked);
-    if (this.checked) toast('Tooltips come back after a reload');
+    setTooltips(this.checked);
   });
 
   // Folders.
-  v('fe-st-defview').addEventListener('change', () => viewPref.set(v('fe-st-defview').value));
+  v('fe-st-defview').addEventListener('change', () => { viewPref.set(v('fe-st-defview').value); app.setView(v('fe-st-defview').value); });
   const applyOrder = () => app.setOrder(
     { col: (v('fe-st-sort').value || null) as SortConfig['col'], dir: v('fe-st-sort-dir').value as SortConfig['dir'] },
     v('fe-st-group').value as GroupMode);
