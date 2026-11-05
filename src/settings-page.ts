@@ -89,7 +89,7 @@ export function settingsDialog(): DialogSpec {
             { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing', 'lg')) +
           row('Tooltips', '', sw('fe-st-tooltips', 'Labels on hover, on every control'))) +
         card('App icon',
-          wide('', '', `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and in an installed app window">${APP_ICONS.map(a =>
+          wide('', '', `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and app window">${APP_ICONS.map(a =>
             `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join('')}</div>`)) },
 
       { key: 'folders', label: 'Browse', hint: 'View, order, clicks', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How a folder opens, and what a click does.', body:
@@ -97,6 +97,8 @@ export function settingsDialog(): DialogSpec {
           row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in', 'lg')) +
           row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in', 'lg') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction', 'lg')) +
           row('Group', '', ddHtml('fe-st-group', GROUP_OPTS, 'Grouping a folder opens with', 'lg')) +
+          row('Folders on top', 'Whatever the sort', sw('fe-st-dirs-first', 'Keep folders above files')) +
+          row('Hidden files', 'Dotfiles and comment files', sw('fe-st-hidden', 'Show hidden files')) +
           row('Dates', '', segHtml('fe-st-datefmt', [{ value: 'short', label: 'Apr 17' }, { value: 'full', label: 'April 17, 2025' }], 'How dates read', 'lg'))) +
         card('Opening a file',
           row('Click a file', '', segHtml('fe-st-click', [
@@ -104,7 +106,7 @@ export function settingsDialog(): DialogSpec {
             { value: 'go', label: 'Open', icon: UI_ICON.external }], 'What a click on a file does', 'lg')) +
           row('Preview', '', segHtml('fe-st-panel', [
             { value: 'modal', label: 'Float', icon: i('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
-            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes'))) },
+            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes: preview, sidebar and columns'))) },
 
       { key: 'files', label: 'Reading', hint: 'Pages, editing', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'How a file reads, and which ones bfb opens.', body:
         card('Reading',
@@ -113,23 +115,25 @@ export function settingsDialog(): DialogSpec {
             { value: 'unset', label: 'Full' }, { value: 'xl', label: 'Wide' }, { value: 'lg', label: 'Medium' }, { value: 'md', label: 'Narrow' }], 'Reading width', 'lg')) +
           row('Line height', '', sliderHtml('fe-st-rd-lh', [1.4, 1.5, 1.65, 1.8, 2], '', 'Line height')) +
           row('Wrap lines', 'Raw text and code', sw('fe-st-wrap', 'Wrap long lines')) +
-          row('Drag to scroll', '', ddHtml('fe-st-pan', PAN_OPTS, 'Hold this key over a page, table or code block and drag to scroll it', 'lg'))) +
+          row('Contents beside pages', 'From the next page on', sw('fe-st-toc', 'Show a page’s contents beside it')) +
+          row('Drag to scroll', '', ddHtml('fe-st-pan', PAN_OPTS, 'Hold this key and drag to scroll', 'lg'))) +
         card('Which files open here',
           row('Open text files in bfb', '', segHtml('fe-st-filepages', [
             { value: 'all', label: 'All' }, { value: 'not-md', label: 'All but Markdown' }, { value: 'off', label: 'None' }], 'Which files open as pages', 'lg')) +
           row('Leave to Chrome', 'Chrome’s own viewer opens these', chipsHtml('fe-st-excluded-exts', '.ext', 'Extensions Chrome opens itself') + iconBtn('fe-st-excluded-reset', UI_ICON.reset, 'Restore .pdf .html .htm'))) +
         card('Editing',
+          row('Editor opens in', '', segHtml('fe-st-edit-mode', [{ value: 'raw', label: 'Raw' }, { value: 'split', label: 'Split' }, { value: 'rich', label: 'Rich' }], 'How the editor opens', 'lg')) +
           wide('Editable folders', 'Text files inside can be edited. Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', 'Add a folder, for example ~/Code', 'Folders you can edit in', true))) },
 
       { key: 'sidebar', label: 'Sidebar and Home', hint: 'Sidebar, new tabs', icon: i('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), tone: 'var(--nc-yellow)', desc: 'The sidebar, and what a new tab shows.', body:
         card('Sidebar',
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
           row('Fold for a docked preview', '', sw('fe-st-dock-fold', 'Fold the sidebar while a docked preview is open')) +
-          row('Peek closes', '', ddHtml('fe-st-peek-close', PEEK_OPTS, 'A hidden sidebar opens from the left edge, and closes this long after the pointer leaves', 'lg')) +
+          row('Peek closes', '', ddHtml('fe-st-peek-close', PEEK_OPTS, 'How long after the pointer leaves it closes', 'lg')) +
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
         card('Home',
           row('New tabs open Home', '', sw('fe-st-newtab-home', 'Every new Chrome tab shows Home instead of Chrome’s own page')) +
-          row('Home address', '', `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="Paste it in Chrome’s settings as the start-up page or the Home button">${iconBtn('fe-st-home-copy', UI_ICON.copy, 'Copy the Home address')}`)) },
+          row('Home address', '', `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="For Chrome’s start-up page or Home button">${iconBtn('fe-st-home-copy', UI_ICON.copy, 'Copy the Home address')}`)) },
 
       { key: 'tools', label: 'Tools', hint: 'Terminal, icons, keys', icon: UI_ICON.terminal, tone: 'var(--nc-red)', desc: 'Your terminal, your commands, icon rules and keys.', body:
         card('Terminal',
@@ -173,7 +177,7 @@ export function settingsDialog(): DialogSpec {
           row('Link', '', `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn('fe-st-phone-copy', UI_ICON.copy, 'Copy the link')}`) +
           note('', 'fe-st-phone-hint')) +
         card('Your data',
-          row('Export', 'Settings, Saved, History and Ask chats, as a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats as .json">${UI_ICON.export}Export</button>`) +
+          row('Export', 'Settings, Saved, History and Ask chats, as a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats">${UI_ICON.export}Export</button>`) +
           row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
           `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` +
           row('Reset', 'Every preference back to its default. Saved places, your folders, commands and icon rules stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)) },

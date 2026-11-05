@@ -262,6 +262,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-ico svg{width:18px;height:20px}
 .fe-st-rule-pattern{width:100%}
 .fe-rule-n{min-width:26px;padding:var(--sp-1) var(--sp-3);border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
+.fe-tc-pop{position:fixed;display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);width:220px;padding:var(--sp-4);border-radius:var(--pop-r);background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);z-index:var(--z-pop,60)}
 .fe-rule-pop{position:fixed;width:330px;padding:var(--sp-5);border-radius:var(--pop-r);display:flex;flex-direction:column;gap:var(--sp-5);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-rp-sec{display:flex;flex-direction:column;gap:var(--sp-3)}

@@ -537,7 +537,7 @@
   function getIconRules() {
     try {
       const r = JSON.parse(kvGet(ICON_RULES_KEY) ?? "null");
-      return Array.isArray(r) && r.length > 0 ? r : DEFAULT_ICON_RULES.map((r2) => ({ ...r2 }));
+      return Array.isArray(r) ? r : DEFAULT_ICON_RULES.map((r2) => ({ ...r2 }));
     } catch {
       return DEFAULT_ICON_RULES.map((r) => ({ ...r }));
     }
@@ -945,6 +945,10 @@
     "bfb-ask-history-v1",
     "bfb-home-v1",
     // Where Saved lives and what it last sent are not preferences: clearing them would repeat the move into the notes folder.
+    "bfb-saved-moved-v1",
+    "bfb-saved-known-v1",
+    "bfb-saved-colours-v1",
+    "bfb-saved-folder-off-v1",
     "bfb-tag-colours-v1",
     "bfb-trash-hidden-v1",
     "bfb-waiting-seen-v1"
@@ -13386,7 +13390,7 @@ ${end.comment}` : end.comment;
       input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
     };
     const commit = () => {
-      const add = input.value.split(/[,\s]+/).map((x2) => x2.trim()).filter(Boolean);
+      const add = input.value.split(host.hasAttribute("data-spaces") ? /,/ : /[,\s]+/).map((x2) => x2.trim()).filter(Boolean);
       input.value = "";
       if (!add.length) return;
       items = [...items, ...add.filter((a) => !items.includes(a))];
@@ -20052,6 +20056,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-ico svg{width:18px;height:20px}
 .fe-st-rule-pattern{width:100%}
 .fe-rule-n{min-width:26px;padding:var(--sp-1) var(--sp-3);border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
+.fe-tc-pop{position:fixed;display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);width:220px;padding:var(--sp-4);border-radius:var(--pop-r);background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);z-index:var(--z-pop,60)}
 .fe-rule-pop{position:fixed;width:330px;padding:var(--sp-5);border-radius:var(--pop-r);display:flex;flex-direction:column;gap:var(--sp-5);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-rp-sec{display:flex;flex-direction:column;gap:var(--sp-3)}
@@ -24186,6 +24191,7 @@ ${body}
   var columnHeard = null;
   function setColumn(mode) {
     columnPref.set(mode);
+    columnHeard?.();
   }
   var oldColumnPref = textPref("bfb-page-column-v1");
   var askedPref = textPref("bfb-page-asked-v1", "", "tab");
@@ -25758,11 +25764,11 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "Row spacing", "lg")) + row("Tooltips", "", sw("fe-st-tooltips", "Labels on hover, on every control"))
         ) + card2(
           "App icon",
-          wide("", "", `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and in an installed app window">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
+          wide("", "", `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and app window">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
         ) },
         { key: "folders", label: "Browse", hint: "View, order, clicks", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How a folder opens, and what a click does.", body: card2(
           "Opening a folder",
-          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
+          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Folders on top", "Whatever the sort", sw("fe-st-dirs-first", "Keep folders above files")) + row("Hidden files", "Dotfiles and comment files", sw("fe-st-hidden", "Show hidden files")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
         ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
@@ -25771,7 +25777,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "What a click on a file does", "lg")) + row("Preview", "", segHtml("fe-st-panel", [
             { value: "modal", label: "Float", icon: i2('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
             { value: "side", label: "Dock", icon: UI_ICON.preview }
-          ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
+          ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes: preview, sidebar and columns"))
         ) },
         { key: "files", label: "Reading", hint: "Pages, editing", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "How a file reads, and which ones bfb opens.", body: card2(
           "Reading",
@@ -25780,7 +25786,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
             { value: "xl", label: "Wide" },
             { value: "lg", label: "Medium" },
             { value: "md", label: "Narrow" }
-          ], "Reading width", "lg")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines")) + row("Drag to scroll", "", ddHtml("fe-st-pan", PAN_OPTS, "Hold this key over a page, table or code block and drag to scroll it", "lg"))
+          ], "Reading width", "lg")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines")) + row("Contents beside pages", "From the next page on", sw("fe-st-toc", "Show a page\u2019s contents beside it")) + row("Drag to scroll", "", ddHtml("fe-st-pan", PAN_OPTS, "Hold this key and drag to scroll", "lg"))
         ) + card2(
           "Which files open here",
           row("Open text files in bfb", "", segHtml("fe-st-filepages", [
@@ -25790,14 +25796,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "Which files open as pages", "lg")) + row("Leave to Chrome", "Chrome\u2019s own viewer opens these", chipsHtml("fe-st-excluded-exts", ".ext", "Extensions Chrome opens itself") + iconBtn("fe-st-excluded-reset", UI_ICON.reset, "Restore .pdf .html .htm"))
         ) + card2(
           "Editing",
-          wide("Editable folders", "Text files inside can be edited. Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "Add a folder, for example ~/Code", "Folders you can edit in", true))
+          row("Editor opens in", "", segHtml("fe-st-edit-mode", [{ value: "raw", label: "Raw" }, { value: "split", label: "Split" }, { value: "rich", label: "Rich" }], "How the editor opens", "lg")) + wide("Editable folders", "Text files inside can be edited. Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "Add a folder, for example ~/Code", "Folders you can edit in", true))
         ) },
         { key: "sidebar", label: "Sidebar and Home", hint: "Sidebar, new tabs", icon: i2('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), tone: "var(--nc-yellow)", desc: "The sidebar, and what a new tab shows.", body: card2(
           "Sidebar",
-          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Fold for a docked preview", "", sw("fe-st-dock-fold", "Fold the sidebar while a docked preview is open")) + row("Peek closes", "", ddHtml("fe-st-peek-close", PEEK_OPTS, "A hidden sidebar opens from the left edge, and closes this long after the pointer leaves", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
+          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Fold for a docked preview", "", sw("fe-st-dock-fold", "Fold the sidebar while a docked preview is open")) + row("Peek closes", "", ddHtml("fe-st-peek-close", PEEK_OPTS, "How long after the pointer leaves it closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
           "Home",
-          row("New tabs open Home", "", sw("fe-st-newtab-home", "Every new Chrome tab shows Home instead of Chrome\u2019s own page")) + row("Home address", "", `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="Paste it in Chrome\u2019s settings as the start-up page or the Home button">${iconBtn("fe-st-home-copy", UI_ICON.copy, "Copy the Home address")}`)
+          row("New tabs open Home", "", sw("fe-st-newtab-home", "Every new Chrome tab shows Home instead of Chrome\u2019s own page")) + row("Home address", "", `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="For Chrome\u2019s start-up page or Home button">${iconBtn("fe-st-home-copy", UI_ICON.copy, "Copy the Home address")}`)
         ) },
         { key: "tools", label: "Tools", hint: "Terminal, icons, keys", icon: UI_ICON.terminal, tone: "var(--nc-red)", desc: "Your terminal, your commands, icon rules and keys.", body: card2(
           "Terminal",
@@ -25837,7 +25843,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Open on my phone", "This Mac\u2019s folders on your tailnet only", sw("fe-st-phone", "Put bfb on your tailnet")) + row("Link", "", `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn("fe-st-phone-copy", UI_ICON.copy, "Copy the link")}`) + note("", "fe-st-phone-hint")
         ) + card2(
           "Your data",
-          row("Export", "Settings, Saved, History and Ask chats, as a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats as .json">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
+          row("Export", "Settings, Saved, History and Ask chats, as a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
         ) }
       ]
     };
@@ -31844,11 +31850,6 @@ ${rows.join("\n")}`, name: subject };
     for (const t of tags.map((x2) => x2 === old ? next : x2)) if (!out.includes(t)) out.push(t);
     return out;
   }
-  function nextColour(current) {
-    if (!current) return TAG_COLORS[0];
-    const i3 = TAG_COLORS.indexOf(current);
-    return i3 < 0 || i3 === TAG_COLORS.length - 1 ? null : TAG_COLORS[i3 + 1];
-  }
   var cleanTag = (raw) => raw.replace(/,/g, " ").replace(/\s+/g, " ").trim();
   async function renameTag(root2, old, rawNew) {
     const next = cleanTag(rawNew);
@@ -31886,7 +31887,7 @@ ${rows.join("\n")}`, name: subject };
       const rows = tagRows(list3.map((n) => n.tags ?? []), getSaved(), getTags());
       host.innerHTML = rows.length ? rows.map((r) => `
       <div class="fe-tc-row" data-tag="${esc(r.tag)}">
-        <button class="fe-tc-sw" data-tc="colour" title="Click to change this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? "var(--dm)")}"></i></button>
+        <button class="fe-tc-sw" data-tc="colour" title="Choose this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? "var(--dm)")}"></i></button>
         <input class="tb" data-size="sm" data-tc="name" data-own-esc value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
         <span class="fe-tc-n">${r.count} ${r.count === 1 ? "item" : "items"}</span>
       </div>`).join("") : '<p class="fe-set-note">No tags yet. Tag a note or a save and it shows up here.</p>';
@@ -31896,9 +31897,20 @@ ${rows.join("\n")}`, name: subject };
       if (!b) return;
       const tag = b.closest(".fe-tc-row").dataset.tag;
       const cur = getTags().find((t) => t.name === tag)?.color ?? null;
-      setTagColour(tag, nextColour(cur));
-      o.refresh();
-      void draw();
+      const box = document.createElement("div");
+      box.className = "fe-tc-pop";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", `Colour of ${tag}`);
+      box.innerHTML = TAG_COLORS.map((c) => `<button type="button" class="fe-rp-c${c === cur ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("") + `<button type="button" class="btn" data-size="sm" data-c=""${cur ? "" : ' aria-pressed="true"'} title="Back to the tag's own colour">Default</button>`;
+      const pop = openLayer(box, { kind: "popover", anchor: b, offset: 6, group: "menu", focus: "first" });
+      box.addEventListener("click", (ev) => {
+        const pick2 = ev.target.closest("[data-c]");
+        if (!pick2) return;
+        setTagColour(tag, pick2.dataset.c || null);
+        pop.close("api");
+        o.refresh();
+        void draw();
+      });
     });
     host.addEventListener("change", (e) => {
       const inp = e.target.closest('[data-tc="name"]');
@@ -32136,7 +32148,7 @@ ${rows.join("\n")}`, name: subject };
       app.iconRules = DEFAULT_ICON_RULES.map((r) => ({ ...r }));
       saveRules();
       renderRulesList();
-      toast("Icon rules reset");
+      toast("Icon rules reset", 8e3, undo2);
     });
     let pop = null;
     const closePop = () => pop?.close("api");
@@ -32221,7 +32233,7 @@ ${rows.join("\n")}`, name: subject };
         const resident = new Set(s.resident_models ?? []);
         const atOnce = av.kind === "ready" && !av.cold && (!settings.aiModel || [...resident].some((m) => bare(m) === bare(settings.aiModel)));
         head.classList.add(av.kind === "down" || !atOnce ? "cold" : "ready");
-        state.textContent = av.kind === "down" ? "Server down" : "Ready";
+        state.textContent = av.kind === "down" ? "Asleep" : "Ready";
         sub.textContent = av.kind === "down" ? "Starts on your first question" : `${settings.aiModel || s.default_model} \xB7 ${atOnce ? "replies at once" : "first reply loads it"}`;
         grid.innerHTML = (s.host ? kv("Address", s.host) : "") + (s.toolkit_version ? kv("lm version", s.toolkit_version) : "");
         aiModel.setOptions((s.available_models ?? []).map((m) => ({
@@ -32252,6 +32264,7 @@ ${rows.join("\n")}`, name: subject };
     aiModel.addEventListener("change", () => {
       settings.aiModel = aiModel.value || void 0;
       saveSettings(settings);
+      askModelPref.set("");
       refreshAi();
     });
     warm.addEventListener("change", () => {
@@ -32313,6 +32326,10 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-sort").value = order.col ?? "";
       v("fe-st-sort-dir").value = order.dir;
       v("fe-st-group").value = getGroupMode();
+      el("fe-st-hidden").checked = fe.classList.contains("show-hidden") || hiddenPref.get();
+      el("fe-st-dirs-first").checked = dirsFirstPref.get();
+      el("fe-st-toc").checked = tocPref.get();
+      v("fe-st-edit-mode").value = modePref.get() || "raw";
       v("fe-st-datefmt").value = settings.dateFormat || "short";
       v("fe-st-click").value = settings.clickOpens || "look";
       v("fe-st-panel").value = getPreviewLayout().mode;
@@ -32394,8 +32411,24 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-group").value
     );
     el("fe-st-sort-dir").addEventListener("change", () => {
+      if (!v("fe-st-sort").value) v("fe-st-sort").value = "name";
     });
     ["fe-st-sort", "fe-st-sort-dir", "fe-st-group"].forEach((id) => el(id).addEventListener("change", applyOrder));
+    el("fe-st-hidden").addEventListener("change", function() {
+      if (fe.classList.contains("show-hidden") !== this.checked) el("fe-hidden-btn").click();
+      hiddenPref.set(this.checked);
+    });
+    el("fe-st-dirs-first").addEventListener("change", function() {
+      const box = document.getElementById("fe-sort-dirs");
+      if (box) {
+        box.checked = this.checked;
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+      } else dirsFirstPref.set(this.checked);
+    });
+    el("fe-st-toc").addEventListener("change", function() {
+      tocPref.set(this.checked);
+    });
+    v("fe-st-edit-mode").addEventListener("change", () => modePref.set(v("fe-st-edit-mode").value));
     v("fe-st-datefmt").addEventListener("change", () => {
       settings.dateFormat = v("fe-st-datefmt").value;
       saveSettings(settings);
@@ -32411,7 +32444,11 @@ ${rows.join("\n")}`, name: subject };
     });
     el("fe-st-panel-reset").addEventListener("click", () => {
       savePreviewLayout({ mode: getPreviewLayout().mode });
-      toast("Preview sizes reset");
+      settings.sidebarWidth = void 0;
+      saveSettings(settings);
+      el("fe-side").style.width = "";
+      saveColWidths({});
+      toast("Dragged sizes reset; columns from the next folder on");
     });
     el("fe-st-sidebar").addEventListener("change", function() {
       settings.showSidebar = this.checked;

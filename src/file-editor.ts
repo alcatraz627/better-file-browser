@@ -24,7 +24,7 @@ const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
 const RENDER_MS = 150;      // the rendered side waits this long after a key, so typing never waits on a redraw
 const RETRY_MS = 4000;      // a failed save tries again this often while the text differs
-const modePref = textPref('bfb-edit-mode-v1');
+export const modePref = textPref('bfb-edit-mode-v1');
 type Mode = 'raw' | 'split' | 'rich';
 const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: 'raw', label: 'Raw', hint: 'The text alone' },

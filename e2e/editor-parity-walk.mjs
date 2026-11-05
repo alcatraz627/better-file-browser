@@ -162,7 +162,7 @@ try {
   check(tagRows.some(([t, n]) => t === 'work' && /^4 items$/.test(n)), `the tags page counts a tag across notes: ${JSON.stringify(tagRows)}`);
   const dot = () => page.$eval('#fe-st-tags .fe-tc-row[data-tag="work"] .fe-tc-sw i', e => getComputedStyle(e).backgroundColor);
   const c0 = await dot();
-  await page.click('#fe-st-tags .fe-tc-row[data-tag="work"] .fe-tc-sw'); await sleep(500);
+  await page.click('#fe-st-tags .fe-tc-row[data-tag="work"] .fe-tc-sw'); await page.waitForSelector('.fe-tc-pop'); await page.click('.fe-tc-pop .fe-rp-c'); await sleep(500);
   const c1 = await dot();
   check(c0 !== c1, `clicking the swatch changes the colour: ${c0} -> ${c1}`);
   await sleep(2500);

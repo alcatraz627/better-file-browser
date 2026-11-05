@@ -42,6 +42,20 @@ try {
   const order = await read('bfb-sort-v1');
   check(order.col === 'name' && order.dir === 'desc', `a direction under As listed sorts by name: ${JSON.stringify(order)}`);
 
+  // Settings shows what the toolbar remembers, and drives it.
+  await page.click('#fe-st-hidden');
+  check(await page.$eval('#fe', e => e.classList.contains('show-hidden')) && (await h.store.get('bfb-show-hidden')) === 'true', 'Hidden files in Settings shows them at once');
+  await page.click('#fe-st-hidden');
+  check(!(await page.$eval('#fe', e => e.classList.contains('show-hidden'))), 'and hides them again');
+  await page.click('#fe-st-dirs-first');
+  await sleep(150);
+  check(await page.$eval('#fe-sort-dirs', e => e.checked), 'Folders on top in Settings and the Sort panel stay in step');
+  await page.evaluate(() => { document.getElementById('fe-side').style.width = '400px'; });
+  await h.store.edit('bfb-settings-v1', s => ({ ...s, sidebarWidth: 400 }));
+  await page.click('#fe-st-panel-reset');
+  await sleep(200);
+  check(await page.$eval('#fe-side', e => !e.style.width), 'Reset dragged sizes gives the sidebar back its width');
+
   // A folder name with a space stays one chip.
   await tab(page, 'files');
   await page.click('#fe-st-edit-roots .fe-chipin-in');
@@ -55,6 +69,37 @@ try {
   check(sample.w < sample.of * 0.7 && sample.h > 40, `the sample narrows with Width: ${JSON.stringify(sample)}`);
   if (shots) await page.screenshot({ path: join(shots, `set-reading-${THEME}.png`) });
   await pickSeg(page, 'fe-st-rd-column', 'unset');
+  await pickSeg(page, 'fe-st-edit-mode', 'split');
+  await sleep(150);
+  check(await h.store.get('bfb-edit-mode-v1') === 'split', 'Editor opens in is remembered');
+  await page.click('#fe-st-toc');
+  await sleep(150);
+  check(['0', 'false', 'off', ''].includes(String(await h.store.get('bfb-page-toc-v1'))), `Contents beside pages is remembered: ${await h.store.get('bfb-page-toc-v1')}`);
+
+  // Move to Notes only shows when it can do something, and a tag's colour is chosen, not cycled.
+  await tab(page, 'notes');
+  check(!(await page.$eval('#fe-st-saved-move', e => e.checkVisibility())), 'Move to Notes stays out of the way until Saved was moved back');
+  await h.store.set('bfb-saved-v1', [{ path: '/a/', label: 'a', tags: ['work'] }]);
+  await closeSettings(page);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await openSettings(page);
+  await tab(page, 'notes');
+  await page.waitForSelector('.fe-tc-sw');
+  await page.click('.fe-tc-sw');
+  await page.waitForSelector('.fe-tc-pop');
+  if (shots) await page.screenshot({ path: join(shots, `set-tagpop-${THEME}.png`) });
+  await page.click('.fe-tc-pop .fe-rp-c:nth-child(2)');
+  await sleep(200);
+  const dot = () => page.$eval('.fe-tc-sw i', e => getComputedStyle(e).backgroundColor);
+  const picked = await dot();
+  check(picked === 'rgb(63, 185, 80)', `a swatch sets the colour it shows: ${picked}`);
+  await page.click('.fe-tc-sw');
+  await page.waitForSelector('.fe-tc-pop');
+  await page.click('.fe-tc-pop [data-c=""]');
+  await sleep(200);
+  check(await dot() !== picked, `Default takes the picked colour off: ${await dot()}`);
+  await tab(page, 'tools');
 
   // Deleting every rule stays that way, and a one-click reset can be taken back.
   await tab(page, 'tools');

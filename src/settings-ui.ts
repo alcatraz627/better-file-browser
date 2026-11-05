@@ -7,14 +7,15 @@ import type { IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc, fileHref } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
-import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir } from './storage';
+import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
 import { copyWithCheck } from './copy-done';
 import { llmAvailability, llmWarm, llmModels, defaultTier } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
 import { wireKeyboardMap } from './help';
-import { setColumn, parseExcludedExtensions, savedColumnMode } from './file-page';
+import { setColumn, parseExcludedExtensions, savedColumnMode, tocPref } from './file-page';
+import { modePref } from './file-editor';
 import { UI_ICON } from './control-icons';
 import { setSidebarShown } from './motion';
 import { setUiScale } from './chrome';
@@ -314,6 +315,10 @@ export function initSettingsUi(app: App): void {
     v('fe-st-sort').value = order.col ?? '';
     v('fe-st-sort-dir').value = order.dir;
     v('fe-st-group').value = getGroupMode();
+    el<HTMLInputElement>('fe-st-hidden').checked = fe.classList.contains('show-hidden') || hiddenPref.get();
+    el<HTMLInputElement>('fe-st-dirs-first').checked = dirsFirstPref.get();
+    el<HTMLInputElement>('fe-st-toc').checked = tocPref.get();
+    v('fe-st-edit-mode').value = modePref.get() || 'raw';
     v('fe-st-datefmt').value = settings.dateFormat || 'short';
     v('fe-st-click').value = settings.clickOpens || 'look';
     v('fe-st-panel').value = getPreviewLayout().mode;
@@ -382,13 +387,31 @@ export function initSettingsUi(app: App): void {
   // A direction means nothing on the folder's own order, so choosing one sorts by name, as the toolbar does.
   el('fe-st-sort-dir').addEventListener('change', () => { if (!v('fe-st-sort').value) v('fe-st-sort').value = 'name'; });
   ['fe-st-sort', 'fe-st-sort-dir', 'fe-st-group'].forEach(id => el(id).addEventListener('change', applyOrder));
+  // The toolbar holds the live state of both, so its own controls do the work and stay in step.
+  el<HTMLInputElement>('fe-st-hidden').addEventListener('change', function () {
+    if (fe.classList.contains('show-hidden') !== this.checked) el('fe-hidden-btn').click();
+    hiddenPref.set(this.checked);
+  });
+  el<HTMLInputElement>('fe-st-dirs-first').addEventListener('change', function () {
+    const box = document.getElementById('fe-sort-dirs') as HTMLInputElement | null;
+    if (box) { box.checked = this.checked; box.dispatchEvent(new Event('change', { bubbles: true })); }
+    else dirsFirstPref.set(this.checked);
+  });
+  el<HTMLInputElement>('fe-st-toc').addEventListener('change', function () { tocPref.set(this.checked); });
+  v('fe-st-edit-mode').addEventListener('change', () => modePref.set(v('fe-st-edit-mode').value));
   v('fe-st-datefmt').addEventListener('change', () => { settings.dateFormat = v('fe-st-datefmt').value as 'short' | 'full'; saveSettings(settings); app.applyAll(); });
   v('fe-st-click').addEventListener('change', () => { settings.clickOpens = v('fe-st-click').value as 'look' | 'go'; saveSettings(settings); });
   v('fe-st-panel').addEventListener('change', () => {
     savePreviewLayout({ ...getPreviewLayout(), mode: v('fe-st-panel').value as 'modal' | 'side' });
     toast('The next preview opens there');
   });
-  el('fe-st-panel-reset').addEventListener('click', () => { savePreviewLayout({ mode: getPreviewLayout().mode }); toast('Preview sizes reset'); });
+  el('fe-st-panel-reset').addEventListener('click', () => {
+    savePreviewLayout({ mode: getPreviewLayout().mode });
+    settings.sidebarWidth = undefined; saveSettings(settings);
+    el('fe-side').style.width = '';
+    saveColWidths({});
+    toast('Dragged sizes reset; columns from the next folder on');
+  });
   el<HTMLInputElement>('fe-st-sidebar').addEventListener('change', function () {
     settings.showSidebar = this.checked; saveSettings(settings);
     setSidebarShown(this.checked);

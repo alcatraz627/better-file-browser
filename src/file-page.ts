@@ -32,7 +32,7 @@ import { copyWithCheck } from './copy-done';
 import { wireDocExport } from './doc-export';
 
 const scrollPref = jsonPref<Record<string, number>>('bfb-page-scroll-v1', {}, v => !!v && typeof v === 'object');
-const tocPref = flagPref('bfb-page-toc-v1', true);
+export const tocPref = flagPref('bfb-page-toc-v1', true);
 // Which tab the rail shows, Contents or Comments; a per-reader choice.
 const railTabPref = choicePref('bfb-page-rail-tab-v1', ['toc', 'cm'], 'toc');
 /** The reading column's width; v1 held a plain on or off. */

@@ -620,7 +620,7 @@ try {
   // Dialogs: Help and Settings share one chrome. A title row with a mark and
   // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
   // while a pane scrolls; Esc closes.
-  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 6, 'settings-dialog']]) {
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 8, 'settings-dialog']]) {
     await page.click(btn);
     await page.waitForFunction(i => !document.getElementById(i).hidden, { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
@@ -681,9 +681,10 @@ try {
   // Settings: sidebar sections off, click goes, reader size, export and
   // import, tooltips off, the Keyboard link.
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="sidebar"]');
   await page.click('#fe-st-sec-recent');
   const recentHidden = await page.evaluate(() => document.getElementById('fe-rail-history').hidden);
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   // Settings controls are button rows and sliders, driven the way a person would.
   // A control half under the pane's sticky heading counts as on screen to the
   // script, which would click the heading; centre it first, as a person would see it.
@@ -754,6 +755,7 @@ try {
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   await page.click('#fe-st-tooltips');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="tools"]');
   await page.click('#fe-st-keys');
   const keysOpen = await page.evaluate(() => ({ help: !document.getElementById('fe-help-modal').hidden, tab: document.querySelector('#fe-help-modal .fe-dlg-tab.on')?.dataset.tab, settings: document.getElementById('fe-settings-modal').hidden }));
   check(keysOpen.help && keysOpen.tab === 'keys' && keysOpen.settings, `the Keyboard link opens Help on its Keyboard tab: ${JSON.stringify(keysOpen)}`);

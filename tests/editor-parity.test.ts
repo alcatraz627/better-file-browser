@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyChange, changedKeys, duplicateText, readProps, clipboardNote, filterNotes } from '../src/notes';
-import { tagRows, swapTag, nextColour } from '../src/tag-colours';
+import { tagRows, swapTag } from '../src/tag-colours';
 import { TAG_COLORS } from '../src/places';
 
 const note = '---\ntitle: "Plan"\ncreated: 2026-10-01T10:00:00Z\ntags: "a", "b"\ncolor: blue\npinned: true\npos: i\nexpires: 2030-01-01T00:00:00Z\nremind_at: 2030-01-02T09:00:00Z\nremind_repeat: weekly\nreminder_id: abc\nupdated: 2026-10-02T00:00:00Z\n---\nBody line\n';
@@ -72,10 +72,5 @@ describe('tag colours page', () => {
   it('swaps a tag without making a repeat', () => {
     expect(swapTag(['a', 'b'], 'a', 'c')).toEqual(['c', 'b']);
     expect(swapTag(['a', 'b'], 'a', 'b')).toEqual(['b']);
-  });
-  it('walks the palette and ends at no colour', () => {
-    expect(nextColour(null)).toBe(TAG_COLORS[0]);
-    expect(nextColour(TAG_COLORS[0])).toBe(TAG_COLORS[1]);
-    expect(nextColour(TAG_COLORS[TAG_COLORS.length - 1])).toBeNull();
   });
 });

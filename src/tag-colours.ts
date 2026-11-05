@@ -8,6 +8,7 @@ import { TAG_COLORS } from './places';
 import type { Place, Tag } from './types';
 import { esc } from './utils';
 import { errorText } from './errors';
+import { openLayer } from './layer';
 
 export interface TagRow { tag: string; count: number; color: string | null }
 
@@ -27,13 +28,6 @@ export function swapTag(tags: string[], old: string, next: string): string[] {
   const out: string[] = [];
   for (const t of tags.map(x => (x === old ? next : x))) if (!out.includes(t)) out.push(t);
   return out;
-}
-
-/** The colour a swatch click moves to: the next in the palette, and after the last, none. */
-export function nextColour(current: string | null): string | null {
-  if (!current) return TAG_COLORS[0];
-  const i = TAG_COLORS.indexOf(current);
-  return i < 0 || i === TAG_COLORS.length - 1 ? null : TAG_COLORS[i + 1];
 }
 
 const cleanTag = (raw: string) => raw.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
@@ -72,7 +66,7 @@ export function mountTagColours(host: HTMLElement, o: { root: () => string; toas
     const rows = tagRows(list.map(n => n.tags ?? []), getSaved(), getTags());
     host.innerHTML = rows.length ? rows.map(r => `
       <div class="fe-tc-row" data-tag="${esc(r.tag)}">
-        <button class="fe-tc-sw" data-tc="colour" title="Click to change this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? 'var(--dm)')}"></i></button>
+        <button class="fe-tc-sw" data-tc="colour" title="Choose this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? 'var(--dm)')}"></i></button>
         <input class="tb" data-size="sm" data-tc="name" data-own-esc value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
         <span class="fe-tc-n">${r.count} ${r.count === 1 ? 'item' : 'items'}</span>
       </div>`).join('') : '<p class="fe-set-note">No tags yet. Tag a note or a save and it shows up here.</p>';
@@ -82,9 +76,21 @@ export function mountTagColours(host: HTMLElement, o: { root: () => string; toas
     if (!b) return;
     const tag = b.closest<HTMLElement>('.fe-tc-row')!.dataset.tag!;
     const cur = getTags().find(t => t.name === tag)?.color ?? null;
-    setTagColour(tag, nextColour(cur));
-    o.refresh();
-    void draw();
+    const box = document.createElement('div');
+    box.className = 'fe-tc-pop';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', `Colour of ${tag}`);
+    box.innerHTML = TAG_COLORS.map(c => `<button type="button" class="fe-rp-c${c === cur ? ' on' : ''}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join('')
+      + `<button type="button" class="btn" data-size="sm" data-c=""${cur ? '' : ' aria-pressed="true"'} title="Back to the tag's own colour">Default</button>`;
+    const pop = openLayer(box, { kind: 'popover', anchor: b, offset: 6, group: 'menu', focus: 'first' });
+    box.addEventListener('click', ev => {
+      const pick = (ev.target as HTMLElement).closest<HTMLElement>('[data-c]');
+      if (!pick) return;
+      setTagColour(tag, pick.dataset.c || null);
+      pop.close('api');
+      o.refresh();
+      void draw();
+    });
   });
   host.addEventListener('change', e => {
     const inp = (e.target as HTMLElement).closest<HTMLInputElement>('[data-tc="name"]');
