@@ -46,12 +46,13 @@ try {
   await page.waitForSelector('.fe-hp-card[data-card="waiting"] .fe-hp-wait', { timeout: 15_000 });
   await sleep(500);
   const rows = await page.$$eval('.fe-hp-card[data-card="waiting"] .fe-hp-wait', rs => rs.map(r => ({ kind: r.dataset.kind, faded: r.classList.contains('faded'), t: r.textContent.replace(/\s+/g, ' ').trim() })));
-  check(rows.map(r => r.kind).join() === 'reminder,comment,decision,capture,agent,agent', `the list reads missed reminder, comment, decision, capture, agent notes: ${rows.map(r => r.kind)}`);
+  check(rows.map(r => r.kind).join() === 'reminder,comment,capture,agent,agent', `the list reads missed reminder, comment, capture, agent notes: ${rows.map(r => r.kind)}`);
   check(rows[0].t.includes('Pay the invoice') && /Missed reminder/.test(rows[0].t) && !rows[0].faded, `a reminder missed 30 days ago is still shown and never fades: ${rows[0].t}`);
-  check(rows[5].faded && rows[5].t.includes('Older agent note') && !rows[4].faded, `an agent note first seen 8 days ago fades and goes last: ${rows.map(r => r.faded)}`);
+  check(rows[4].faded && rows[4].t.includes('Older agent note') && !rows[3].faded, `an agent note first seen 8 days ago fades and goes last: ${rows.map(r => r.faded)}`);
   check(rows[1].t.includes('review-me') && /1 open comment for you/.test(rows[1].t), `the comment row names the document and says how many comments wait: ${rows[1].t}`);
-  check(rows[2].t.includes('Pick a plan'), `the decision row names the page: ${rows[2].t}`);
-  check(await page.$eval('.fe-hp-card[data-card="waiting"] .fe-grp-n', e => e.textContent) === '6', 'the card counts all six');
+  const decide = await page.$$eval('.fe-hp-card[data-card="decide"] .fe-home-t', ts => ts.map(t => t.textContent));
+  check(decide.join() === 'Pick a plan' && !rows.some(r => r.t.includes('Pick a plan')), `the decision is listed once, in Decisions: ${decide}`);
+  check(await page.$eval('.fe-hp-card[data-card="waiting"] .fe-grp-n', e => e.textContent) === '5', 'the card counts the five it lists');
   await shot(page, 'waiting-home');
   const seen = await h.store.json('bfb-waiting-seen-v1', {});
   check(Object.keys(seen).sort().join() === `agent:agent-new.md,agent:agent-old.md,capture:capture.md,comment:${doc},decision:pick-a-plan,reminder:rem-missed.md` && seen['agent:agent-old.md'] < Date.now() - 7 * DAY, 'first-seen times are kept, so fading survives a reload');
@@ -69,7 +70,7 @@ try {
   await page.waitForSelector('.fe-hp-card[data-card="waiting"] .fe-hp-wait');
   await sleep(500);
   const left = await page.$$eval('.fe-hp-card[data-card="waiting"] .fe-hp-wait', rs => rs.map(r => r.dataset.kind));
-  check(!left.includes('comment') && left.includes('decision'), `once the comment is done its row goes and the decision stays: ${left}`);
+  check(!left.includes('comment') && left.includes('capture'), `once the comment is done its row goes and the rest stay: ${left}`);
 
   // Search reaches saves.
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });

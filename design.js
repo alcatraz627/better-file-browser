@@ -379,8 +379,8 @@ body{opacity:1!important}
 .fe-hp-card-tx b{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
 .fe-hp-card-tx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hp-card-h>.chev{flex:none;color:var(--dm)}
-.fe-hp-card-b{max-height:26rem;overflow:auto;padding:var(--sp-2) 0 var(--sp-3)}
-.fe-hp-rail .fe-hp-card-b{max-height:16rem}
+.fe-hp-card-b{padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-card-b>.fe-home-more{margin:var(--sp-1) var(--sp-4)}
 .fe-hp-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 .fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
 /* Quick links: a row per place, its actions showing on hover. */
@@ -391,9 +391,10 @@ body{opacity:1!important}
 .fe-hp-link-a:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
 .fe-hp-link-a svg{flex:none}
 .fe-hp-link-tx{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp-3)}
-.fe-hp-link-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-hp-link-tags{display:flex;gap:var(--sp-1);flex:none}
-.fe-hp-link-tags i{font-style:normal;font-size:var(--fs-xs);color:var(--mt);padding:0 var(--sp-2);border-radius:var(--r-full);background:var(--s3)}
+.fe-hp-link-l{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The name is what you came for: tags give up their room first. */
+.fe-hp-link-tags{display:flex;gap:var(--sp-1);flex:0 1000 auto;min-width:0;overflow:hidden}
+.fe-hp-link-tags i{flex:none;font-style:normal;font-size:var(--fs-xs);color:var(--mt);padding:0 var(--sp-2);border-radius:var(--r-full);background:var(--s3)}
 .fe-hp-link-act{flex:none;margin-right:var(--sp-2);opacity:0;transition:opacity var(--t-fast) var(--ease)}
 .fe-hp-link:hover .fe-hp-link-act,.fe-hp-link:focus-within .fe-hp-link-act,.fe-hp-link-act[aria-expanded="true"]{opacity:1}
 .fe-hp-edit{display:flex;flex-direction:column;gap:var(--sp-4);width:18rem;padding:var(--sp-5)}

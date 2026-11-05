@@ -24,7 +24,7 @@ import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
 interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[]; sync: SyncView | null; waiting: WaitItem[] }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; notesTotal: number; recent: QuickLink[]; tools: ServiceState[]; sync: SyncView | null; waiting: WaitItem[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
@@ -63,7 +63,7 @@ const pageRow = (r: DpRow, inWaiting = false) => {
   return `<button type="button" class="row fe-home-row${unseen ? ' unseen' : ''}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? ' · you have not opened this one yet' : ''}">
     <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ''}</span>
     <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-home-s">${esc(sub)}</span>` : ''}</span>
-    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural(r.items, 'question')}">${r.items}</span>` : ''}
+    ${r.items && r.items > 1 ? `<span class="badge" data-tone="quiet" title="${plural(r.items, 'question')}">${r.items}</span>` : ''}
     <span class="fe-home-age" title="${esc(whenText(r.mtime * 1000))}">${esc(ago(r.mtime))}</span>
   </button>`;
 };
@@ -154,7 +154,7 @@ const toolRow = (s: ServiceState) => {
 /** One card on the page: an icon, a title, a line saying what it holds, a count, and a body that folds away. */
 const card = (id: string, o: { icon: string; tone: string; title: string; sub: string; n?: number }, body: string, folded: Set<string>) =>
   `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? '' : ' open'}>
-    <summary class="fe-hp-card-h">${tile(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span>${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ''}${DISCLOSE}</summary>
+    <summary class="fe-hp-card-h">${tile(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span title="${esc(o.sub)}">${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ''}${DISCLOSE}</summary>
     <div class="fe-hp-card-b">${body}</div>
   </details>`;
 
@@ -168,14 +168,15 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
     ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural(older.length, 'older page')} in Decisions</button>` : '';
   const decide = d.pagesFailed ? none('Decision pages could not be listed')
     : (fresh.map(r => pageRow(r, true)).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
-  const links = (id: string, o: { icon: string; tone: string; title: string; sub: string }, list: QuickLink[], empty: string) =>
-    card(id, { ...o, n: list.length }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>` : none(empty), folded);
-  // Everything waiting on the owner, from decisions to a note an agent left: missed reminders and comments first.
-  const waitRow = (w: WaitItem) => w.kind === 'decision'
-    ? `<div class="fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="decision">${pageRow(d.pages.find(p => p.slug === w.key.slice(9)) ?? { slug: w.title, path: w.path, mtime: w.since / 1000, state: 'waiting' }, true)}</div>`
-    : `<div class="fe-hp-link fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? ' (waiting more than a week)' : ''}">${w.kind === 'reminder' ? UI_ICON.clock : w.kind === 'comment' ? UI_ICON.opinion : w.kind === 'agent' ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
-  const waitingCard = card('waiting', { icon: UI_ICON.opinion, tone: 'var(--nc-red)', title: 'Waiting on you', sub: 'Missed reminders, comments, decisions, captures and agent notes', n: d.waiting.length },
-    d.waiting.length ? d.waiting.map(waitRow).join('') : `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`, folded);
+  // A rail card lists its latest few, counts them all, and says where the rest are.
+  const links = (id: string, o: { icon: string; tone: string; title: string; sub: string }, list: QuickLink[], empty: string, total: number, lens: string, lensName: string) =>
+    card(id, { ...o, n: total }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>${total > list.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="${lens}" data-size="sm" data-variant="ghost" title="See them all in the sidebar">${total - list.length} more in ${lensName}</button>` : ''}` : none(empty), folded);
+  // What waits on the owner besides decisions, down to a note an agent left: missed reminders and comments first.
+  const waitRow = (w: WaitItem) =>
+    `<div class="fe-hp-link fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? ' (waiting more than a week)' : ''}">${w.kind === 'reminder' ? UI_ICON.clock : w.kind === 'comment' ? UI_ICON.opinion : w.kind === 'agent' ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
+  // Decisions have their own card just below, so this one holds everything else, and shows only when there is something.
+  const others = d.waiting.filter(w => w.kind !== 'decision');
+  const waitingCard = others.length ? card('waiting', { icon: UI_ICON.opinion, tone: 'var(--nc-red)', title: 'Waiting on you', sub: 'Missed reminders, comments, captures and agent notes', n: others.length }, others.map(waitRow).join(''), folded) : '';
   return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today('long'))}</span></div>
@@ -194,16 +195,16 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
     <div class="fe-hp-body">
       <div class="fe-hp-main">
         ${waitingCard}
+        ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
         <div class="fe-hp-pair">
-          ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
           ${card('repos', { icon: UI_ICON.contents, tone: 'var(--nc-teal)', title: 'Directions', sub: 'Each repo’s plan, asks on you first', n: d.repos.length }, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'), folded)}
+          ${card('chats', { icon: UI_ICON.ai, tone: 'var(--nc-purple)', title: 'Continue', sub: 'Ask chats, newest first', n: d.chats.length }, (chats.map(chatRow).join('') || none('No chats yet. Ask about any file to start one.')) + moreBtn(chats.length, d.chats.length), folded)}
         </div>
-        ${card('chats', { icon: UI_ICON.ai, tone: 'var(--nc-purple)', title: 'Continue', sub: 'Ask chats, newest first', n: d.chats.length }, (chats.map(chatRow).join('') || none('No chats yet. Ask about any file to start one.')) + moreBtn(chats.length, d.chats.length), folded)}
       </div>
       <aside class="fe-hp-rail">
-        ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here')}
-        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: d.sync ? d.sync.text : 'Latest first' }, d.notes, 'Notes you write show up here')}
-        ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: 'Newest first' }, d.recent, 'Places you open show up here')}
+        ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here', getSaved().length, 'saved', 'Saved')}
+        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: d.sync ? d.sync.text : 'Latest first' }, d.notes, 'Notes you write show up here', d.notesTotal, 'notes', 'Notes')}
+        ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: 'Newest first' }, d.recent, 'Places you open show up here', getRecents().filter(r => !getSaved().some(p => p.path === r.path)).length, 'history', 'History')}
         ${d.tools.length ? card('tools', { icon: UI_ICON.terminal, tone: 'var(--nc-teal)', title: 'Local tools', sub: 'Start on click, stop when idle', n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join('')}</div>`, folded) : ''}
       </aside>
     </div>
@@ -259,6 +260,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
         chats, recents: getRecents(), saved: getSaved(), notes: noteList,
       }),
       notes: noteLinks(noteList),
+      notesTotal: noteList.length,
       tools, sync, waiting: wait.items,
       ...quick(),
     };

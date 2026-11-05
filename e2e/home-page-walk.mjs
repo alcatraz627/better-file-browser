@@ -75,7 +75,7 @@ try {
     `the head greets and offers the actions that start work, each naming its key: ${JSON.stringify({ hello: look.hello, acts: look.acts })}`);
   check(look.goBtns.length === 3 && look.goBtns.every(b => b.icon && !b.text), `the path bar's buttons are icons: ${JSON.stringify(look.goBtns)}`);
   const card = id => look.cards.find(c => c.id === id) ?? {};
-  check(JSON.stringify(look.cards.map(c => c.id)) === JSON.stringify(['waiting', 'decide', 'repos', 'chats', 'saved', 'notes', 'recent', 'tools']) && look.cards.every(c => c.tile && c.title && c.sub && c.open),
+  check(JSON.stringify(look.cards.map(c => c.id)) === JSON.stringify(['decide', 'repos', 'chats', 'saved', 'notes', 'recent', 'tools']) && look.cards.every(c => c.tile && c.title && c.sub && c.open),
     `every card has an icon, a title and a line under it, and starts open: ${JSON.stringify(look.cards.map(c => [c.id, c.title, c.sub]))}`);
   check(JSON.stringify(card('decide').rows) === JSON.stringify(['Fresh ask']) && !look.cards.some(c => c.id === 'never'),
     `Decisions lists only recent waiting pages; the old page is left to the Decisions lens: ${JSON.stringify(card('decide').rows)}`);

@@ -17942,8 +17942,8 @@ body{opacity:1!important}
 .fe-hp-card-tx b{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
 .fe-hp-card-tx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hp-card-h>.chev{flex:none;color:var(--dm)}
-.fe-hp-card-b{max-height:26rem;overflow:auto;padding:var(--sp-2) 0 var(--sp-3)}
-.fe-hp-rail .fe-hp-card-b{max-height:16rem}
+.fe-hp-card-b{padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-card-b>.fe-home-more{margin:var(--sp-1) var(--sp-4)}
 .fe-hp-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 .fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
 /* Quick links: a row per place, its actions showing on hover. */
@@ -17954,9 +17954,10 @@ body{opacity:1!important}
 .fe-hp-link-a:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
 .fe-hp-link-a svg{flex:none}
 .fe-hp-link-tx{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp-3)}
-.fe-hp-link-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-hp-link-tags{display:flex;gap:var(--sp-1);flex:none}
-.fe-hp-link-tags i{font-style:normal;font-size:var(--fs-xs);color:var(--mt);padding:0 var(--sp-2);border-radius:var(--r-full);background:var(--s3)}
+.fe-hp-link-l{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The name is what you came for: tags give up their room first. */
+.fe-hp-link-tags{display:flex;gap:var(--sp-1);flex:0 1000 auto;min-width:0;overflow:hidden}
+.fe-hp-link-tags i{flex:none;font-style:normal;font-size:var(--fs-xs);color:var(--mt);padding:0 var(--sp-2);border-radius:var(--r-full);background:var(--s3)}
 .fe-hp-link-act{flex:none;margin-right:var(--sp-2);opacity:0;transition:opacity var(--t-fast) var(--ease)}
 .fe-hp-link:hover .fe-hp-link-act,.fe-hp-link:focus-within .fe-hp-link-act,.fe-hp-link-act[aria-expanded="true"]{opacity:1}
 .fe-hp-edit{display:flex;flex-direction:column;gap:var(--sp-4);width:18rem;padding:var(--sp-5)}
@@ -32927,7 +32928,7 @@ ${rows.join("\n")}`, name: subject };
     return `<button type="button" class="row fe-home-row${unseen ? " unseen" : ""}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}">
     <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
     <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-home-s">${esc(sub)}</span>` : ""}</span>
-    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural3(r.items, "question")}">${r.items}</span>` : ""}
+    ${r.items && r.items > 1 ? `<span class="badge" data-tone="quiet" title="${plural3(r.items, "question")}">${r.items}</span>` : ""}
     <span class="fe-home-age" title="${esc(whenText(r.mtime * 1e3))}">${esc(ago(r.mtime))}</span>
   </button>`;
   };
@@ -32990,7 +32991,7 @@ ${rows.join("\n")}`, name: subject };
     return `<div class="fe-hp-link" data-kind="tool"><a class="fe-hp-link-a" href="${esc(s.url)}" data-tool="${esc(s.name)}" data-up="${s.up ? "1" : ""}" title="${esc(s.up ? `Open ${s.label}` : `Start and open ${s.label}`)}. ${esc(s.about)}">${UI_ICON.terminal}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(s.label)}</span><span class="fe-hp-link-tags"><i>${s.up ? "running" : "stopped"}</i></span></span></a>${end}</div>`;
   };
   var card4 = (id, o, body, folded) => `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? "" : " open"}>
-    <summary class="fe-hp-card-h">${tile2(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span>${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ""}${DISCLOSE}</summary>
+    <summary class="fe-hp-card-h">${tile2(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span title="${esc(o.sub)}">${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ""}${DISCLOSE}</summary>
     <div class="fe-hp-card-b">${body}</div>
   </details>`;
   function paintPage(d, allShown, folded) {
@@ -32998,14 +32999,10 @@ ${rows.join("\n")}`, name: subject };
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
     const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural3(older.length, "older page")} in Decisions</button>` : "";
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
-    const links = (id, o, list3, empty) => card4(id, { ...o, n: list3.length }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>` : none(empty), folded);
-    const waitRow = (w) => w.kind === "decision" ? `<div class="fe-hp-wait${w.faded ? " faded" : ""}" data-kind="decision">${pageRow(d.pages.find((p) => p.slug === w.key.slice(9)) ?? { slug: w.title, path: w.path, mtime: w.since / 1e3, state: "waiting" }, true)}</div>` : `<div class="fe-hp-link fe-hp-wait${w.faded ? " faded" : ""}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? " (waiting more than a week)" : ""}">${w.kind === "reminder" ? UI_ICON.clock : w.kind === "comment" ? UI_ICON.opinion : w.kind === "agent" ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
-    const waitingCard = card4(
-      "waiting",
-      { icon: UI_ICON.opinion, tone: "var(--nc-red)", title: "Waiting on you", sub: "Missed reminders, comments, decisions, captures and agent notes", n: d.waiting.length },
-      d.waiting.length ? d.waiting.map(waitRow).join("") : `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`,
-      folded
-    );
+    const links = (id, o, list3, empty, total, lens, lensName) => card4(id, { ...o, n: total }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>${total > list3.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="${lens}" data-size="sm" data-variant="ghost" title="See them all in the sidebar">${total - list3.length} more in ${lensName}</button>` : ""}` : none(empty), folded);
+    const waitRow = (w) => `<div class="fe-hp-link fe-hp-wait${w.faded ? " faded" : ""}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? " (waiting more than a week)" : ""}">${w.kind === "reminder" ? UI_ICON.clock : w.kind === "comment" ? UI_ICON.opinion : w.kind === "agent" ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
+    const others = d.waiting.filter((w) => w.kind !== "decision");
+    const waitingCard = others.length ? card4("waiting", { icon: UI_ICON.opinion, tone: "var(--nc-red)", title: "Waiting on you", sub: "Missed reminders, comments, captures and agent notes", n: others.length }, others.map(waitRow).join(""), folded) : "";
     return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today("long"))}</span></div>
@@ -33024,16 +33021,16 @@ ${rows.join("\n")}`, name: subject };
     <div class="fe-hp-body">
       <div class="fe-hp-main">
         ${waitingCard}
+        ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
         <div class="fe-hp-pair">
-          ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
           ${card4("repos", { icon: UI_ICON.contents, tone: "var(--nc-teal)", title: "Directions", sub: "Each repo\u2019s plan, asks on you first", n: d.repos.length }, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"), folded)}
+          ${card4("chats", { icon: UI_ICON.ai, tone: "var(--nc-purple)", title: "Continue", sub: "Ask chats, newest first", n: d.chats.length }, (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length), folded)}
         </div>
-        ${card4("chats", { icon: UI_ICON.ai, tone: "var(--nc-purple)", title: "Continue", sub: "Ask chats, newest first", n: d.chats.length }, (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length), folded)}
       </div>
       <aside class="fe-hp-rail">
-        ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
-        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: d.sync ? d.sync.text : "Latest first" }, d.notes, "Notes you write show up here")}
-        ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "Newest first" }, d.recent, "Places you open show up here")}
+        ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here", getSaved().length, "saved", "Saved")}
+        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: d.sync ? d.sync.text : "Latest first" }, d.notes, "Notes you write show up here", d.notesTotal, "notes", "Notes")}
+        ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "Newest first" }, d.recent, "Places you open show up here", getRecents().filter((r) => !getSaved().some((p) => p.path === r.path)).length, "history", "History")}
         ${d.tools.length ? card4("tools", { icon: UI_ICON.terminal, tone: "var(--nc-teal)", title: "Local tools", sub: "Start on click, stop when idle", n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join("")}</div>`, folded) : ""}
       </aside>
     </div>
@@ -33090,6 +33087,7 @@ ${rows.join("\n")}`, name: subject };
           notes: noteList
         }),
         notes: noteLinks(noteList),
+        notesTotal: noteList.length,
         tools,
         sync,
         waiting: wait.items,
