@@ -27,7 +27,7 @@ type LensSettings = Pick<Settings, 'lensOrder' | 'lensOff' | 'hideRecent'>;
  *  saved order, takes its place after the lens it follows in the built-in list. */
 export function lensOrder(s: LensSettings): Lens[] {
   const known = new Map(LENSES.map(l => [l.id, l]));
-  const out = [...new Set(s.lensOrder ?? [])].filter(id => known.has(id)).map(id => known.get(id)!);
+  const out = [...new Set(Array.isArray(s.lensOrder) ? s.lensOrder : [])].filter(id => known.has(id)).map(id => known.get(id)!);
   LENSES.forEach((l, i) => {
     if (out.includes(l)) return;
     const before = LENSES.slice(0, i).reverse().find(p => out.includes(p));
@@ -36,13 +36,15 @@ export function lensOrder(s: LensSettings): Lens[] {
   return out;
 }
 
+const offList = (s: LensSettings): string[] => (Array.isArray(s.lensOff) ? s.lensOff : []);
+
 export const lensOn = (s: LensSettings, id: string) =>
-  id === 'history' ? !s.hideRecent : !(s.lensOff ?? []).includes(id);
+  id === 'history' ? !s.hideRecent : !offList(s).includes(id);
 
 /** Switch a lens on or off. The last lens on cannot be switched off; returns false then. */
 export function setLensOn(s: LensSettings, id: string, on: boolean): boolean {
   if (!on && LENSES.filter(l => l.id !== id && lensOn(s, l.id)).length === 0) return false;
   if (id === 'history') s.hideRecent = !on;
-  else s.lensOff = on ? (s.lensOff ?? []).filter(x => x !== id) : [...new Set([...(s.lensOff ?? []), id])];
+  else s.lensOff = on ? offList(s).filter(x => x !== id) : [...new Set([...offList(s), id])];
   return true;
 }

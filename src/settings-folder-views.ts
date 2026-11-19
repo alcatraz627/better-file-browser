@@ -10,7 +10,7 @@ import { UI_ICON, VIEW_ICONS } from './control-icons';
 import { ddHtml, upgradeControls, type ValuedEl } from './controls';
 import { emptyHtml } from './empty-state';
 import { homeDir, textPref } from './storage';
-import { allFolderViews, dropFolderView, folderTree, keepFolderView, folderKey } from './folder-views';
+import { allFolderViews, dropFolderView, folderTree, keepFolderView, folderKey, folderView } from './folder-views';
 import type { App } from './app';
 
 type Toast = (msg: string, ms?: number, action?: { label: string; run: () => void }) => void;
@@ -48,7 +48,7 @@ export function initFolderViewSettings(app: App, toast: Toast): () => void {
     }
     const inTree = tree.checked;
     const laid = inTree ? folderTree(paths) : [...paths].sort((a, b) => a.localeCompare(b)).map(p => ({ path: p, depth: 0, tail: p }));
-    const viewOf = (p: string) => all[p].view ?? 'details';
+    const viewOf = (p: string) => folderView(p)?.view ?? 'details';
     if (shape.value === 'view') {
       // Grouped by view: one heading per view in the order the toolbar shows them.
       list.innerHTML = VIEW_ICONS.map(v => {

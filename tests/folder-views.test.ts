@@ -32,4 +32,10 @@ describe('folders that keep their own view', () => {
     ]);
     expect(folderTree(['/', '/etc'])).toEqual([{ path: '/', depth: 0, tail: '/' }, { path: '/etc', depth: 1, tail: 'etc' }]);
   });
+  it('leaves out a damaged part, so the defaults fill it', () => {
+    keepFolderView('/d', { view: 'nonsense', sort: { col: 'weird', dir: 'up' }, group: 'odd' } as never);
+    expect(folderView('/d')).toEqual({});
+    keepFolderView('/e', { view: 'tiles', sort: { col: null, dir: 'desc' }, group: 'ext' });
+    expect(folderView('/e')).toEqual({ view: 'tiles', sort: { col: null, dir: 'desc' }, group: 'ext' });
+  });
 });

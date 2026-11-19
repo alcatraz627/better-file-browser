@@ -5,6 +5,11 @@
 
 import { jsonPref } from './storage';
 import type { GroupMode, SortConfig } from './types';
+import { VIEW_ICONS } from './control-icons';
+
+const VIEWS: string[] = VIEW_ICONS.map(v => v.id);
+const COLS = [null, 'name', 'size', 'date', 'type', 'ext'];
+const GROUPS = ['none', 'folders-first', 'files-first', 'ext', 'type'];
 
 /** The keep button's tooltip, kept and not. */
 export const KEEP_ON = 'Kept for this folder; click for the default';
@@ -20,7 +25,16 @@ export const folderKey = (path: string) => path.replace(/\/+$/, '') || '/';
 
 export const allFolderViews = (): Record<string, FolderView> => store.get();
 
-export const folderView = (path: string): FolderView | null => store.get()[folderKey(path)] ?? null;
+/** A folder's kept view, with any damaged part left out so the defaults fill it. */
+export function folderView(path: string): FolderView | null {
+  const v = store.get()[folderKey(path)];
+  if (!v) return null;
+  const out: FolderView = {};
+  if (VIEWS.includes(v.view as string)) out.view = v.view;
+  if (v.sort && typeof v.sort === 'object' && (v.sort.dir === 'asc' || v.sort.dir === 'desc') && COLS.includes(v.sort.col)) out.sort = { col: v.sort.col, dir: v.sort.dir };
+  if (GROUPS.includes(v.group as string)) out.group = v.group;
+  return out;
+}
 
 /** Keep this folder's view, or change part of what it keeps. */
 export function keepFolderView(path: string, patch: FolderView): void {

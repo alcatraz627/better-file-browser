@@ -81,6 +81,15 @@ try {
   });
   check(seen, 'clicking a named match brings its row into view');
 
+  // ] steps to the next tab mid-search: the search ends and every pane is home.
+  s = await type('font');
+  await page.evaluate(() => document.activeElement.blur());
+  await page.keyboard.press(']');
+  await sleep(200);
+  s = await state();
+  check(!s.searching && await page.$eval('#fe-st-search', i => i.value) === '' && await page.evaluate(() => document.querySelectorAll('#fe-settings-modal .fe-dlg-box > .fe-dlg-pane:not(.fe-dlg-results)').length) === 9, '] mid-search ends it and puts every pane back');
+  check(await page.evaluate(() => !!document.querySelector('#fe-settings-modal .fe-dlg-pane.on')?.checkVisibility()), 'and the stepped-to tab shows');
+
   // Nothing matched says so.
   s = await type('zzqqxx');
   check(/No setting matches/.test(s.empty ?? ''), 'no match says so', s.empty);
@@ -92,7 +101,7 @@ try {
   s = await state();
   check(!s.searching && await page.$eval('#fe-st-search', i => i.value) === '' && !await page.$eval('#fe-settings-modal', m => m.hidden), 'Esc clears the box and Settings stays open');
   check(await page.evaluate(() => document.querySelectorAll('#fe-settings-modal .fe-dlg-box > .fe-dlg-pane:not(.fe-dlg-results)').length) === 9, 'every tab is back in its place');
-  check(await page.$eval('#fe-settings-modal .fe-dlg-pane[data-tab="look"]', p => p.classList.contains('on') && p.checkVisibility()), 'and the tab that was open shows again');
+  check(await page.evaluate(() => !!document.querySelector('#fe-settings-modal .fe-dlg-box > .fe-dlg-pane.on')?.checkVisibility()), 'and the tab that was open shows again');
   await page.keyboard.press('Escape');
   await sleep(200);
   check(await page.$eval('#fe-settings-modal', m => m.hidden), 'a second Esc closes Settings');

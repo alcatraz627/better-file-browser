@@ -163,8 +163,13 @@ export function initSettingsSearch(root: HTMLElement): void {
     if (e.key === 'Escape' && input.value) { e.preventDefault(); e.stopPropagation(); input.value = ''; run(); }
     else if (e.key === 'Enter') { const first = rail.querySelector<HTMLElement>('.fe-dlg-hit'); if (first) { e.preventDefault(); first.click(); } }
   });
-  // A tab picked while searching ends the search and opens that tab as usual.
+  // A tab picked while searching, by a click or by [ and ], ends the search and
+  // opens that tab as usual. Search itself never changes which tab is open.
   tabs.forEach(t => t.addEventListener('click', () => { if (searching) { input.value = ''; stop(); } }, { capture: true }));
+  const hasOn = (cls: string | null) => (cls ?? '').split(/\s+/).includes('on');
+  new MutationObserver(ms => {
+    if (searching && ms.some(m => (m.target as Element).matches('.fe-dlg-tab') && hasOn(m.oldValue) !== (m.target as Element).classList.contains('on'))) { input.value = ''; stop(); }
+  }).observe(rail, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
   // ⌘F inside Settings goes to the box rather than the page's find.
   root.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); e.stopPropagation(); input.focus(); input.select(); }

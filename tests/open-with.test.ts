@@ -56,4 +56,8 @@ describe('open with: commands as Settings rows', () => {
     expect(html.match(/fe-ow-dot/g)).toHaveLength(1);
     expect(openWithItems([row('Bad', 'cat', { color: 'red;background:url(x)' })])).not.toContain('url(x)');
   });
+  it('skips a damaged stored row instead of failing', () => {
+    expect(ownCommands({ openWith: [null, { name: 3 }, { cmd: 'ls' }, { name: 'Ok', cmd: 'cat' }] as never }).map(c => c.name)).toEqual(['Ok']);
+    expect(ownCommands({ openWith: 'junk' as never, openWithCmds: 'A: ls' }).map(c => c.name)).toEqual(['A']);
+  });
 });

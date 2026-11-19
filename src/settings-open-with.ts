@@ -174,7 +174,8 @@ export function initOpenWithSettings(settings: Settings, toast: Toast): () => vo
 
   return () => {
     // The older text is carried over as rows the first time; it is saved as rows only on a change.
-    rows = (settings.openWith ?? parseCommands(settings.openWithCmds)).map(r => ({ ...r }));
+    const saved = Array.isArray(settings.openWith) ? settings.openWith.filter(r => !!r && typeof r === 'object') : null;
+    rows = (saved ?? parseCommands(settings.openWithCmds)).map(r => ({ name: String(r.name ?? ''), cmd: String(r.cmd ?? ''), terminal: r.terminal !== false, ...(r.filesOnly ? { filesOnly: true } : {}), ...(typeof r.color === 'string' ? { color: r.color } : {}) }));
     render();
   };
 }

@@ -39,7 +39,10 @@ export function parseCommands(text: string | undefined): OwnCommand[] {
 
 /** The commands in Settings: the rows once saved, else the older text. */
 export function ownCommands(s: Pick<Settings, 'openWith' | 'openWithCmds'>): OwnCommand[] {
-  return s.openWith ? s.openWith.filter(c => c.name.trim() && c.cmd.trim() && !commandProblem(c)) : parseCommands(s.openWithCmds);
+  if (!Array.isArray(s.openWith)) return parseCommands(s.openWithCmds);
+  // A stored row is skipped, not trusted, when it is damaged or cannot run.
+  return s.openWith.filter(c => !!c && typeof c.name === 'string' && typeof c.cmd === 'string' && !commandProblem(c))
+    .map(c => ({ name: c.name, cmd: c.cmd, terminal: c.terminal !== false, ...(c.filesOnly ? { filesOnly: true } : {}), ...(typeof c.color === 'string' ? { color: c.color } : {}) }));
 }
 
 /** What is wrong with a command row, in a few words, or '' when it can run.

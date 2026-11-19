@@ -39,4 +39,8 @@ describe('sidebar sections', () => {
     expect(setLensOn(s, 'notes', false)).toBe(false);
     expect(lensOn(s, 'notes')).toBe(true);
   });
+  it('reads damaged stored lists as empty', () => {
+    expect(ids({ lensOrder: 'ask' as never })).toEqual(LENSES.map(l => l.id));
+    expect(lensOn({ lensOff: { ask: 1 } as never }, 'ask')).toBe(true);
+  });
 });
