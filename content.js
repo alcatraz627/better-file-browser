@@ -19889,6 +19889,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* Settings rows: a wide row puts its control under the label. */
 .fe-set.wide{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
 .fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
+/* A wide row's lone control takes the row's width. Without this a grid that
+   fits "as many columns as there is room for" sits in a box as narrow as its
+   content and lays itself out one item per line (the App icon list did). */
+.fe-set.wide .fe-set-c>:only-child{flex:1 1 auto;min-width:0}
+/* A section heading with buttons keeps the height of one without, so every card sits the same distance under its title. */
+.fe-set-h .sect-acts{margin-block:-6px}
 .fe-set.wide .fe-st-input{width:100%}
 .fe-set[hidden],#fe-st-saved-move[hidden]{display:none}
 #fe-st-notes-root{width:420px}
@@ -20054,9 +20060,10 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-appicon:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
 
 /* Icon rules. */
-.fe-rule-sugg{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);padding:var(--sp-5) var(--sp-6) var(--sp-2)}
+/* "Add" stands in its own column, so a second line of chips starts under the first chip, not under the word. */
+.fe-rule-sugg{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);padding:var(--sp-5) var(--sp-6) var(--sp-2) calc(var(--sp-6) + 36px)}
 .fe-rule-sugg:empty{display:none}
-.fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:var(--sp-1)}
+.fe-rule-sugg-l{position:absolute;left:var(--sp-6);top:calc(var(--sp-5) + 4px);font-size:var(--fs-sm);color:var(--dm)}
 .chip.fe-rule-add > svg{width:13px;height:15px}
 #fe-st-rules-list{padding:var(--sp-3) 0 var(--sp-4)}
 .fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
@@ -20070,6 +20077,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-web-title:hover{text-decoration:underline}
 .fe-web-meta{color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}
 #fe-st-web-add-host{width:200px}
+#fe-st-web-sites>.empty,#fe-st-web-marks>.empty{padding-inline:var(--sp-6)}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
 .fe-switch.sm::after{width:12px;height:12px}
 .fe-switch.sm:checked::after{transform:translateX(12px)}
