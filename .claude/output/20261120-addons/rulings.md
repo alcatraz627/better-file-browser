@@ -4,14 +4,14 @@ reader: the bfb owner, and the next agent building these add-ons
 
 # Parked add-ons: what the owner chose on 2026-11-20
 
-The owner said build to all fourteen parked add-ons. Seven came with notes that change what gets built, quoted below in the owner's words. The Settings layout fixes are done; the rest is built in the order at the end.
+The owner said build to all fourteen parked add-ons. Seven came with notes that change what gets built, quoted below in the owner's words. The Settings layout fixes are done. The rest is built in the order at the end.
 
 ## What gets built, with the owner's notes
 
 **Settings additions**
 
 - **View thumbnails.** The View setting shows a small drawing of each view instead of bare icons. No note.
-- **Try a name for icon rules.** A box where a file name shows which rule wins. Note: "Mis-alignment of card title / toolbar / chips, identify + fix and build". The misalignment is fixed; the box is still to build.
+- **Try a name for icon rules.** A box where a file name shows which rule wins. Note: "Mis-alignment of card title / toolbar / chips, identify + fix and build". The misalignment is fixed. The box is still to build.
 - **One Density setting.** Row spacing and the toolbar's Detail slider become one scale. Note: "Fine but why does the App Icons list wrap on one icon? Please check and fix for ALL such defects in settings modal". Fixed for every pane.
 - **Sidebar sections.** A switch and a drag handle for each sidebar section. No note.
 - **Settings search.** Note: "Take ideas from other apps that show filtered settings list and what exactly is matched in the sidebar".
@@ -46,13 +46,17 @@ The owner said build to all fourteen parked add-ons. Seven came with notes that 
 
 An outside reviewer tried to break the first built units (rich editing, layout fixes, the small Settings rows). Fixed, each with a check that fails without the fix:
 
-- An open Rich block could damage other lines when the file changed on disk. Fixed: the block ends before outside text arrives, and the format bar now acts on an open block.
+- An open Rich block could damage other lines when the file changed on disk. Fixed. The block ends before outside text arrives, and the format bar now acts on an open block.
 - Import replaced marks and dark mode with no check and no Undo. Fixed: damaged values are left out and said so, and Undo puts back what was replaced.
 - The Reload link could show text no longer on disk. Fixed, and it is now reachable by keyboard.
 - Export could be pressed with every part off. Fixed.
 - View drawings overflowed narrow tiles. Fixed.
 
-Left for later, all minor: Undo for a folder removed twice in a row can land in a stale place; an emptied folder row has no Undo; Only on this Mac does not block a bare online model name set as the default, which Settings never offers.
+Left for later, all minor:
+
+- Undo for a folder removed twice in a row can land in a stale place.
+- An emptied folder row has no Undo.
+- Only on this Mac does not block a bare online model name set as the default, which Settings never offers.
 
 ## Sources
 
