@@ -1,13 +1,17 @@
 // "Open with": a file or folder in another app (Zed, VS Code, Cursor, or shown
 // in Finder), or one of the person's own commands run on it, such as `cat`,
-// `bash` or `code --add`. The commands come only from Settings, one per line as
-// `Name: command`; the path is added, quoted, as the last argument. A command
-// runs in a new Ghostty window, or in the background when it starts with `&`.
+// `bash` or `code --add`. The commands come only from Settings, as rows of a
+// name, a command and an optional colour; the path is added, quoted, as the last
+// argument. A command runs in a new Ghostty window, or in the background.
+// Older settings kept them as text, one per line as `Name: command` with `&` for
+// the background; that text is still read until the rows are first saved.
 import { esc } from './utils';
+import { safeColor } from './icons';
+import type { Settings } from './types';
 import { UI_ICON } from './control-icons';
 import { openLayer } from './layer';
 
-export interface OwnCommand { name: string; cmd: string; terminal: boolean; filesOnly?: boolean }
+export interface OwnCommand { name: string; cmd: string; terminal: boolean; filesOnly?: boolean; color?: string }
 export const APPS = [
   { id: 'zed', label: 'Open in Zed' },
   { id: 'vscode', label: 'Open in VS Code' },
@@ -33,10 +37,42 @@ export function parseCommands(text: string | undefined): OwnCommand[] {
   });
 }
 
+/** The commands in Settings: the rows once saved, else the older text. */
+export function ownCommands(s: Pick<Settings, 'openWith' | 'openWithCmds'>): OwnCommand[] {
+  return s.openWith ? s.openWith.filter(c => c.name.trim() && c.cmd.trim() && !commandProblem(c)) : parseCommands(s.openWithCmds);
+}
+
+/** What is wrong with a command row, in a few words, or '' when it can run.
+ *  `others` are the other rows, so a repeated name is caught. */
+export function commandProblem(c: Pick<OwnCommand, 'name' | 'cmd'>, others: Pick<OwnCommand, 'name'>[] = []): string {
+  const name = c.name.trim(), cmd = c.cmd.trim();
+  if (!name) return 'Needs a name';
+  if (!cmd) return 'Needs a command';
+  if (/[\n\r]/.test(c.cmd)) return 'Keep it to one line';
+  if (cmd.startsWith('&')) return 'Use the Window switch instead of &';
+  if (others.some(o => o.name.trim().toLowerCase() === name.toLowerCase())) return 'Another command has this name';
+  // The launcher hands the line to zsh, so an open quote would swallow the path.
+  let quote = '';
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote) { if (ch === quote) quote = ''; else if (ch === '\\' && quote === '"') i++; }
+    else if (ch === '\\') i++;
+    else if (ch === '"' || ch === "'") quote = ch;
+  }
+  if (quote) return 'A quote is left open';
+  if (/[;|&]\s*$/.test(cmd)) return 'Ends in ; | or &, so the path is lost';
+  return '';
+}
+
+/** The program a command runs, the first word, for the launcher to look up. */
+export const commandProgram = (cmd: string) => cmd.trim().split(/\s+/)[0]?.replace(/^['"]|['"]$/g, '') ?? '';
+
+const dot = (c: string) => `<i class="fe-ow-dot" style="--c:${safeColor(c)}" aria-hidden="true"></i>`;
+
 /** Menu rows for the apps and the commands, as `data-act="ow:..."` items. */
 export function openWithItems(commands: OwnCommand[], isDir = false): string {
   return APPS.map(a => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join('')
-    + commands.map((c, i) => isDir && c.filesOnly ? '' : `<div class="row fe-ctx-item" data-act="ow:#${i}" title="${esc(c.cmd)} <path>${c.terminal ? ', in Ghostty' : ', in the background'}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join('');
+    + commands.map((c, i) => isDir && c.filesOnly ? '' : `<div class="row fe-ctx-item" data-act="ow:#${i}" title="${esc(c.cmd)} <path>${c.terminal ? ', in Ghostty' : ', in the background'}">${c.color ? dot(c.color) : UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join('');
 }
 
 /** Run a menu pick on `path`, saying so in a toast when it could not be done. */

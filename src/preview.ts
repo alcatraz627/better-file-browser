@@ -6,7 +6,7 @@ import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, fileHref, whenText } from './utils';
 import { copyWithCheck } from './copy-done';
 import { getPreviewLayout, savePreviewLayout, getSettings, isSaved, toggleSavedWithUndo, flagPref, textPref } from './storage';
-import { openSplitHtml, openWithMenu, parseCommands } from './open-with';
+import { openSplitHtml, openWithMenu, ownCommands } from './open-with';
 import type { Toast } from './toast';
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
@@ -188,7 +188,7 @@ export function initPreview(d: PreviewDeps): void {
   });
   document.getElementById('fe-ql-app-more')!.addEventListener('click', e => {
     const p = previewedPath();
-    if (p) openWithMenu(e.currentTarget as HTMLElement, p, false, parseCommands(getSettings().openWithCmds), m => deps.toast?.(m));
+    if (p) openWithMenu(e.currentTarget as HTMLElement, p, false, ownCommands(getSettings()), m => deps.toast?.(m));
   });
   document.getElementById('fe-ql-save')!.addEventListener('click', () => {
     const p = previewedPath();
@@ -752,7 +752,7 @@ export function openPreview(e: Entry): void {
         href: e.href, name: e.name,
         path: decodeURIComponent(new URL(e.href, location.href).pathname),
         notify: m => deps.toast?.(m),
-        openMore: anchor => openWithMenu(anchor, currentImage!, false, parseCommands(getSettings().openWithCmds), m => deps.toast?.(m)),
+        openMore: anchor => openWithMenu(anchor, currentImage!, false, ownCommands(getSettings()), m => deps.toast?.(m)),
         openNative,
       });
     }

@@ -41,7 +41,8 @@ export interface Tag {
 export interface Settings {
   compactMode:  boolean;
   showSidebar:  boolean;
-  openWithCmds?: string;        // the person's own "Open with" commands, one per line as `Name: command` (& = background)
+  openWithCmds?: string;        // the older form of the commands, one per line as `Name: command` (& = background); read until openWith is saved
+  openWith?: { name: string; cmd: string; terminal: boolean; filesOnly?: boolean; color?: string }[];   // the person's own "Open with" commands, as Settings rows
   panKey?: 'Shift' | 'Alt' | 'Meta' | 'off';   // held over a reading surface, a drag scrolls it (default Shift)
   peekCloseMs?: number;         // a peeked sidebar closes this long after the pointer leaves; 0 waits for Esc or a click away (default 500)
   dockFoldsSidebar?: boolean;   // a docked preview folds the sidebar away while it is open (default on)

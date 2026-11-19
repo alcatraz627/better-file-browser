@@ -70,5 +70,17 @@ verdict(r.get('success') and os.path.exists(made), 'a background command runs on
 r = ask({'action': 'run_with', 'cmd': 'cat\nls', 'terminal': False, 'path': target})
 verdict(not r.get('success'), 'a command over two lines is refused')
 
+# Settings checks a command before it is picked: is its program there, and is it one line?
+r = ask({'action': 'check_cmd', 'cmd': 'cat -n'})
+verdict(r.get('success') and r.get('found') and r.get('program') == 'cat' and r.get('where', '').endswith('/cat'), f'a program on PATH is found: {r}')
+r = ask({'action': 'check_cmd', 'cmd': 'no-such-prog-bfb --x'})
+verdict(r.get('success') and r.get('found') is False, f'a missing program is reported: {r}')
+r = ask({'action': 'check_cmd', 'cmd': "echo 'open"})
+verdict(r.get('success') and r.get('found') is False and r.get('problem'), f'an open quote is reported: {r}')
+r = ask({'action': 'check_cmd', 'cmd': '$(touch /tmp/bfb-check-ran)'})
+verdict(r.get('success') and not os.path.exists('/tmp/bfb-check-ran'), 'checking a command never runs it')
+r = ask({'action': 'check_cmd', 'cmd': 'cat\nls'})
+verdict(not r.get('success'), 'a check over two lines is refused')
+
 print('\nall checks passed' if not failed else f'\n{failed} FAILED')
 sys.exit(1 if failed else 0)

@@ -4,7 +4,7 @@
 import type { App } from './app';
 import type { Listing } from './listing';
 import { el } from './el';
-import { APPS, openWithItems, parseCommands, runOpenWith } from './open-with';
+import { APPS, openWithItems, ownCommands, runOpenWith } from './open-with';
 import { esc, fullPath, copyToClipboard } from './utils';
 import { copyPhoneLink } from './phone';
 import { copyWithCheck } from './copy-done';
@@ -193,7 +193,7 @@ export function initListingInput(app: App, listing: Listing): void {
           `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
           `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
           `<div class="fe-ctx-sep"></div>`,
-          openWithItems(parseCommands(app.settings.openWithCmds), en.isDir),
+          openWithItems(ownCommands(app.settings), en.isDir),
         ].join('');
     ctxMenu.dataset.idx = String(idx);
     ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, origin: holder, role: 'menu', group: 'menu' });
@@ -214,7 +214,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (item.dataset.act === 'ask')     askAbout(en);
     else if (item.dataset.act === 'term')    app.openInTerminal(en.isDir ? fp : rawPath);
     else if (item.dataset.act === 'rename')  renameRow(en);
-    else if (item.dataset.act?.startsWith('ow:')) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
+    else if (item.dataset.act?.startsWith('ow:')) runOpenWith(item.dataset.act, fp, ownCommands(app.settings), toast);
     else if (item.dataset.act === 'save') toggleSavedWithUndo(fp, en.name, toast, () => app.refreshSaved());
     else if (item.dataset.act === 'cp-paths') sel.copySelection();
     else if (item.dataset.act === 'cp-names') {
@@ -315,7 +315,7 @@ export function initListingInput(app: App, listing: Listing): void {
   // The palette opens this page's file or folder in another app, or runs one of the person's commands on it.
   addPaletteSource(() => {
     const path = app.fileMode ? app.rawPath : app.folderPath;
-    const cmds = parseCommands(app.settings.openWithCmds);
+    const cmds = ownCommands(app.settings);
     return [
       ...APPS.map(a => ({ title: a.label, sub: 'this page', group: 'Open with', icon: UI_ICON.external, run: () => runOpenWith('ow:' + a.id, path, cmds, toast) })),
       ...cmds.flatMap((c, i) => !app.fileMode && c.filesOnly ? [] : [{ title: c.name, sub: `${c.cmd} on this page`, group: 'Open with', icon: UI_ICON.terminal, run: () => runOpenWith('ow:#' + i, path, cmds, toast) }]),

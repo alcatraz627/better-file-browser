@@ -71,6 +71,27 @@ elif msg and msg.get('action') == 'run_with':
         write_msg({'success': True})
     except Exception as e:
         write_msg({'success': False, 'error': str(e)})
+elif msg and msg.get('action') == 'check_cmd':
+    # Whether a command's program can be found by the same login shell that runs it,
+    # so Settings can say "not found" before the command is ever picked. Nothing is run
+    # but zsh's own lookup, and the program is passed as an argument, never as code.
+    import shlex
+    cmd = msg.get('cmd')
+    try:
+        if not isinstance(cmd, str) or not cmd.strip() or '\n' in cmd:
+            raise ValueError('the command must be one line')
+        try:
+            words = shlex.split(cmd)
+        except ValueError:
+            write_msg({'success': True, 'found': False, 'problem': 'A quote is left open'})
+            sys.exit(0)
+        prog = words[0] if words else ''
+        r = subprocess.run(['/bin/zsh', '-lc', 'whence -p -- "$1" || whence -w -- "$1"', 'check', prog],
+                           capture_output=True, text=True, timeout=5)
+        where = r.stdout.strip().splitlines()[0] if r.returncode == 0 and r.stdout.strip() else ''
+        write_msg({'success': True, 'found': bool(where), 'program': prog, 'where': where})
+    except Exception as e:
+        write_msg({'success': False, 'error': str(e)})
 elif msg and msg.get('action') == 'open_file':
     # Only an existing image file: `open` would also launch an app bundle or a script.
     path = msg.get('path')

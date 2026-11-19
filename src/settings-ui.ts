@@ -6,9 +6,10 @@ import type { LlmAvailability } from './llm';
 import type { Entry, IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc, fileHref } from './utils';
-import { icoCustom, getIcon, ruleFor, RULE_GLYPHS } from './icons';
+import { icoCustom, getIcon, ruleFor, RULE_GLYPHS, SWATCHES } from './icons';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
-import { DEFAULT_COMMANDS, runOpenWith } from './open-with';
+import { runOpenWith } from './open-with';
+import { initOpenWithSettings } from './settings-open-with';
 import { notes } from './notes';
 import { copyWithCheck } from './copy-done';
 import { llmAvailability, llmWarm, llmModels, defaultTier } from './llm';
@@ -67,14 +68,13 @@ const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] 
   { name: 'Readme', pattern: '^readme', label: 'RDM', glyph: 'book', color: '#4a9eff' },
   { name: 'Claude', pattern: '(^claude\\.md$|\\.claude$)', label: 'Cld', glyph: 'sparkle', color: '#d97757' },
 ];
-const SWATCHES = ['#ff6b6b', '#f783ac', '#d97757', '#ffa94d', '#e8b923', '#94d82d', '#40c057', '#38d9a9',
-  '#3bc9db', '#4dabf7', '#4a9eff', '#748ffc', '#b197fc', '#da77f2', '#a1887f', '#8b949e'];
 
 export function initSettingsUi(app: App): void {
   const { fe, settings, toast } = app;
   const v = <T extends HTMLElement = ValuedEl>(id: string) => el(id) as unknown as T;
   upgradeControls(el('fe-settings-modal'));
   const refreshWeb = initWebSettings(toast);
+  const refreshOpenWith = initOpenWithSettings(settings, toast);
 
   // Icon rules.
   const badRegex = (p: string) => { try { new RegExp(p, 'i'); return ''; } catch (e) { return String((e as Error).message); } };
@@ -349,7 +349,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-dock-fold').checked = settings.dockFoldsSidebar !== false;
     v('fe-st-peek-close').value = String(settings.peekCloseMs ?? 500);
     v('fe-st-pan').value = settings.panKey ?? 'Shift';
-    el<HTMLTextAreaElement>('fe-st-open-with').value = settings.openWithCmds ?? DEFAULT_COMMANDS;
+    refreshOpenWith();
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     el<HTMLInputElement>('fe-st-newtab-home').checked = settings.newTabHome === true;
     el<HTMLInputElement>('fe-st-home-url').value = homeAddress();
@@ -468,7 +468,6 @@ export function initSettingsUi(app: App): void {
     void copyWithCheck(this, homeAddress()).then(ok => { if (!ok) toast('Copy failed'); });
   });
   el<HTMLInputElement>('fe-st-home-url').addEventListener('focus', function () { this.select(); });
-  el<HTMLTextAreaElement>('fe-st-open-with').addEventListener('change', function () { settings.openWithCmds = this.value; saveSettings(settings); });
   v('fe-st-peek-close').addEventListener('change', () => { settings.peekCloseMs = Number(v('fe-st-peek-close').value); saveSettings(settings); });
   v('fe-st-pan').addEventListener('change', () => { settings.panKey = v('fe-st-pan').value as typeof settings.panKey; saveSettings(settings); });
   v('fe-st-terminal').addEventListener('change', () => {

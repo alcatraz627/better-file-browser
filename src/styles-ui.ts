@@ -319,6 +319,29 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:var(--sp-3);align-items:center}
 .fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(var(--ink) / .15);transition:transform var(--t-fast) var(--ease)}
 .fe-rp-c:hover{transform:scale(1.1)}
+.fe-rp-c.none{background:linear-gradient(135deg,transparent 46%,var(--nc-red) 46% 54%,transparent 54%);box-shadow:inset 0 0 0 1px var(--bd2)}
+.fe-rp-c.none.on{box-shadow:inset 0 0 0 1px var(--bd2),0 0 0 2px var(--card),0 0 0 4px var(--dm)}
+.fe-set-c:has(>#fe-st-ow-list){flex-direction:column;align-items:stretch;gap:var(--sp-3)}
+#fe-st-ow-add{align-self:flex-start}
+.fe-ow-list{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fe-ow-head,.fe-ow-row{display:grid;grid-template-columns:34px minmax(96px,.45fr) minmax(0,1fr) 64px 56px 28px;align-items:center;column-gap:var(--sp-4)}
+.fe-ow-row{padding:var(--sp-2) 0;border-radius:9px}
+.fe-ow-head{padding-bottom:var(--sp-1)}
+.fe-ow-head span{font-size:var(--fs-sm);color:var(--dm);text-align:center}
+.fe-ow-head span:nth-child(2),.fe-ow-head span:nth-child(3){text-align:left}
+.fe-ow-row>.fe-switch{justify-self:center}
+.fe-ow-row>input.tb{width:100%;min-width:0}
+.fe-ow-color{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
+.fe-ow-color:hover{border-color:var(--ac)}
+.fe-ow-ball{width:14px;height:14px;border-radius:50%;background:var(--c)}
+.fe-ow-ball.none{background:none;border:1.5px dashed var(--dm)}
+.fe-ow-st{grid-column:2/-1;padding-top:var(--sp-1);font-size:var(--fs-sm);color:var(--dm);overflow-wrap:anywhere}
+.fe-ow-st:empty{display:none}
+.fe-ow-st[data-tone="bad"]{color:var(--nc-red)}
+.fe-ow-pick{width:26px;height:26px;padding:3px;border:0;border-radius:50%;background:conic-gradient(#ff6b6b,#ffd43b,#51cf66,#3bc9db,#748ffc,#da77f2,#ff6b6b);cursor:pointer}
+.fe-ow-pick::-webkit-color-swatch-wrapper{padding:0}
+.fe-ow-pick::-webkit-color-swatch{border:2px solid var(--card);border-radius:50%}
+.fe-ow-dot{flex:none;width:16px;height:16px;background:radial-gradient(circle,var(--c) 0 4.5px,transparent 5px)}
 .fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
 .fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-rp-hex{grid-column:span 4}

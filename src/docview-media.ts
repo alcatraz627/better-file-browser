@@ -7,7 +7,7 @@
 import { esc, midHtml } from './utils';
 import { UI_ICON, GLYPH } from './control-icons';
 import { openLayer, type Layer } from './layer';
-import { openWithMenu, parseCommands } from './open-with';
+import { openWithMenu, ownCommands } from './open-with';
 import { getSettings } from './storage';
 import { mountImageTools, type ViewState } from './image-tools';
 import { bind } from './commands';
@@ -289,7 +289,7 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void,
       tools = mountImageTools(body.firstElementChild as HTMLElement, {
         href: m.src, name: m.name, path: decodeURIComponent(new URL(m.src, location.href).pathname), notify, start: left,
         // Outside the extension (the web build of a page) there is no other app to list.
-        openMore: typeof chrome === 'undefined' || !chrome.runtime?.id ? undefined : anchor => openWithMenu(anchor, decodeURIComponent(new URL(m.src, location.href).pathname), false, parseCommands(getSettings().openWithCmds), notify),
+        openMore: typeof chrome === 'undefined' || !chrome.runtime?.id ? undefined : anchor => openWithMenu(anchor, decodeURIComponent(new URL(m.src, location.href).pathname), false, ownCommands(getSettings()), notify),
         // Outside the extension (the web build of a page) there is no app to open it in.
         openNative: p => typeof chrome === 'undefined' || !chrome.runtime?.id ? Promise.resolve(false) : new Promise(res => chrome.runtime.sendMessage(
           { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_file', path: p } },

@@ -158,8 +158,8 @@ export function settingsDialog(): DialogSpec {
           row('Terminal app', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
           row('Command to copy', 'A custom command is copied, not run. ${p} is the folder.', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='The terminal button copies this. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') +
           note('', 'fe-st-term-hint') +
-          wide('Open with', 'One per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window. End a name with (files) to keep it off folders.',
-            `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="5" spellcheck="false" title="One per line, Name: command"></textarea>`)) +
+          wide('Open with', 'Your own commands, in the Open with menu. The path goes last, quoted.',
+            `<div id="fe-st-ow-list" class="fe-ow-list"></div><button type="button" id="fe-st-ow-add" class="btn" data-size="sm" data-variant="outline" title="Add a command">${UI_ICON.add}Command</button>`)) +
         card('Icon rules', `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div class="fe-rule-try"><input type="text" id="fe-st-rule-try" class="tb" data-size="lg" placeholder="Try a file name, e.g. notes.md" spellcheck="false" title="Which rule wins; end with / for folders"><span id="fe-st-rule-try-out" aria-live="polite"></span></div>

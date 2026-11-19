@@ -430,7 +430,7 @@ const BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, ICON_RUL
   // Where Saved lives and what it last sent are not preferences: clearing them would repeat the move into the notes folder.
   'bfb-saved-moved-v1', 'bfb-saved-known-v1', 'bfb-saved-colours-v1', 'bfb-saved-folder-off-v1', 'bfb-tag-colours-v1', 'bfb-trash-hidden-v1', 'bfb-waiting-seen-v1'];
 // Settings a person wrote out or that name folders on this Mac: commands, exclusions, the notes and edit folders. A reset keeps them.
-const KEEP_IN_SETTINGS = ['notesRoot', 'editableFolders', 'openWithCmds', 'terminalApp', 'terminalCmd', 'excludedFileExtensions'] as const;
+const KEEP_IN_SETTINGS = ['notesRoot', 'editableFolders', 'openWithCmds', 'openWith', 'terminalApp', 'terminalCmd', 'excludedFileExtensions'] as const;
 
 /** Every stored setting, for Settings' export. Values that are JSON come out parsed. */
 export function exportAll(): Record<string, unknown> {

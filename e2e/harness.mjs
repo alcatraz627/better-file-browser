@@ -116,6 +116,30 @@ m.main()
   }, null, 2));
 }
 
+// With cmdCheck, the launcher host answers only Settings' command check, through
+// a wrapper that refuses every other action, so a walk can never open an app or
+// run a command on this Mac.
+function installCmdCheckHost(profile) {
+  const dir = join(profile, 'NativeMessagingHosts');
+  mkdirSync(dir, { recursive: true });
+  const wrap = join(profile, 'cmd_check_launcher.py');
+  writeFileSync(wrap, `#!/usr/bin/env python3
+import io, json, runpy, struct, sys
+raw = sys.stdin.buffer.read(4)
+body = sys.stdin.buffer.read(struct.unpack('=I', raw)[0]) if raw else b''
+msg = json.loads(body or b'{}')
+if msg.get('action') != 'check_cmd':
+    out = json.dumps({'success': False, 'error': 'walks only check commands'}).encode()
+    sys.stdout.buffer.write(struct.pack('=I', len(out)) + out); sys.stdout.buffer.flush(); sys.exit(0)
+sys.stdin = io.TextIOWrapper(io.BytesIO(raw + body))
+runpy.run_path(${JSON.stringify(join(ROOT, 'native', 'ghostty_launcher.py'))}, run_name='__main__')
+`, { mode: 0o755 });
+  writeFileSync(join(dir, 'com.better_file_browser.ghostty.json'), JSON.stringify({
+    name: 'com.better_file_browser.ghostty', description: 'bfb launcher, command check only (test)', path: wrap, type: 'stdio',
+    allowed_origins: [`chrome-extension://${extensionId(ROOT)}/`],
+  }, null, 2));
+}
+
 // With lmStub, the AI host runs as it does for real but over a stand-in `lm`
 // that answers at once, so Ask can be walked without models or a cloud call.
 // Every call is logged to lm-calls.jsonl in the profile for the walk to read.
@@ -284,7 +308,7 @@ function keepDisplayAwake() {
 
 // savedFolder: leave Saved syncing with the notes folder. Other walks seed Saved straight into storage,
 // which the folder would read over, so they start with Saved kept in the browser (what Undo leaves).
-export async function launch({ headless = true, pickReply, lmStub = false, savedFolder = false } = {}) {
+export async function launch({ headless = true, pickReply, lmStub = false, savedFolder = false, cmdCheck = false } = {}) {
   keepDisplayAwake();
   execSync('npm run -s build', { cwd: ROOT, stdio: 'inherit' });
   mkdirSync(SHOTS, { recursive: true });
@@ -333,6 +357,7 @@ export async function launch({ headless = true, pickReply, lmStub = false, saved
   // the unpacked extension; the manifest is only read when a port opens.
   installNotesHost(profile, pickReply);
   const lmLog = lmStub ? installLlmHost(profile) : null;
+  if (cmdCheck) installCmdCheckHost(profile);
   const lmCalls = () => { try { return readFileSync(lmLog, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; } };
 
   async function open(dirPath = fixture) {
