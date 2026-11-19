@@ -14,7 +14,7 @@ import { attachBuffer, diffText, mapCaret, indentLines, continueList, absorbType
 import { formatButtons, fileButtons, wireBar, formatEdit, formatKey, tableAt, mountVersions, wirePictures } from './note-tools';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
-import { carrier } from './comment-anchor';
+import { carrier, visibleMap } from './comment-anchor';
 import { errorText } from './errors';
 import { morphInto } from './morph-view';
 import { watch } from './watch';
@@ -29,7 +29,7 @@ type Mode = 'raw' | 'split' | 'rich';
 const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: 'raw', label: 'Raw', hint: 'The text alone' },
   { id: 'split', label: 'Split', hint: 'Text and rendered view side by side' },
-  { id: 'rich', label: 'Rich', hint: 'The rendered view alone' },
+  { id: 'rich', label: 'Rich', hint: 'The rendered view; click a block to edit its text' },
 ];
 // Past this size a file edits in large mode: lines do not wrap, so every row
 // has one height and only the rows near the viewport are painted, coloured a
@@ -339,6 +339,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // the text changed, so typing elsewhere does not reload the page in it.
   let shown = '';
   let renderTimer = 0;
+  /** The block being edited as source in Rich, and where its lines sit in the text. */
+  let block: { el: HTMLElement; ed: HTMLTextAreaElement; start: number; end: number } | null = null;
   const renderView = () => {
     if (!view || !fmt || mode === 'raw' || shown === tw.text()) return;
     if (!shown) { drawView(); return; }
@@ -348,7 +350,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const morphView = view ? morphInto(view) : () => {};
   const drawView = () => {
     const t = tw.text();
-    if (!view || !fmt || mode === 'raw' || shown === t) return;
+    // A block being edited in Rich is its own textarea; redrawing would take it away mid-word.
+    if (!view || !fmt || mode === 'raw' || shown === t || block) return;
     const top = view.scrollTop;
     morphView(fmt.rich(t, host.href));
     view.scrollTop = top;
@@ -356,6 +359,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   };
   const setMode = (m: Mode) => {
     if (!view) return;
+    closeBlock();
     mode = m;
     modePref.set(m);
     box.dataset.mode = m;
@@ -366,6 +370,118 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (m !== 'rich') ta.focus({ preventScroll: true });
   };
   const nextMode = () => setMode(MODES[(MODES.findIndex(x => x.id === mode) + 1) % MODES.length].id);
+
+  // Rich editing: a click on a rendered block shows that block's Markdown in
+  // place. Only its own lines change as you type, so a save can never touch any
+  // other line of the file, and every other block stays rendered. Plan and
+  // reasons: .claude/output/20261105-adversarial-review/rich-editing.md.
+  const blockAt = (line: number, dir: 1 | -1): HTMLElement | null => {
+    const all = view ? [...view.querySelectorAll<HTMLElement>('[data-sl]')] : [];
+    const span = (el: HTMLElement) => el.dataset.sl!.split('-').map(Number);
+    return dir > 0 ? all.find(el => span(el)[1] >= line) ?? null : [...all].reverse().find(el => span(el)[0] <= line) ?? null;
+  };
+  /** The source offset of a click inside a rendered block, matched by the words a reader sees. */
+  const sourceOffset = (el: HTMLElement, srcText: string, x: number, y: number): number => {
+    const pos = document.caretPositionFromPoint?.(x, y);
+    if (!pos || !el.contains(pos.offsetNode)) return srcText.length;
+    const r = document.createRange();
+    r.setStart(el, 0);
+    r.setEnd(pos.offsetNode, pos.offset);
+    const k = r.toString().replace(/\s+/g, ' ').trimStart().length;
+    const map = visibleMap(srcText);
+    return k >= map.o.length ? srcText.length : map.o[k];
+  };
+  function openBlock(el: HTMLElement, caret: number | 'start' | 'end'): void {
+    if (!view) return;
+    const [a, b] = el.dataset.sl!.split('-').map(Number);
+    const t = tw.text();
+    const start = lineStart(t, a - 1);
+    const lastNl = t.indexOf('\n', lineStart(t, b - 1));
+    const end = lastNl === -1 ? t.length : lastNl;
+    buf.snap();
+    const ed = document.createElement('textarea');
+    ed.className = 'fe-fe-block';
+    ed.spellcheck = false;
+    ed.rows = 1;   // the default two rows would leave a blank line under a one-line block
+    ed.setAttribute('aria-label', 'Markdown for this block');
+    ed.value = t.slice(start, end);
+    el.hidden = true;
+    el.after(ed);
+    block = { el, ed, start, end };
+    const fit = () => { ed.style.height = 'auto'; ed.style.height = ed.scrollHeight + 'px'; };
+    fit();
+    ed.focus({ preventScroll: true });
+    const at = caret === 'start' ? 0 : caret === 'end' ? ed.value.length : Math.min(caret, ed.value.length);
+    ed.setSelectionRange(at, at);
+    // Typing changes these lines of the whole text, and nothing else.
+    const sync = () => {
+      if (!block) return;
+      const whole = tw.text();
+      tw.set(whole.slice(0, block.start) + ed.value + whole.slice(block.end));
+      block.end = block.start + ed.value.length;
+      fit();
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const put = (r: TextEdit) => { ed.value = r.text; ed.setSelectionRange(r.start, r.end); sync(); };
+    ed.addEventListener('input', sync);
+    ed.addEventListener('blur', () => { if (block?.ed === ed) closeBlock(); });
+    ed.addEventListener('keydown', e => {
+      if (e.isComposing) { e.stopPropagation(); return; }
+      const mod = e.metaKey || e.ctrlKey;
+      const k = e.key.toLowerCase();
+      const flat = ed.selectionStart === ed.selectionEnd;
+      if (mod && e.shiftKey && k === 'p') return;   // the box cycles the view
+      if (mod && !e.shiftKey && k === 'k') return;   // the palette, here as everywhere
+      const fmtName = formatKey(e);
+      if (fmtName) { e.preventDefault(); const r = formatEdit(fmtName, ed.value, { start: ed.selectionStart, end: ed.selectionEnd }); if (r) put(r); }
+      else if (mod && k === 's') { e.preventDefault(); save(); }
+      else if (e.key === 'Escape') { e.preventDefault(); closeBlock(); }
+      else if (e.key === 'Enter' && !mod && !e.shiftKey && !e.altKey) {
+        const r = continueList(ed.value, { start: ed.selectionStart, end: ed.selectionEnd });
+        if (r) { e.preventDefault(); put(r); }
+      }
+      // At a block's edge the arrows carry on into the block above or below.
+      else if (e.key === 'ArrowUp' && flat && !e.shiftKey && !ed.value.slice(0, ed.selectionStart).includes('\n')) {
+        const above = a - 1;
+        if (above >= 1) { e.preventDefault(); closeBlock(); const prev = blockAt(above, -1); if (prev && prev.dataset.sl !== `${a}-${b}`) openBlock(prev, 'end'); }
+      }
+      else if (e.key === 'ArrowDown' && flat && !e.shiftKey && !ed.value.slice(ed.selectionEnd).includes('\n')) {
+        const below = lineOf(tw.text(), block!.end) + 2;
+        e.preventDefault();
+        closeBlock();
+        const next = blockAt(below, 1);
+        if (next) openBlock(next, 'start');
+      }
+      e.stopPropagation();   // page keys must not fire while typing
+    });
+  }
+  /** Ends block editing: the block renders again with what was typed. */
+  function closeBlock(): void {
+    if (!block) return;
+    const { el, ed } = block;
+    block = null;
+    ed.remove();
+    el.hidden = false;
+    shown = '';
+    drawView();
+  }
+  const lineOf = (t: string, pos: number) => { let n = 0; for (let p = t.indexOf('\n'); p !== -1 && p < pos; p = t.indexOf('\n', p + 1)) n++; return n; };
+  view?.addEventListener('click', e => {
+    if (mode !== 'rich' || !isMd || block?.ed === e.target) return;
+    const me = e as MouseEvent;
+    const target = me.target as HTMLElement;
+    // A link still opens with ⌘ or Ctrl held, and words being selected are left selected.
+    if ((me.metaKey || me.ctrlKey) && target.closest('a')) return;
+    if (getSelection()?.isCollapsed === false) return;
+    const el = target.closest<HTMLElement>('[data-sl]');
+    if (!el || !view.contains(el)) return;
+    me.preventDefault();
+    const [a, b] = el.dataset.sl!.split('-').map(Number);
+    const t = tw.text();
+    const start = lineStart(t, a - 1);
+    const nl = t.indexOf('\n', lineStart(t, b - 1));
+    openBlock(el, sourceOffset(el, t.slice(start, nl === -1 ? t.length : nl), me.clientX, me.clientY));
+  });
   // In Split the rendered side keeps pace with the text side.
   box.addEventListener('scroll', e => {
     if (mode !== 'split' || !view || e.target !== src) return;
@@ -493,6 +609,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     clearTimeout(retryTimer);
     window.removeEventListener('beforeunload', onUnload);
     window.removeEventListener('keydown', strayKey, true);
+    window.removeEventListener('keydown', richUndo, true);
     stopWatch();
     clearTimeout(checkTimer);
     clearTimeout(renderTimer);
@@ -530,7 +647,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     host.comments?.open(id);
   });
   box.addEventListener('click', e => {
-    const m = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset.mode as Mode | undefined;
+    // The box itself carries data-mode, so only the switch's own buttons count.
+    const m = (e.target as HTMLElement).closest<HTMLElement>('button[data-mode]')?.dataset.mode as Mode | undefined;
     if (m) setMode(m);
   });
   box.addEventListener('click', async e => {
@@ -595,6 +713,18 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p' && fmt) { e.preventDefault(); nextMode(); }
     else if (e.key === 'Escape' && mode === 'rich') { e.preventDefault(); setMode('raw'); }
   });
+  // In Rich with no block open nothing in the editor has focus, so undo and
+  // redo are taken from the window, unless another field is being typed in.
+  function richUndo(e: KeyboardEvent): void {
+    const k = e.key.toLowerCase();
+    if (mode !== 'rich' || block || !box.isConnected || !(e.metaKey || e.ctrlKey) || (k !== 'z' && k !== 'y')) return;
+    const on = document.activeElement as HTMLElement | null;
+    if (on && on !== document.body && (on.matches('input, textarea, [contenteditable="true"]') || !box.contains(on) && on.closest('[role="dialog"]'))) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (k === 'y' || e.shiftKey) buf.redo(); else buf.undo();
+  }
+  window.addEventListener('keydown', richUndo, true);
   // Large mode: keys that move the caret far bring the window along first.
   if (big) ta.addEventListener('keydown', e => {
     const mod = e.metaKey || e.ctrlKey;

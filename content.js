@@ -18713,6 +18713,12 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 .fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
 #fe-fe-win{will-change:transform}
 #fe-fe-view{padding:0;max-width:none}
+/* Rich: a block shows its Markdown where it sat, and the pointer says blocks can be clicked. */
+[data-mode="rich"] #fe-fe-view [data-sl]{cursor:text;border-radius:6px;transition:box-shadow var(--t-fast,.12s) var(--ease,ease)}
+[data-mode="rich"] #fe-fe-view [data-sl]:hover{box-shadow:0 0 0 6px var(--hover)}
+.fe-fe-block{display:block;box-sizing:border-box;width:100%;margin:.5em 0;padding:8px 10px;border:1px solid color-mix(in srgb,var(--ac) 55%,var(--bd));border-radius:8px;
+  background:color-mix(in srgb,var(--ac) 5%,transparent);color:inherit;font-family:var(--mono);font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1));line-height:1.6;
+  resize:none;overflow:hidden;outline:0;box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 16%,transparent);white-space:pre-wrap;tab-size:2}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:var(--z-sticky);display:flex;align-items:center;gap:var(--sp-1);padding:var(--sp-2);
   border-radius:var(--r-full)}
 #fe-fe-pill{transition:opacity var(--t-fast) var(--ease)}
@@ -21157,7 +21163,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   var MODES = [
     { id: "raw", label: "Raw", hint: "The text alone" },
     { id: "split", label: "Split", hint: "Text and rendered view side by side" },
-    { id: "rich", label: "Rich", hint: "The rendered view alone" }
+    { id: "rich", label: "Rich", hint: "The rendered view; click a block to edit its text" }
   ];
   var BIG_LINES = 4e3;
   var BIG_CHARS = 4e5;
@@ -21444,6 +21450,7 @@ and ${diags.length - 12} more` : "");
     };
     let shown2 = "";
     let renderTimer = 0;
+    let block = null;
     const renderView = () => {
       if (!view || !fmt || mode === "raw" || shown2 === tw.text()) return;
       if (!shown2) {
@@ -21457,7 +21464,7 @@ and ${diags.length - 12} more` : "");
     };
     const drawView = () => {
       const t = tw.text();
-      if (!view || !fmt || mode === "raw" || shown2 === t) return;
+      if (!view || !fmt || mode === "raw" || shown2 === t || block) return;
       const top = view.scrollTop;
       morphView(fmt.rich(t, host.href));
       view.scrollTop = top;
@@ -21465,6 +21472,7 @@ and ${diags.length - 12} more` : "");
     };
     const setMode = (m) => {
       if (!view) return;
+      closeBlock();
       mode = m;
       modePref.set(m);
       box.dataset.mode = m;
@@ -21479,6 +21487,137 @@ and ${diags.length - 12} more` : "");
       if (m !== "rich") ta.focus({ preventScroll: true });
     };
     const nextMode = () => setMode(MODES[(MODES.findIndex((x2) => x2.id === mode) + 1) % MODES.length].id);
+    const blockAt = (line2, dir) => {
+      const all = view ? [...view.querySelectorAll("[data-sl]")] : [];
+      const span = (el2) => el2.dataset.sl.split("-").map(Number);
+      return dir > 0 ? all.find((el2) => span(el2)[1] >= line2) ?? null : [...all].reverse().find((el2) => span(el2)[0] <= line2) ?? null;
+    };
+    const sourceOffset = (el2, srcText, x2, y) => {
+      const pos = document.caretPositionFromPoint?.(x2, y);
+      if (!pos || !el2.contains(pos.offsetNode)) return srcText.length;
+      const r = document.createRange();
+      r.setStart(el2, 0);
+      r.setEnd(pos.offsetNode, pos.offset);
+      const k = r.toString().replace(/\s+/g, " ").trimStart().length;
+      const map2 = visibleMap(srcText);
+      return k >= map2.o.length ? srcText.length : map2.o[k];
+    };
+    function openBlock(el2, caret) {
+      if (!view) return;
+      const [a, b] = el2.dataset.sl.split("-").map(Number);
+      const t = tw.text();
+      const start = lineStart(t, a - 1);
+      const lastNl = t.indexOf("\n", lineStart(t, b - 1));
+      const end = lastNl === -1 ? t.length : lastNl;
+      buf.snap();
+      const ed = document.createElement("textarea");
+      ed.className = "fe-fe-block";
+      ed.spellcheck = false;
+      ed.rows = 1;
+      ed.setAttribute("aria-label", "Markdown for this block");
+      ed.value = t.slice(start, end);
+      el2.hidden = true;
+      el2.after(ed);
+      block = { el: el2, ed, start, end };
+      const fit = () => {
+        ed.style.height = "auto";
+        ed.style.height = ed.scrollHeight + "px";
+      };
+      fit();
+      ed.focus({ preventScroll: true });
+      const at = caret === "start" ? 0 : caret === "end" ? ed.value.length : Math.min(caret, ed.value.length);
+      ed.setSelectionRange(at, at);
+      const sync = () => {
+        if (!block) return;
+        const whole = tw.text();
+        tw.set(whole.slice(0, block.start) + ed.value + whole.slice(block.end));
+        block.end = block.start + ed.value.length;
+        fit();
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      const put = (r) => {
+        ed.value = r.text;
+        ed.setSelectionRange(r.start, r.end);
+        sync();
+      };
+      ed.addEventListener("input", sync);
+      ed.addEventListener("blur", () => {
+        if (block?.ed === ed) closeBlock();
+      });
+      ed.addEventListener("keydown", (e) => {
+        if (e.isComposing) {
+          e.stopPropagation();
+          return;
+        }
+        const mod = e.metaKey || e.ctrlKey;
+        const k = e.key.toLowerCase();
+        const flat = ed.selectionStart === ed.selectionEnd;
+        if (mod && e.shiftKey && k === "p") return;
+        if (mod && !e.shiftKey && k === "k") return;
+        const fmtName = formatKey(e);
+        if (fmtName) {
+          e.preventDefault();
+          const r = formatEdit(fmtName, ed.value, { start: ed.selectionStart, end: ed.selectionEnd });
+          if (r) put(r);
+        } else if (mod && k === "s") {
+          e.preventDefault();
+          save();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closeBlock();
+        } else if (e.key === "Enter" && !mod && !e.shiftKey && !e.altKey) {
+          const r = continueList(ed.value, { start: ed.selectionStart, end: ed.selectionEnd });
+          if (r) {
+            e.preventDefault();
+            put(r);
+          }
+        } else if (e.key === "ArrowUp" && flat && !e.shiftKey && !ed.value.slice(0, ed.selectionStart).includes("\n")) {
+          const above = a - 1;
+          if (above >= 1) {
+            e.preventDefault();
+            closeBlock();
+            const prev = blockAt(above, -1);
+            if (prev && prev.dataset.sl !== `${a}-${b}`) openBlock(prev, "end");
+          }
+        } else if (e.key === "ArrowDown" && flat && !e.shiftKey && !ed.value.slice(ed.selectionEnd).includes("\n")) {
+          const below = lineOf(tw.text(), block.end) + 2;
+          e.preventDefault();
+          closeBlock();
+          const next = blockAt(below, 1);
+          if (next) openBlock(next, "start");
+        }
+        e.stopPropagation();
+      });
+    }
+    function closeBlock() {
+      if (!block) return;
+      const { el: el2, ed } = block;
+      block = null;
+      ed.remove();
+      el2.hidden = false;
+      shown2 = "";
+      drawView();
+    }
+    const lineOf = (t, pos) => {
+      let n = 0;
+      for (let p = t.indexOf("\n"); p !== -1 && p < pos; p = t.indexOf("\n", p + 1)) n++;
+      return n;
+    };
+    view?.addEventListener("click", (e) => {
+      if (mode !== "rich" || !isMd || block?.ed === e.target) return;
+      const me = e;
+      const target = me.target;
+      if ((me.metaKey || me.ctrlKey) && target.closest("a")) return;
+      if (getSelection()?.isCollapsed === false) return;
+      const el2 = target.closest("[data-sl]");
+      if (!el2 || !view.contains(el2)) return;
+      me.preventDefault();
+      const [a, b] = el2.dataset.sl.split("-").map(Number);
+      const t = tw.text();
+      const start = lineStart(t, a - 1);
+      const nl = t.indexOf("\n", lineStart(t, b - 1));
+      openBlock(el2, sourceOffset(el2, t.slice(start, nl === -1 ? t.length : nl), me.clientX, me.clientY));
+    });
     box.addEventListener("scroll", (e) => {
       if (mode !== "split" || !view || e.target !== src) return;
       const sc = src;
@@ -21636,6 +21775,7 @@ and ${diags.length - 12} more` : "");
       clearTimeout(retryTimer);
       window.removeEventListener("beforeunload", onUnload);
       window.removeEventListener("keydown", strayKey, true);
+      window.removeEventListener("keydown", richUndo, true);
       stopWatch();
       clearTimeout(checkTimer);
       clearTimeout(renderTimer);
@@ -21675,7 +21815,7 @@ and ${diags.length - 12} more` : "");
       host.comments?.open(id);
     });
     box.addEventListener("click", (e) => {
-      const m = e.target.closest("[data-mode]")?.dataset.mode;
+      const m = e.target.closest("button[data-mode]")?.dataset.mode;
       if (m) setMode(m);
     });
     box.addEventListener("click", async (e) => {
@@ -21780,6 +21920,17 @@ and ${diags.length - 12} more` : "");
         setMode("raw");
       }
     });
+    function richUndo(e) {
+      const k = e.key.toLowerCase();
+      if (mode !== "rich" || block || !box.isConnected || !(e.metaKey || e.ctrlKey) || k !== "z" && k !== "y") return;
+      const on = document.activeElement;
+      if (on && on !== document.body && (on.matches('input, textarea, [contenteditable="true"]') || !box.contains(on) && on.closest('[role="dialog"]'))) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (k === "y" || e.shiftKey) buf.redo();
+      else buf.undo();
+    }
+    window.addEventListener("keydown", richUndo, true);
     if (big) ta.addEventListener("keydown", (e) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")) {

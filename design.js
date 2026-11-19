@@ -1130,6 +1130,12 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 .fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
 #fe-fe-win{will-change:transform}
 #fe-fe-view{padding:0;max-width:none}
+/* Rich: a block shows its Markdown where it sat, and the pointer says blocks can be clicked. */
+[data-mode="rich"] #fe-fe-view [data-sl]{cursor:text;border-radius:6px;transition:box-shadow var(--t-fast,.12s) var(--ease,ease)}
+[data-mode="rich"] #fe-fe-view [data-sl]:hover{box-shadow:0 0 0 6px var(--hover)}
+.fe-fe-block{display:block;box-sizing:border-box;width:100%;margin:.5em 0;padding:8px 10px;border:1px solid color-mix(in srgb,var(--ac) 55%,var(--bd));border-radius:8px;
+  background:color-mix(in srgb,var(--ac) 5%,transparent);color:inherit;font-family:var(--mono);font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1));line-height:1.6;
+  resize:none;overflow:hidden;outline:0;box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 16%,transparent);white-space:pre-wrap;tab-size:2}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:var(--z-sticky);display:flex;align-items:center;gap:var(--sp-1);padding:var(--sp-2);
   border-radius:var(--r-full)}
 #fe-fe-pill{transition:opacity var(--t-fast) var(--ease)}
