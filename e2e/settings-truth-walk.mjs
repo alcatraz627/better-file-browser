@@ -28,9 +28,9 @@ try {
   const homes = await page.evaluate(() => {
     const at = id => document.getElementById(id)?.closest('[data-tab-body], [data-panel], .fe-dlg-pane, section[data-tab]')?.dataset ?? {};
     const tabOf = id => { const d = at(id); return d.tabBody ?? d.panel ?? d.tab ?? ''; };
-    return Object.fromEntries(['fe-st-pan', 'fe-st-rd-code', 'fe-st-edit-roots', 'fe-st-peek-close', 'fe-st-home-url', 'fe-st-terminal', 'fe-st-rules-list', 'fe-st-keys', 'fe-st-saved-where'].map(id => [id, tabOf(id)]));
+    return Object.fromEntries(['fe-st-pan', 'fe-st-rd-code', 'fe-st-edit-add', 'fe-st-peek-close', 'fe-st-home-url', 'fe-st-terminal', 'fe-st-rules-list', 'fe-st-keys', 'fe-st-saved-where'].map(id => [id, tabOf(id)]));
   });
-  check(homes['fe-st-pan'] === 'files' && homes['fe-st-rd-code'] === 'look' && homes['fe-st-edit-roots'] === 'files' && homes['fe-st-peek-close'] === 'sidebar' && homes['fe-st-home-url'] === 'sidebar'
+  check(homes['fe-st-pan'] === 'files' && homes['fe-st-rd-code'] === 'look' && homes['fe-st-edit-add'] === 'files' && homes['fe-st-peek-close'] === 'sidebar' && homes['fe-st-home-url'] === 'sidebar'
     && homes['fe-st-terminal'] === 'tools' && homes['fe-st-rules-list'] === 'tools' && homes['fe-st-keys'] === 'tools' && homes['fe-st-saved-where'] === 'notes', `rows sit in the tab of their subject: ${JSON.stringify(homes)}`);
   const buttons = await page.$$eval('#fe-st-export, #fe-st-import, #fe-st-reset, #fe-st-keys', bs => bs.map(b => getComputedStyle(b).borderTopColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(b).borderTopWidth !== '0px'));
   check(buttons.length === 4 && buttons.every(Boolean), `Export, Import, Reset and Keys read as buttons at rest: ${buttons}`);
@@ -45,7 +45,7 @@ try {
   await page.click('#fe-settings-modal .fe-dlg-place');
   await sleep(500);
   const docked = await page.$eval('#fe-side-pane .fe-dlg-tabs', t => { const r = t.getBoundingClientRect(); return { all: t.children.length, inside: [...t.children].filter(c => { const b = c.getBoundingClientRect(); return b.width > 10 && b.left >= r.left - 1 && b.right <= r.right + 1; }).length, scrolls: t.scrollWidth > t.clientWidth + 1 }; });
-  check(docked.all === 8 && docked.inside === 8 && !docked.scrolls, `every tab shows when docked: ${JSON.stringify(docked)}`);
+  check(docked.all === 9 && docked.inside === 9 && !docked.scrolls, `every tab shows when docked: ${JSON.stringify(docked)}`);
   if (shots) await page.screenshot({ path: join(shots, `set-docked-${THEME}.png`), clip: { x: 0, y: 0, width: 560, height: 900 } });
   await page.click('#fe-side-pane .fe-dlg-place');
   await sleep(400);
@@ -72,9 +72,9 @@ try {
   await sleep(200);
   check(await page.$eval('#fe-side', e => !e.style.width), 'Reset dragged sizes gives the sidebar back its width');
 
-  // A folder name with a space stays one chip.
+  // A folder name with a space stays one folder.
   await tab(page, 'files');
-  await page.click('#fe-st-edit-roots .fe-chipin-in');
+  await page.click('#fe-st-edit-add');
   await page.keyboard.type('/Users/me/My Notes');
   await page.keyboard.press('Enter');
   const roots = (await read('bfb-settings-v1')).editableFolders;

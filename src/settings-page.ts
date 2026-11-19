@@ -8,6 +8,19 @@ import { UI_ICON, VIEW_ICONS, line } from './control-icons';
 import { segHtml, sliderHtml, ddHtml, chipsHtml, switchHtml, type Opt } from './controls';
 import { APP_ICONS, TEXT_FONTS, HEAD_FONTS, CODE_FONTS, type FontChoice } from './theme';
 import { MODE_OPTS } from './settings-web';
+import { EXPORT_PARTS } from './export-parts';
+
+// A view drawn small: bars for rows, boxes for tiles.
+const bars = (n: number, w: (i: number) => string) => Array.from({ length: n }, (_, i) => `<i style="width:${w(i)}"></i>`).join('');
+const boxes = (cols: number, n: number, h: number) => `<b style="grid-template-columns:repeat(${cols},1fr)">${Array.from({ length: n }, () => `<i style="height:${h}px"></i>`).join('')}</b>`;
+const VIEW_MINI: Record<string, string> = {
+  details: bars(5, i => (i === 4 ? '60%' : '100%')),
+  list: bars(4, () => '72%'),
+  tree: bars(5, i => (i % 2 ? '58%;margin-left:16%' : '70%')),
+  tiles: boxes(3, 6, 14),
+  icons: boxes(2, 2, 22),
+  gallery: `<i style="height:22px"></i>${boxes(3, 3, 7)}`,
+};
 
 const WEB_ICON = line('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>');
 
@@ -97,7 +110,7 @@ export function settingsDialog(): DialogSpec {
 
       { key: 'folders', label: 'Browse', hint: 'View, order, clicks', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How a folder opens, and what a click does.', body:
         card('Opening a folder',
-          row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in', 'lg')) +
+          wide('View', 'Each drawn as it looks', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, label: v.label, icon: `<span class="fe-st-mini" aria-hidden="true">${VIEW_MINI[v.id]}</span>`, hint: v.label })), 'View a folder opens in', 'lg')) +
           row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in', 'lg') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction', 'lg')) +
           row('Group', '', ddHtml('fe-st-group', GROUP_OPTS, 'Grouping a folder opens with', 'lg')) +
           row('Folders on top', 'Whatever the sort', sw('fe-st-dirs-first', 'Keep folders above files')) +
@@ -118,6 +131,7 @@ export function settingsDialog(): DialogSpec {
             { value: 'unset', label: 'Full' }, { value: 'xl', label: 'Wide' }, { value: 'lg', label: 'Medium' }, { value: 'md', label: 'Narrow' }], 'Reading width', 'lg')) +
           row('Line height', '', sliderHtml('fe-st-rd-lh', [1.4, 1.5, 1.65, 1.8, 2], '', 'Line height')) +
           row('Wrap lines', 'Raw text and code', sw('fe-st-wrap', 'Wrap long lines')) +
+          row('Follow changes on disk', 'Off: a change made elsewhere waits behind a Reload link', sw('fe-st-follow', 'Pages and the editor take changes made on disk at once')) +
           row('Contents beside pages', 'From the next page on', sw('fe-st-toc', 'Show a page’s contents beside it')) +
           row('Drag to scroll', '', ddHtml('fe-st-pan', PAN_OPTS, 'Hold this key and drag to scroll', 'lg'))) +
         card('Which files open here',
@@ -126,7 +140,8 @@ export function settingsDialog(): DialogSpec {
           row('Leave to Chrome', 'Chrome’s own viewer opens these', chipsHtml('fe-st-excluded-exts', '.ext', 'Extensions Chrome opens itself') + iconBtn('fe-st-excluded-reset', UI_ICON.reset, 'Restore .pdf .html .htm'))) +
         card('Editing',
           row('Editor opens in', '', segHtml('fe-st-edit-mode', [{ value: 'raw', label: 'Raw' }, { value: 'split', label: 'Split' }, { value: 'rich', label: 'Rich' }], 'How the editor opens', 'lg')) +
-          wide('Editable folders', 'Text files inside can be edited. Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', 'Add a folder, for example ~/Code', 'Folders you can edit in', true))) },
+          wide('Editable folders', 'Text files inside can be edited. Saves keep a 14-day backup.', `<div class="fe-st-folders"><div id="fe-st-edit-list"></div>
+            <div class="fe-st-folder"><input type="text" id="fe-st-edit-add" class="tb fe-st-input" data-size="lg" placeholder="Add a folder, for example ~/Code" spellcheck="false" title="A folder whose text files can be edited">${iconBtn('fe-st-edit-pick', UI_ICON.folderOpen, 'Choose a folder')}<button type="button" id="fe-st-edit-addbtn" class="btn" data-size="lg" data-variant="outline" title="Allow editing in this folder">${UI_ICON.add}Add</button><span></span></div></div>`)) },
 
       { key: 'sidebar', label: 'Sidebar and Home', hint: 'Sidebar, new tabs', icon: i('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), tone: 'var(--nc-yellow)', desc: 'The sidebar, and what a new tab shows.', body:
         card('Sidebar',
@@ -183,6 +198,7 @@ export function settingsDialog(): DialogSpec {
         card('On this Mac',
           row('Model', 'Ask uses this unless you pick another there', ddHtml('fe-st-ai-model', [], 'Local model', 'lg')) +
           row('Keep warm', 'Replies start at once', sw('fe-st-ai-warm', 'Keep the model loaded')) +
+          row('Only on this Mac', 'Online models leave every picker and nothing is sent off this computer', sw('fe-st-local-only', 'Never send text to an online model')) +
           `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` +
           note('', 'fe-st-ai-hint')) +
         card('Ask can use', `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading…</p></div>`) },
@@ -193,7 +209,8 @@ export function settingsDialog(): DialogSpec {
           row('Link', '', `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn('fe-st-phone-copy', UI_ICON.copy, 'Copy the link')}`) +
           note('', 'fe-st-phone-hint')) +
         card('Your data',
-          row('Export', 'Settings, Saved, History and Ask chats, as a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats">${UI_ICON.export}Export</button>`) +
+          row('Export', 'A dated .json file with what is switched on', `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save the parts switched on below">${UI_ICON.export}Export</button>`) +
+          `<div class="fe-st-parts" id="fe-st-export-parts">${EXPORT_PARTS.map(p => `<label class="fe-st-part" title="${p.title}">${switchHtml({ title: p.title, label: p.label, small: true, cls: 'fe-st-part-sw' }).replace('<input', `<input data-part="${p.id}"`)}<span>${p.label}</span></label>`).join('')}</div>` +
           row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
           `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">${UI_ICON.check}Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">${UI_ICON.close}Cancel</button></span></div>` +
           row('Reset', 'Every preference back to its default. Saved places, your folders, commands and icon rules stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)) },

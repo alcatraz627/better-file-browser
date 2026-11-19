@@ -8,7 +8,8 @@ import { el, els } from './el';
 import { esc, fileHref } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
-import { DEFAULT_COMMANDS } from './open-with';
+import { DEFAULT_COMMANDS, runOpenWith } from './open-with';
+import { notes } from './notes';
 import { copyWithCheck } from './copy-done';
 import { llmAvailability, llmWarm, llmModels, defaultTier } from './llm';
 import { mountDialog } from './dialog';
@@ -34,6 +35,7 @@ import { setTooltips } from './tooltip';
 import { askModelPref } from './tool-lenses';
 import { savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
 import { initWebSettings } from './settings-web';
+import { EXPORT_PARTS, keepKey, partOn, webKey } from './export-parts';
 
 // What a stored key is called on screen, for the import preview.
 const KEY_NAMES: Record<string, string> = {
@@ -339,11 +341,14 @@ export function initSettingsUi(app: App): void {
     v('fe-st-rd-lh').value = String(settings.readerLineHeight || 1.65);
     v('fe-st-rd-code').value = String(settings.readerCodeSize || 13);
     el<HTMLInputElement>('fe-st-wrap').checked = settings.wrapLines !== false;
+    el<HTMLInputElement>('fe-st-follow').checked = settings.followDisk !== false;
+    for (const sw of els<HTMLInputElement>('#fe-st-export-parts [data-part]')) sw.checked = partOn(settings.exportParts, EXPORT_PARTS.find(p => p.id === sw.dataset.part)!);
+    el<HTMLInputElement>('fe-st-local-only').checked = settings.localOnly === true;
     v('fe-st-filepages').value = settings.renderFilePages || 'all';
     const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
     v('fe-st-excluded-exts').value = excluded.map(x => '.' + x).join(', ');
     el<HTMLInputElement>('fe-st-notes-root').value = settings.notesRoot || '';
-    v('fe-st-edit-roots').value = (settings.editableFolders ?? []).join(', ');
+    renderEditList();
     updateTermHint();
     renderRulesList();
     refreshAi();
@@ -472,6 +477,12 @@ export function initSettingsUi(app: App): void {
     settings.wrapLines = this.checked; saveSettings(settings);
     fe.dataset.wrap = this.checked ? 'on' : 'off';
   });
+  el<HTMLInputElement>('fe-st-follow').addEventListener('change', function () { settings.followDisk = this.checked; saveSettings(settings); });
+  el<HTMLInputElement>('fe-st-local-only').addEventListener('change', function () {
+    settings.localOnly = this.checked; saveSettings(settings);
+    toast(this.checked ? 'Ask stays on this Mac' : 'Online models can be picked again');
+    refreshAi();
+  });
   v('fe-st-filepages').addEventListener('change', () => { settings.renderFilePages = v('fe-st-filepages').value as 'all' | 'not-md' | 'off'; saveSettings(settings); });
   v('fe-st-excluded-exts').addEventListener('change', () => {
     settings.excludedFileExtensions = parseExcludedExtensions(v('fe-st-excluded-exts').value);
@@ -496,16 +507,74 @@ export function initSettingsUi(app: App): void {
     settings.notesRoot = this.value.trim() || undefined; saveSettings(settings);
     app.refreshNotes();
   });
-  v('fe-st-edit-roots').addEventListener('change', () => {
-    const list = v('fe-st-edit-roots').value.split(',').map(s => s.trim()).filter(Boolean);
-    settings.editableFolders = list.length ? list : undefined; saveSettings(settings);
+  // Editable folders: one row each, edited, copied, shown in Finder or removed on its own.
+  const editList = el('fe-st-edit-list');
+  const myHome = () => homeDir(decodeURIComponent(location.pathname));
+  const saveEdit = (list: string[]) => { settings.editableFolders = list.length ? list : undefined; saveSettings(settings); };
+  const fullPath = (p: string) => (p === '~' || p.startsWith('~/') ? myHome() + p.slice(1) : p);
+  function renderEditList(): void {
+    const list = settings.editableFolders ?? [];
+    editList.innerHTML = list.map((p, i) => `<div class="fe-st-folder" data-i="${i}">
+      <input type="text" class="tb fe-st-input" data-size="lg" value="${esc(p)}" spellcheck="false" title="Edit this folder's path" aria-label="Folder ${i + 1}">
+      <button type="button" class="btn fe-ibtn" data-icon data-size="lg" data-act="copy" title="Copy the path" aria-label="Copy the path">${UI_ICON.copy}</button>
+      <button type="button" class="btn fe-ibtn" data-icon data-size="lg" data-act="finder" title="Show in Finder" aria-label="Show in Finder">${UI_ICON.folderOpen}</button>
+      <button type="button" class="btn fe-ibtn" data-icon data-size="lg" data-tone="danger" data-act="remove" title="Stop allowing edits here" aria-label="Remove">${UI_ICON.trash}</button></div>`).join('');
+  }
+  editList.addEventListener('change', e => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.fe-st-folder');
+    if (!row) return;
+    const list = [...(settings.editableFolders ?? [])];
+    const val = (e.target as HTMLInputElement).value.trim().replace(/\/+$/, '');
+    if (val) list[Number(row.dataset.i)] = val; else list.splice(Number(row.dataset.i), 1);
+    saveEdit(list); renderEditList();
+  });
+  editList.addEventListener('click', e => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
+    const row = btn?.closest<HTMLElement>('.fe-st-folder');
+    if (!btn || !row) return;
+    const i = Number(row.dataset.i), list = [...(settings.editableFolders ?? [])], p = list[i];
+    if (btn.dataset.act === 'copy') void copyWithCheck(btn, fullPath(p));
+    else if (btn.dataset.act === 'finder') runOpenWith('finder', fullPath(p), [], toast);
+    else if (btn.dataset.act === 'remove') {
+      list.splice(i, 1); saveEdit(list); renderEditList();
+      toast(`No longer editable: ${p}`, 8000, { label: 'Undo', run: () => { const now = [...(settings.editableFolders ?? [])]; now.splice(i, 0, p); saveEdit(now); renderEditList(); } });
+    }
+  });
+  const addInput = el<HTMLInputElement>('fe-st-edit-add');
+  const addFolder = (p: string) => {
+    const val = p.trim().replace(/\/+$/, '');
+    if (!val) return;
+    const list = settings.editableFolders ?? [];
+    if (list.includes(val)) { toast('Already editable'); return; }
+    saveEdit([...list, val]); renderEditList(); addInput.value = '';
+  };
+  el('fe-st-edit-addbtn').addEventListener('click', () => addFolder(addInput.value));
+  addInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addFolder(addInput.value); } });
+  el('fe-st-edit-pick').addEventListener('click', () => {
+    notes.pick(myHome() || undefined).then(p => { if (p) addFolder(p); }).catch((err: Error) => toast(errorText(err, 'Picking the folder')));
   });
 
   // Data. An export is a dated file; an import says what it would change before it does; a reset and
   // an import both leave an Undo that survives the reload that follows.
   const stamp = () => { const d = new Date(), two = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}`; };
-  el('fe-st-export').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(exportAll(), null, 2) + '\n'], { type: 'application/json' });
+  // Export holds the parts switched on under it; dark mode and marks live outside the text store.
+  const partsBox = el('fe-st-export-parts');
+  partsBox.addEventListener('change', e => {
+    const sw = e.target as HTMLInputElement;
+    if (!sw.dataset.part) return;
+    settings.exportParts = { ...settings.exportParts, [sw.dataset.part]: sw.checked };
+    saveSettings(settings);
+    el<HTMLButtonElement>('fe-st-export').disabled = !EXPORT_PARTS.some(p => partOn(settings.exportParts, p));
+  });
+  el('fe-st-export').addEventListener('click', async () => {
+    const data: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(exportAll())) if (keepKey(k, settings.exportParts)) data[k] = v;
+    const webPart = EXPORT_PARTS.find(p => p.id === 'web')!;
+    if (partOn(settings.exportParts, webPart) && typeof chrome !== 'undefined' && chrome.storage?.local) {
+      const all = await chrome.storage.local.get(null);
+      for (const [k, v] of Object.entries(all)) if (webKey(k)) data[k] = v;
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `bfb-settings-${stamp()}.json`;
@@ -515,7 +584,8 @@ export function initSettingsUi(app: App): void {
   });
   const planBox = el('fe-st-import-plan');
   let pending: ImportPlan | null = null;
-  const hidePlan = () => { pending = null; planBox.hidden = true; };
+  let pendingWeb: Record<string, unknown> = {};
+  const hidePlan = () => { pending = null; pendingWeb = {}; planBox.hidden = true; };
   // A list says how its size changes, so an import that would cut Saved says so.
   const short = (keys: string[], plan: ImportPlan) => keys.map(k => {
     const was = listSize(kvGet(k)), next = listSize(plan.writes[k]);
@@ -529,11 +599,16 @@ export function initSettingsUi(app: App): void {
     f.text().then(text => {
       const data = JSON.parse(text) as Record<string, unknown>;
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('not an export');
+      // Dark mode and marks go back into chrome.storage as the objects they are.
+      pendingWeb = {};
+      for (const k of Object.keys(data)) if (webKey(k)) { pendingWeb[k] = data[k]; delete data[k]; }
+      const webCount = Object.keys(pendingWeb).length;
       const plan = planImport(data);
-      if (!plan.changed.length && !plan.added.length) { hidePlan(); toast('Nothing to change: this export matches what you have'); return; }
+      if (!plan.changed.length && !plan.added.length && !webCount) { hidePlan(); toast('Nothing to change: this export matches what you have'); return; }
       pending = plan;
       el('fe-st-import-plan-tx').textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? 'items' : 'item'}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ''}`
-        + ` and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ''}. ${plan.same} already match.`;
+        + ` and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ''}. ${plan.same} already match.`
+        + (webCount ? ` It also brings dark mode choices and marks (${webCount} ${webCount === 1 ? 'entry' : 'entries'}).` : '');
       planBox.hidden = false;
     }).catch(() => { hidePlan(); toast('That file is not a JSON export'); });
   });
@@ -541,6 +616,7 @@ export function initSettingsUi(app: App): void {
   el('fe-st-import-apply').addEventListener('click', () => {
     if (!pending) return;
     const n = importPlan(pending);
+    if (Object.keys(pendingWeb).length && typeof chrome !== 'undefined') void chrome.storage?.local?.set(pendingWeb);
     hidePlan();
     toast(`Imported ${n} setting${n !== 1 ? 's' : ''}, reloading`);
     reloadWhenSaved();

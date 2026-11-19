@@ -577,7 +577,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       // Touched but unchanged (a sync tool, a formatter that wrote the same
       // bytes): take the new time quietly, there is nothing to choose between.
       if (now.text === doc.text) { doc = now; return; }
-      if (!isDirty()) { doc = now; takeFromDisk(now.text); buf.snap(); check(); paint(); }
+      // Follow changes on disk off: the banner offers Reload rather than swapping the text.
+      if (!isDirty() && getSettings().followDisk !== false) { doc = now; takeFromDisk(now.text); buf.snap(); check(); paint(); }
       else showConflict();
     } catch (err) {
       if ((err as NotesError).code === 'notes_missing') { if (!gone) showGone(); }

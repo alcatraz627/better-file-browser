@@ -596,12 +596,33 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     reloadEl.title = label;
     if (ok) liveTimer = window.setTimeout(() => { reloadEl.hidden = true; }, 4000);
   };
+  // With Follow changes on disk off (Settings, Reading), a change is announced
+  // and waits for a click, so the page never moves under the reader.
+  let waiting: string | null = null;
+  const take = (fresh: string) => {
+    waiting = null;
+    reloadEl.classList.remove('waiting');
+    reloadEl.removeAttribute('role');
+    text = fresh;
+    paintMeta();
+    render();
+    live(true, 'reloaded ' + whenText(Date.now()).replace('Today ', ''));
+  };
+  reloadEl.addEventListener('click', () => { if (waiting !== null) take(waiting); });
   watch(() => fetchFileText(href).then(fresh => {
-      if (fresh === text) return;
-      text = fresh;
-      paintMeta();
-      render();
-      live(true, 'reloaded ' + whenText(Date.now()).replace('Today ', ''));
+      if (fresh === text || fresh === waiting) return;
+      if (getSettings().followDisk === false) {
+        waiting = fresh;
+        clearTimeout(liveTimer);
+        reloadEl.hidden = false;
+        reloadEl.classList.remove('off');
+        reloadEl.classList.add('waiting');
+        reloadEl.setAttribute('role', 'button');
+        reloadEl.textContent = 'Changed on disk · Reload';
+        reloadEl.title = 'The file changed elsewhere. Click to show it.';
+        return;
+      }
+      take(fresh);
     }).catch(() => live(false, 'not watching')), { pause: () => !!editor });
 
   return {

@@ -18301,6 +18301,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-status-grow{flex:1}
 #fe-fp-reload[hidden]{display:none}
 #fe-fp-reload.off{color:var(--dm)}
+#fe-fp-reload.waiting{color:var(--ac);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
 /* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
 #fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
@@ -19780,8 +19781,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
 /* In the sidebar every tab stays in sight as an icon; the page's own header names the open one. */
 @container dlg (max-width:420px){
-  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-3);overflow:hidden}
-  .fe-dlg-tab{flex:none;min-width:0;padding:var(--sp-2)}
+  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-2);overflow:hidden}
+  /* The icons share the width equally, so a ninth tab still fits a narrow sidebar. */
+  .fe-dlg-tab{flex:1 1 0;min-width:0;padding:var(--sp-2) 0;justify-content:center}
   .fe-dlg-tab b,.fe-dlg-tab i{display:none}
 }
 @container dlg (max-width:720px){
@@ -20078,6 +20080,25 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-web-meta{color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}
 #fe-st-web-add-host{width:200px}
 #fe-st-web-sites>.empty,#fe-st-web-marks>.empty{padding-inline:var(--sp-6)}
+/* A note inside a list that is already padded would be indented twice. */
+.fe-tc>.fe-set-note{padding-inline:0;grid-column:1/-1}
+/* Settings, Data: what Export holds, a switch each. */
+.fe-st-parts{display:flex;flex-wrap:wrap;gap:var(--sp-3) var(--sp-7);padding:0 var(--sp-6) var(--sp-5)}
+.fe-st-part{display:inline-flex;align-items:center;gap:var(--sp-3);color:var(--mt);cursor:pointer}
+.fe-st-part:has(:checked){color:var(--tx)}
+/* Settings, Browse: each view drawn small, so the choice shows what it looks like. */
+#fe-st-defview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--sp-3);width:100%;padding:0;background:none;border:0;box-shadow:none;height:auto}
+#fe-st-defview .fe-seg-b{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);height:auto;padding:var(--sp-4) var(--sp-2) var(--sp-3);border:1px solid var(--bd);border-radius:10px;background:none;color:var(--mt)}
+#fe-st-defview .fe-seg-b:hover{background:var(--hover);color:var(--tx)}
+#fe-st-defview .fe-seg-b[aria-checked="true"]{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--tx)}
+.fe-st-mini{display:flex;flex-direction:column;gap:4px;width:84px;height:48px;padding:6px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);overflow:hidden}
+.fe-st-mini i,.fe-st-mini b{display:block}
+.fe-st-mini i{height:3px;border-radius:2px;background:color-mix(in srgb,var(--tx) 24%,transparent)}
+.fe-st-mini b{display:grid;gap:4px;width:100%}
+/* Settings, Reading: editable folders, one row each. */
+.fe-st-folders{display:flex;flex-direction:column;width:100%}
+.fe-st-folder{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:var(--sp-2);padding:var(--sp-1) 0}
+.fe-st-folder .tb{font-family:var(--mono)}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
 .fe-switch.sm::after{width:12px;height:12px}
 .fe-switch.sm:checked::after{transform:translateX(12px)}
@@ -21748,7 +21769,7 @@ and ${diags.length - 12} more` : "");
           doc = now;
           return;
         }
-        if (!isDirty()) {
+        if (!isDirty() && getSettings().followDisk !== false) {
           doc = now;
           takeFromDisk(now.text);
           buf.snap();
@@ -24968,12 +24989,33 @@ ${d.message}` : d.message;
         reloadEl.hidden = true;
       }, 4e3);
     };
-    watch(() => fetchFileText(href).then((fresh) => {
-      if (fresh === text) return;
+    let waiting = null;
+    const take = (fresh) => {
+      waiting = null;
+      reloadEl.classList.remove("waiting");
+      reloadEl.removeAttribute("role");
       text = fresh;
       paintMeta();
       render2();
       live2(true, "reloaded " + whenText(Date.now()).replace("Today ", ""));
+    };
+    reloadEl.addEventListener("click", () => {
+      if (waiting !== null) take(waiting);
+    });
+    watch(() => fetchFileText(href).then((fresh) => {
+      if (fresh === text || fresh === waiting) return;
+      if (getSettings().followDisk === false) {
+        waiting = fresh;
+        clearTimeout(liveTimer);
+        reloadEl.hidden = false;
+        reloadEl.classList.remove("off");
+        reloadEl.classList.add("waiting");
+        reloadEl.setAttribute("role", "button");
+        reloadEl.textContent = "Changed on disk \xB7 Reload";
+        reloadEl.title = "The file changed elsewhere. Click to show it.";
+        return;
+      }
+      take(fresh);
     }).catch(() => live2(false, "not watching")), { pause: () => !!editor });
     return {
       toggleRaw,
@@ -26020,7 +26062,36 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     };
   }
 
+  // src/export-parts.ts
+  var webKey = (k) => k === "bfb-lights-v1" || k.startsWith("bfb-marks-");
+  var SAVED = /* @__PURE__ */ new Set([SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, "bfb-tag-colours-v1"]);
+  var isSaved2 = (k) => SAVED.has(k) || k.startsWith("bfb-saved-");
+  var isHistory = (k) => k === RECENTS_KEY;
+  var isChats = (k) => k === "bfb-ask-history-v1";
+  var EXPORT_PARTS = [
+    { id: "settings", label: "Settings", title: "Every preference, your commands and icon rules", on: true, has: (k) => !isSaved2(k) && !isHistory(k) && !isChats(k) && !webKey(k) },
+    { id: "saved", label: "Saved", title: "Saved places, tags and their colours", on: true, has: isSaved2 },
+    { id: "history", label: "History", title: "Places and files opened lately", on: true, has: isHistory },
+    { id: "chats", label: "Ask chats", title: "Every Ask conversation; off by default, as chats can be long and private", on: false, has: isChats },
+    { id: "web", label: "Dark mode and marks", title: "Dark mode choices for websites, and your comments and pins", on: true, has: webKey }
+  ];
+  var partOn = (saved, p) => saved?.[p.id] ?? p.on;
+  function keepKey(key, saved) {
+    const part = EXPORT_PARTS.find((p) => p.has(key));
+    return !!part && partOn(saved, part);
+  }
+
   // src/settings-page.ts
+  var bars = (n, w) => Array.from({ length: n }, (_, i3) => `<i style="width:${w(i3)}"></i>`).join("");
+  var boxes = (cols, n, h) => `<b style="grid-template-columns:repeat(${cols},1fr)">${Array.from({ length: n }, () => `<i style="height:${h}px"></i>`).join("")}</b>`;
+  var VIEW_MINI = {
+    details: bars(5, (i3) => i3 === 4 ? "60%" : "100%"),
+    list: bars(4, () => "72%"),
+    tree: bars(5, (i3) => i3 % 2 ? "58%;margin-left:16%" : "70%"),
+    tiles: boxes(3, 6, 14),
+    icons: boxes(2, 2, 22),
+    gallery: `<i style="height:22px"></i>${boxes(3, 3, 7)}`
+  };
   var WEB_ICON = line('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>');
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
@@ -26111,7 +26182,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) },
         { key: "folders", label: "Browse", hint: "View, order, clicks", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How a folder opens, and what a click does.", body: card2(
           "Opening a folder",
-          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Folders on top", "Whatever the sort", sw("fe-st-dirs-first", "Keep folders above files")) + row("Hidden files", "Dotfiles and comment files", sw("fe-st-hidden", "Show hidden files")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
+          wide("View", "Each drawn as it looks", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, label: v.label, icon: `<span class="fe-st-mini" aria-hidden="true">${VIEW_MINI[v.id]}</span>`, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Folders on top", "Whatever the sort", sw("fe-st-dirs-first", "Keep folders above files")) + row("Hidden files", "Dotfiles and comment files", sw("fe-st-hidden", "Show hidden files")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
         ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
@@ -26129,7 +26200,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
             { value: "xl", label: "Wide" },
             { value: "lg", label: "Medium" },
             { value: "md", label: "Narrow" }
-          ], "Reading width", "lg")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines")) + row("Contents beside pages", "From the next page on", sw("fe-st-toc", "Show a page\u2019s contents beside it")) + row("Drag to scroll", "", ddHtml("fe-st-pan", PAN_OPTS, "Hold this key and drag to scroll", "lg"))
+          ], "Reading width", "lg")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines")) + row("Follow changes on disk", "Off: a change made elsewhere waits behind a Reload link", sw("fe-st-follow", "Pages and the editor take changes made on disk at once")) + row("Contents beside pages", "From the next page on", sw("fe-st-toc", "Show a page\u2019s contents beside it")) + row("Drag to scroll", "", ddHtml("fe-st-pan", PAN_OPTS, "Hold this key and drag to scroll", "lg"))
         ) + card2(
           "Which files open here",
           row("Open text files in bfb", "", segHtml("fe-st-filepages", [
@@ -26139,7 +26210,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "Which files open as pages", "lg")) + row("Leave to Chrome", "Chrome\u2019s own viewer opens these", chipsHtml("fe-st-excluded-exts", ".ext", "Extensions Chrome opens itself") + iconBtn("fe-st-excluded-reset", UI_ICON.reset, "Restore .pdf .html .htm"))
         ) + card2(
           "Editing",
-          row("Editor opens in", "", segHtml("fe-st-edit-mode", [{ value: "raw", label: "Raw" }, { value: "split", label: "Split" }, { value: "rich", label: "Rich" }], "How the editor opens", "lg")) + wide("Editable folders", "Text files inside can be edited. Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "Add a folder, for example ~/Code", "Folders you can edit in", true))
+          row("Editor opens in", "", segHtml("fe-st-edit-mode", [{ value: "raw", label: "Raw" }, { value: "split", label: "Split" }, { value: "rich", label: "Rich" }], "How the editor opens", "lg")) + wide("Editable folders", "Text files inside can be edited. Saves keep a 14-day backup.", `<div class="fe-st-folders"><div id="fe-st-edit-list"></div>
+            <div class="fe-st-folder"><input type="text" id="fe-st-edit-add" class="tb fe-st-input" data-size="lg" placeholder="Add a folder, for example ~/Code" spellcheck="false" title="A folder whose text files can be edited">${iconBtn("fe-st-edit-pick", UI_ICON.folderOpen, "Choose a folder")}<button type="button" id="fe-st-edit-addbtn" class="btn" data-size="lg" data-variant="outline" title="Allow editing in this folder">${UI_ICON.add}Add</button><span></span></div></div>`)
         ) },
         { key: "sidebar", label: "Sidebar and Home", hint: "Sidebar, new tabs", icon: i2('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), tone: "var(--nc-yellow)", desc: "The sidebar, and what a new tab shows.", body: card2(
           "Sidebar",
@@ -26193,14 +26265,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ${iconBtn("fe-st-ai-refresh", UI_ICON.refresh, "Check again")}
         </div>` + card2(
           "On this Mac",
-          row("Model", "Ask uses this unless you pick another there", ddHtml("fe-st-ai-model", [], "Local model", "lg")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
+          row("Model", "Ask uses this unless you pick another there", ddHtml("fe-st-ai-model", [], "Local model", "lg")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + row("Only on this Mac", "Online models leave every picker and nothing is sent off this computer", sw("fe-st-local-only", "Never send text to an online model")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import, phone", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list, or read on your phone.", body: card2(
           "On my phone",
           row("Open on my phone", "This Mac\u2019s folders on your tailnet only", sw("fe-st-phone", "Put bfb on your tailnet")) + row("Link", "", `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn("fe-st-phone-copy", UI_ICON.copy, "Copy the link")}`) + note("", "fe-st-phone-hint")
         ) + card2(
           "Your data",
-          row("Export", "Settings, Saved, History and Ask chats, as a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save settings, Saved, History and Ask chats">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">${UI_ICON.check}Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">${UI_ICON.close}Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
+          row("Export", "A dated .json file with what is switched on", `<button id="fe-st-export" class="btn" data-size="lg" data-variant="outline" title="Save the parts switched on below">${UI_ICON.export}Export</button>`) + `<div class="fe-st-parts" id="fe-st-export-parts">${EXPORT_PARTS.map((p) => `<label class="fe-st-part" title="${p.title}">${switchHtml({ title: p.title, label: p.label, small: true, cls: "fe-st-part-sw" }).replace("<input", `<input data-part="${p.id}"`)}<span>${p.label}</span></label>`).join("")}</div>` + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" data-variant="outline" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">${UI_ICON.check}Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">${UI_ICON.close}Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-variant="outline" data-tone="danger" title="Reset every setting; Undo stays briefly">${UI_ICON.reset}Reset</button>`)
         ) }
       ]
     };
@@ -30776,6 +30848,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
 
   // src/llm.ts
+  var localOnly = () => getSettings().localOnly === true;
   function openProxyPort() {
     try {
       return chrome.runtime.connect({ name: "bfb-llm" });
@@ -30841,7 +30914,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const settle2 = (r) => {
         if (!done) {
           done = true;
-          resolve(r);
+          resolve(localOnly() ? { ...r, gemini: [], gpt: [] } : r);
         }
       };
       const port = openProxyPort();
@@ -30873,6 +30946,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
   }
   function llmQuery(opts, cb, job) {
+    if (localOnly() && opts.model && isRemote(opts.model)) {
+      cb.onError("local_only", "");
+      return () => {
+      };
+    }
     const port = openProxyPort();
     if (!port) {
       cb.onError("unavailable", "AI host not installed");
@@ -31037,7 +31115,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     unavailable: "Local AI is not set up. Settings, AI shows how.",
     disconnected: "The AI host disconnected unexpectedly.",
     gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model.",
-    gpt_unavailable: "GPT did not answer. Check codex login in a terminal, or pick another model."
+    gpt_unavailable: "GPT did not answer. Check codex login in a terminal, or pick another model.",
+    local_only: "Only on this Mac is on, so nothing was sent online. Pick a local model, or turn it off in Settings, AI."
   };
 
   // src/ask-quote.ts
@@ -32703,11 +32782,14 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
       v("fe-st-rd-code").value = String(settings.readerCodeSize || 13);
       el("fe-st-wrap").checked = settings.wrapLines !== false;
+      el("fe-st-follow").checked = settings.followDisk !== false;
+      for (const sw2 of els("#fe-st-export-parts [data-part]")) sw2.checked = partOn(settings.exportParts, EXPORT_PARTS.find((p) => p.id === sw2.dataset.part));
+      el("fe-st-local-only").checked = settings.localOnly === true;
       v("fe-st-filepages").value = settings.renderFilePages || "all";
       const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
       v("fe-st-excluded-exts").value = excluded.map((x2) => "." + x2).join(", ");
       el("fe-st-notes-root").value = settings.notesRoot || "";
-      v("fe-st-edit-roots").value = (settings.editableFolders ?? []).join(", ");
+      renderEditList();
       updateTermHint();
       renderRulesList();
       refreshAi();
@@ -32884,6 +32966,16 @@ ${rows.join("\n")}`, name: subject };
       saveSettings(settings);
       fe.dataset.wrap = this.checked ? "on" : "off";
     });
+    el("fe-st-follow").addEventListener("change", function() {
+      settings.followDisk = this.checked;
+      saveSettings(settings);
+    });
+    el("fe-st-local-only").addEventListener("change", function() {
+      settings.localOnly = this.checked;
+      saveSettings(settings);
+      toast(this.checked ? "Ask stays on this Mac" : "Online models can be picked again");
+      refreshAi();
+    });
     v("fe-st-filepages").addEventListener("change", () => {
       settings.renderFilePages = v("fe-st-filepages").value;
       saveSettings(settings);
@@ -32910,17 +33002,96 @@ ${rows.join("\n")}`, name: subject };
       saveSettings(settings);
       app.refreshNotes();
     });
-    v("fe-st-edit-roots").addEventListener("change", () => {
-      const list3 = v("fe-st-edit-roots").value.split(",").map((s) => s.trim()).filter(Boolean);
+    const editList = el("fe-st-edit-list");
+    const myHome = () => homeDir(decodeURIComponent(location.pathname));
+    const saveEdit = (list3) => {
       settings.editableFolders = list3.length ? list3 : void 0;
       saveSettings(settings);
+    };
+    const fullPath2 = (p) => p === "~" || p.startsWith("~/") ? myHome() + p.slice(1) : p;
+    function renderEditList() {
+      const list3 = settings.editableFolders ?? [];
+      editList.innerHTML = list3.map((p, i3) => `<div class="fe-st-folder" data-i="${i3}">
+      <input type="text" class="tb fe-st-input" data-size="lg" value="${esc(p)}" spellcheck="false" title="Edit this folder's path" aria-label="Folder ${i3 + 1}">
+      <button type="button" class="btn fe-ibtn" data-icon data-size="lg" data-act="copy" title="Copy the path" aria-label="Copy the path">${UI_ICON.copy}</button>
+      <button type="button" class="btn fe-ibtn" data-icon data-size="lg" data-act="finder" title="Show in Finder" aria-label="Show in Finder">${UI_ICON.folderOpen}</button>
+      <button type="button" class="btn fe-ibtn" data-icon data-size="lg" data-tone="danger" data-act="remove" title="Stop allowing edits here" aria-label="Remove">${UI_ICON.trash}</button></div>`).join("");
+    }
+    editList.addEventListener("change", (e) => {
+      const row2 = e.target.closest(".fe-st-folder");
+      if (!row2) return;
+      const list3 = [...settings.editableFolders ?? []];
+      const val = e.target.value.trim().replace(/\/+$/, "");
+      if (val) list3[Number(row2.dataset.i)] = val;
+      else list3.splice(Number(row2.dataset.i), 1);
+      saveEdit(list3);
+      renderEditList();
+    });
+    editList.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-act]");
+      const row2 = btn?.closest(".fe-st-folder");
+      if (!btn || !row2) return;
+      const i3 = Number(row2.dataset.i), list3 = [...settings.editableFolders ?? []], p = list3[i3];
+      if (btn.dataset.act === "copy") void copyWithCheck(btn, fullPath2(p));
+      else if (btn.dataset.act === "finder") runOpenWith("finder", fullPath2(p), [], toast);
+      else if (btn.dataset.act === "remove") {
+        list3.splice(i3, 1);
+        saveEdit(list3);
+        renderEditList();
+        toast(`No longer editable: ${p}`, 8e3, { label: "Undo", run: () => {
+          const now = [...settings.editableFolders ?? []];
+          now.splice(i3, 0, p);
+          saveEdit(now);
+          renderEditList();
+        } });
+      }
+    });
+    const addInput = el("fe-st-edit-add");
+    const addFolder = (p) => {
+      const val = p.trim().replace(/\/+$/, "");
+      if (!val) return;
+      const list3 = settings.editableFolders ?? [];
+      if (list3.includes(val)) {
+        toast("Already editable");
+        return;
+      }
+      saveEdit([...list3, val]);
+      renderEditList();
+      addInput.value = "";
+    };
+    el("fe-st-edit-addbtn").addEventListener("click", () => addFolder(addInput.value));
+    addInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addFolder(addInput.value);
+      }
+    });
+    el("fe-st-edit-pick").addEventListener("click", () => {
+      notes.pick(myHome() || void 0).then((p) => {
+        if (p) addFolder(p);
+      }).catch((err) => toast(errorText(err, "Picking the folder")));
     });
     const stamp = () => {
       const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
       return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}`;
     };
-    el("fe-st-export").addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify(exportAll(), null, 2) + "\n"], { type: "application/json" });
+    const partsBox = el("fe-st-export-parts");
+    partsBox.addEventListener("change", (e) => {
+      const sw2 = e.target;
+      if (!sw2.dataset.part) return;
+      settings.exportParts = { ...settings.exportParts, [sw2.dataset.part]: sw2.checked };
+      saveSettings(settings);
+      el("fe-st-export").disabled = !EXPORT_PARTS.some((p) => partOn(settings.exportParts, p));
+    });
+    el("fe-st-export").addEventListener("click", async () => {
+      const data = {};
+      for (const [k, v2] of Object.entries(exportAll())) if (keepKey(k, settings.exportParts)) data[k] = v2;
+      const webPart = EXPORT_PARTS.find((p) => p.id === "web");
+      if (partOn(settings.exportParts, webPart) && typeof chrome !== "undefined" && chrome.storage?.local) {
+        const all = await chrome.storage.local.get(null);
+        for (const [k, v2] of Object.entries(all)) if (webKey(k)) data[k] = v2;
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2) + "\n"], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `bfb-settings-${stamp()}.json`;
@@ -32932,8 +33103,10 @@ ${rows.join("\n")}`, name: subject };
     });
     const planBox = el("fe-st-import-plan");
     let pending3 = null;
+    let pendingWeb = {};
     const hidePlan = () => {
       pending3 = null;
+      pendingWeb = {};
       planBox.hidden = true;
     };
     const short = (keys2, plan) => keys2.map((k) => {
@@ -32948,14 +33121,20 @@ ${rows.join("\n")}`, name: subject };
       f.text().then((text) => {
         const data = JSON.parse(text);
         if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("not an export");
+        pendingWeb = {};
+        for (const k of Object.keys(data)) if (webKey(k)) {
+          pendingWeb[k] = data[k];
+          delete data[k];
+        }
+        const webCount = Object.keys(pendingWeb).length;
         const plan = planImport(data);
-        if (!plan.changed.length && !plan.added.length) {
+        if (!plan.changed.length && !plan.added.length && !webCount) {
           hidePlan();
           toast("Nothing to change: this export matches what you have");
           return;
         }
         pending3 = plan;
-        el("fe-st-import-plan-tx").textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? "items" : "item"}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ""} and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ""}. ${plan.same} already match.`;
+        el("fe-st-import-plan-tx").textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? "items" : "item"}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ""} and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ""}. ${plan.same} already match.` + (webCount ? ` It also brings dark mode choices and marks (${webCount} ${webCount === 1 ? "entry" : "entries"}).` : "");
         planBox.hidden = false;
       }).catch(() => {
         hidePlan();
@@ -32966,6 +33145,7 @@ ${rows.join("\n")}`, name: subject };
     el("fe-st-import-apply").addEventListener("click", () => {
       if (!pending3) return;
       const n = importPlan(pending3);
+      if (Object.keys(pendingWeb).length && typeof chrome !== "undefined") void chrome.storage?.local?.set(pendingWeb);
       hidePlan();
       toast(`Imported ${n} setting${n !== 1 ? "s" : ""}, reloading`);
       reloadWhenSaved();
@@ -33497,11 +33677,11 @@ ${rows.join("\n")}`, name: subject };
   };
   var tile2 = (icon2, tone) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon2}</span>`;
   var DAY2 = (i3) => i3 === 6 ? "today" : i3 === 5 ? "yesterday" : `${6 - i3} days ago`;
-  var bars = (series) => {
+  var bars2 = (series) => {
     const top = Math.max(1, ...series);
     return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i3) => `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? "" : ' class="nil"'} title="${DAY2(i3)}: ${v}"></i>`).join("")}</span>`;
   };
-  var statCell = (s) => `<button type="button" class="fe-hp-stat${s.hot ? " hot" : ""}" data-stat="${s.id}" title="${esc(STAT_LOOK[s.id].to)}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<span class="fe-hp-stat-tx"><span class="fe-hp-stat-top"><b>${esc(s.value)}</b>${s.series ? bars(s.series) : ""}</span><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></span></button>`;
+  var statCell = (s) => `<button type="button" class="fe-hp-stat${s.hot ? " hot" : ""}" data-stat="${s.id}" title="${esc(STAT_LOOK[s.id].to)}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<span class="fe-hp-stat-tx"><span class="fe-hp-stat-top"><b>${esc(s.value)}</b>${s.series ? bars2(s.series) : ""}</span><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></span></button>`;
   var ACTIONS = [
     ["note", UI_ICON.add, "New note (n)"],
     ["ask", UI_ICON.ai, "Ask about a file or folder"],

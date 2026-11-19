@@ -3,6 +3,11 @@
 // opens a runtime port that the background worker proxies to the native host.
 // Disconnecting the port mid-stream is the cancellation path (the host
 // SIGTERMs lm, which aborts the generation).
+import { getSettings } from './storage';
+
+/** Settings, AI, "Only on this Mac": nothing is sent to an online model. */
+const localOnly = () => getSettings().localOnly === true;
+
 function openProxyPort(): chrome.runtime.Port | null {
   try { return chrome.runtime.connect({ name: 'bfb-llm' }); }
   catch { return null; }
@@ -97,7 +102,8 @@ export const bareModel = (value: string) => value.replace(REMOTE, '');
 export function llmModels(): Promise<{ tiers: ModelTier[]; gemini: GeminiModel[]; gpt: GptModel[] }> {
   return new Promise(resolve => {
     let done = false;
-    const settle = (r: { tiers: ModelTier[]; gemini: GeminiModel[]; gpt: GptModel[] }) => { if (!done) { done = true; resolve(r); } };
+    // With Only on this Mac on, online models are left out of every picker.
+    const settle = (r: { tiers: ModelTier[]; gemini: GeminiModel[]; gpt: GptModel[] }) => { if (!done) { done = true; resolve(localOnly() ? { ...r, gemini: [], gpt: [] } : r); } };
     const port = openProxyPort();
     if (!port) { settle({ tiers: [], gemini: [], gpt: [] }); return; }
     const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ tiers: [], gemini: [], gpt: [] }); }, 20_000);
@@ -138,6 +144,8 @@ export interface AskJob { id: string; subject: string; chatId: string; turn: Rec
 /** Start a streamed query; the returned function cancels it. With `job`, the
  *  answer belongs to the background worker and keeps going if this page goes. */
 export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks, job?: AskJob): () => void {
+  // A chat that picked an online model before the switch went on still stays here.
+  if (localOnly() && opts.model && isRemote(opts.model)) { cb.onError('local_only', ''); return () => {}; }
   const port = openProxyPort();
   if (!port) { cb.onError('unavailable', 'AI host not installed'); return () => {}; }
   const stop = follow(port, cb, job?.id);
@@ -248,4 +256,5 @@ export const LLM_ERROR_TEXT: Record<string, string> = {
   disconnected:  'The AI host disconnected unexpectedly.',
   gemini_unavailable: 'Gemini did not answer. Check lm gemini in a terminal, or pick a local model.',
   gpt_unavailable: 'GPT did not answer. Check codex login in a terminal, or pick another model.',
+  local_only:    'Only on this Mac is on, so nothing was sent online. Pick a local model, or turn it off in Settings, AI.',
 };

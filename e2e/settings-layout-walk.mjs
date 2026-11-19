@@ -38,9 +38,28 @@ try {
       }
       for (const card of pane.querySelectorAll('.fe-set-card')) {
         const cardL = card.getBoundingClientRect().left;
+        // A row's edge is where its first visible thing starts: words (measured as
+        // text, so "Run <code>x</code>" starts at "Run") or a control.
+        const firstLeft = r => {
+          const walker = document.createTreeWalker(r, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+          for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+            if (n.nodeType === Node.ELEMENT_NODE) {
+              const b = n.getBoundingClientRect();
+              // A control, or an empty shape such as a colour dot, is something you see.
+              if ((n.matches('input,svg,img,select,textarea') || (!n.children.length && !n.textContent.trim())) && b.width > 0 && b.height > 0) return b.left;
+              continue;
+            }
+            if (!n.data.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(n);
+            const rect = [...range.getClientRects()].find(x => x.width > 0);
+            if (rect) return rect.left;
+          }
+          return null;
+        };
         const edges = [...card.children].filter(r => r.getBoundingClientRect().height > 0).map(r => {
-          const first = [...r.querySelectorAll('*')].find(e => e.children.length === 0 && e.getBoundingClientRect().width > 0 && (e.textContent.trim() || e.matches('input,svg,img')));
-          return first ? [name(r), Math.round(first.getBoundingClientRect().left - cardL)] : null;
+          const left = firstLeft(r);
+          return left === null ? null : [name(r), Math.round(left - cardL)];
         }).filter(Boolean);
         const tally = new Map();
         for (const [, l] of edges) tally.set(l, (tally.get(l) ?? 0) + 1);

@@ -180,7 +180,7 @@ try {
   // 24: an empty folder field says "Not set", not an example that reads as a value.
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="notes"]');
-  const ph = await page.evaluate(() => [document.getElementById('fe-st-notes-root').placeholder, document.querySelector('#fe-st-edit-roots input').placeholder]);
+  const ph = await page.evaluate(() => [document.getElementById('fe-st-notes-root').placeholder, document.getElementById('fe-st-edit-add').placeholder]);
   check(ph[0] === 'Not set' && /Add a folder/.test(ph[1]), `the folder fields say what goes in them: ${JSON.stringify(ph)}`);
   await shot(page, 'seatd-notset');
 

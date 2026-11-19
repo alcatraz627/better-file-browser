@@ -716,6 +716,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-status-grow{flex:1}
 #fe-fp-reload[hidden]{display:none}
 #fe-fp-reload.off{color:var(--dm)}
+#fe-fp-reload.waiting{color:var(--ac);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
 /* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
 #fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
@@ -2195,8 +2196,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
 /* In the sidebar every tab stays in sight as an icon; the page's own header names the open one. */
 @container dlg (max-width:420px){
-  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-3);overflow:hidden}
-  .fe-dlg-tab{flex:none;min-width:0;padding:var(--sp-2)}
+  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-2);overflow:hidden}
+  /* The icons share the width equally, so a ninth tab still fits a narrow sidebar. */
+  .fe-dlg-tab{flex:1 1 0;min-width:0;padding:var(--sp-2) 0;justify-content:center}
   .fe-dlg-tab b,.fe-dlg-tab i{display:none}
 }
 @container dlg (max-width:720px){

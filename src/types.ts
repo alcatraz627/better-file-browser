@@ -66,6 +66,9 @@ export interface Settings {
   tooltips?: boolean;                // native title tooltips (default on)
   uiScale?: number;                  // whole-interface zoom in percent (default 100)
   sidebarWidth?: number;             // sidebar width in px (default 220), set by dragging its edge
+  followDisk?: boolean;              // pages and the editor take changes made on disk at once (default on); off offers a Reload
+  localOnly?: boolean;               // Ask never sends text to an online model (default off)
+  exportParts?: Record<string, boolean>;   // what Export puts in, by part; a part not listed is in, except Ask chats
 }
 
 // Where the Quick Look preview lives and how big the owner dragged it.

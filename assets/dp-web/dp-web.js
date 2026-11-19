@@ -715,6 +715,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-status-grow{flex:1}
 #fe-fp-reload[hidden]{display:none}
 #fe-fp-reload.off{color:var(--dm)}
+#fe-fp-reload.waiting{color:var(--ac);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
 /* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
 #fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
@@ -2194,8 +2195,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
 /* In the sidebar every tab stays in sight as an icon; the page's own header names the open one. */
 @container dlg (max-width:420px){
-  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-3);overflow:hidden}
-  .fe-dlg-tab{flex:none;min-width:0;padding:var(--sp-2)}
+  .fe-dlg-tabs{justify-content:space-between;gap:0;padding:var(--sp-2) var(--sp-2);overflow:hidden}
+  /* The icons share the width equally, so a ninth tab still fits a narrow sidebar. */
+  .fe-dlg-tab{flex:1 1 0;min-width:0;padding:var(--sp-2) 0;justify-content:center}
   .fe-dlg-tab b,.fe-dlg-tab i{display:none}
 }
 @container dlg (max-width:720px){
@@ -2489,6 +2491,25 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-web-meta{color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}
 #fe-st-web-add-host{width:200px}
 #fe-st-web-sites>.empty,#fe-st-web-marks>.empty{padding-inline:var(--sp-6)}
+/* A note inside a list that is already padded would be indented twice. */
+.fe-tc>.fe-set-note{padding-inline:0;grid-column:1/-1}
+/* Settings, Data: what Export holds, a switch each. */
+.fe-st-parts{display:flex;flex-wrap:wrap;gap:var(--sp-3) var(--sp-7);padding:0 var(--sp-6) var(--sp-5)}
+.fe-st-part{display:inline-flex;align-items:center;gap:var(--sp-3);color:var(--mt);cursor:pointer}
+.fe-st-part:has(:checked){color:var(--tx)}
+/* Settings, Browse: each view drawn small, so the choice shows what it looks like. */
+#fe-st-defview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--sp-3);width:100%;padding:0;background:none;border:0;box-shadow:none;height:auto}
+#fe-st-defview .fe-seg-b{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);height:auto;padding:var(--sp-4) var(--sp-2) var(--sp-3);border:1px solid var(--bd);border-radius:10px;background:none;color:var(--mt)}
+#fe-st-defview .fe-seg-b:hover{background:var(--hover);color:var(--tx)}
+#fe-st-defview .fe-seg-b[aria-checked="true"]{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--tx)}
+.fe-st-mini{display:flex;flex-direction:column;gap:4px;width:84px;height:48px;padding:6px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);overflow:hidden}
+.fe-st-mini i,.fe-st-mini b{display:block}
+.fe-st-mini i{height:3px;border-radius:2px;background:color-mix(in srgb,var(--tx) 24%,transparent)}
+.fe-st-mini b{display:grid;gap:4px;width:100%}
+/* Settings, Reading: editable folders, one row each. */
+.fe-st-folders{display:flex;flex-direction:column;width:100%}
+.fe-st-folder{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:var(--sp-2);padding:var(--sp-1) 0}
+.fe-st-folder .tb{font-family:var(--mono)}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
 .fe-switch.sm::after{width:12px;height:12px}
 .fe-switch.sm:checked::after{transform:translateX(12px)}
