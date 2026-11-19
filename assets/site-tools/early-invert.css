@@ -1,0 +1,4 @@
+/* Lights, before the page's first paint, on sites set to Invert. The same flip
+   Lights applies later, so there is nothing to see change when it takes over. */
+:root:not([data-bfb-lights-ready]) { filter: invert(1) hue-rotate(180deg) !important; background-color: #fff !important; }
+:root:not([data-bfb-lights-ready]) :is(img:not(picture img), picture, video, canvas, iframe, embed, object) { filter: invert(1) hue-rotate(180deg) !important; }

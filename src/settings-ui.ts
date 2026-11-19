@@ -33,6 +33,7 @@ import { mountTagColours } from './tag-colours';
 import { setTooltips } from './tooltip';
 import { askModelPref } from './tool-lenses';
 import { savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
+import { initWebSettings } from './settings-web';
 
 // What a stored key is called on screen, for the import preview.
 const KEY_NAMES: Record<string, string> = {
@@ -71,6 +72,7 @@ export function initSettingsUi(app: App): void {
   const { fe, settings, toast } = app;
   const v = <T extends HTMLElement = ValuedEl>(id: string) => el(id) as unknown as T;
   upgradeControls(el('fe-settings-modal'));
+  const refreshWeb = initWebSettings(toast);
 
   // Icon rules.
   const badRegex = (p: string) => { try { new RegExp(p, 'i'); return ''; } catch (e) { return String((e as Error).message); } };
@@ -346,8 +348,16 @@ export function initSettingsUi(app: App): void {
     renderRulesList();
     refreshAi();
     paintSamples();
+    void refreshWeb();
     settingsDlg.open(tab);
   }
+
+  // The gear in a web page's panel, and Chrome's Options item, open Settings on a tab here.
+  chrome.runtime?.onMessage?.addListener((msg, _sender, reply) => {
+    if (msg?.type !== 'bfb-open-settings') return;
+    openSettings(typeof msg.tab === 'string' ? msg.tab : undefined);
+    reply({ ok: true });
+  });
 
   el('fe-settings-btn').addEventListener('click', () => openSettings());
   const helpDlg = mountDialog('fe-help-modal');

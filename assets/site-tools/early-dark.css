@@ -1,0 +1,7 @@
+/* Lights, before the page's first paint, on sites set to Auto, Site or Smart.
+   The canvas goes dark and the page waits, briefly, for Lights to rewrite its
+   colours, so a dark page never flashes white. Lights marks the page ready as
+   soon as it has decided; the reveal animation is a fallback if it never does. */
+:root:not([data-bfb-lights-ready]) { background-color: rgb(24, 25, 27) !important; color-scheme: dark; }
+:root:not([data-bfb-lights-ready]) body { opacity: 0; animation: bfb-lights-reveal 0s linear 0.9s forwards; }
+@keyframes bfb-lights-reveal { to { opacity: 1; } }

@@ -61,7 +61,14 @@ async function main() {
     logLevel: 'info',
   });
 
-  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx, webCtx, sitesCtx, bridgeCtx];
+  // Lights (dark mode) and Marks (comments and pins) on every ordinary website.
+  const toolsCtx = await esbuild.context({
+    entryPoints: ['src/site-tools.ts'], bundle: true, outfile: 'site-tools.js',
+    format: 'iife', target: 'chrome120', platform: 'browser', minify: true,
+    logLevel: 'info',
+  });
+
+  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx, webCtx, sitesCtx, bridgeCtx, toolsCtx];
   if (watch) {
     await Promise.all(all.map(c => c.watch()));
     console.log('Watching for changes…');

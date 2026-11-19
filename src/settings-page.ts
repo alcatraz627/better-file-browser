@@ -7,6 +7,9 @@ import { PI } from './icons';
 import { UI_ICON, VIEW_ICONS, line } from './control-icons';
 import { segHtml, sliderHtml, ddHtml, chipsHtml, switchHtml, type Opt } from './controls';
 import { APP_ICONS, TEXT_FONTS, HEAD_FONTS, CODE_FONTS, type FontChoice } from './theme';
+import { MODE_OPTS } from './settings-web';
+
+const WEB_ICON = line('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>');
 
 const row = (label: string, desc: string, ctl: string, attrs = '') =>
   `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ''}</div><div class="fe-set-c">${ctl}</div></div>`;
@@ -148,6 +151,19 @@ export function settingsDialog(): DialogSpec {
           `<span class="sect-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" data-variant="outline" title="Add a rule">${UI_ICON.add}Rule</button></span>`) +
         card('Keyboard',
           row('Keys', 'Every key, on a map', `<button id="fe-st-keys" class="btn" data-size="lg" data-variant="outline" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)) },
+
+      { key: 'web', label: 'Web pages', hint: 'Dark mode, marks', icon: WEB_ICON, tone: 'var(--nc-blue)', desc: 'Dark mode on websites, and the comments and pins you leave on them.', body:
+        card('Dark mode',
+          row('Every site', 'Sites without a mode of their own', segHtml('fe-st-web-default', MODE_OPTS, 'Dark mode for every site', 'lg')) +
+          note('', 'fe-st-web-default-note') +
+          note('<b>Auto</b> picks per page. <b>Site</b> turns on the site\'s own dark theme. <b>Smart</b> rewrites its colours and keeps pictures. <b>Invert</b> flips the page.')) +
+        card('Sites with their own mode',
+          '<div id="fe-st-web-sites"></div>' +
+          row('Add a site', '', `<input type="text" id="fe-st-web-add-host" class="tb fe-st-input" data-size="lg" placeholder="github.com" spellcheck="false" title="A site, such as github.com">${ddHtml('fe-st-web-add-mode', MODE_OPTS, 'Mode for the new site', 'lg')}<button type="button" id="fe-st-web-add" class="btn" data-size="lg" data-variant="outline" title="Give this site its own mode">${UI_ICON.add}Add</button>`)) +
+        card('Keys',
+          row('On any page', 'Alt+Shift+D dark mode on or off · Alt+Shift+M comment or pin · Alt+Shift+K page panel',
+            `<button type="button" id="fe-st-web-shortcuts" class="btn" data-size="lg" data-variant="outline" title="Change these keys in Chrome">${UI_ICON.keyboard}Change</button>`)) +
+        card('Marked pages', '<div id="fe-st-web-marks"></div>', '<span class="sect-acts fe-set-d" id="fe-st-web-marks-count"></span>') },
 
       { key: 'notes', label: 'Notes and Saved', hint: 'Folder, tags', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, where Saved lives, and tag colours.', body:
         card('Notes',

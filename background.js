@@ -72,6 +72,23 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     transitCachePut(msg.key, msg.text).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
     return true;
   }
+  // A stylesheet from another origin, for Lights: the page may not read its
+  // rules, so the worker fetches the text. Only http(s) CSS, never a page.
+  // Settings lives in bfb's own pages, so a web page's panel or Chrome's Options
+  // item asks here, and Home opens with Settings on the tab asked for.
+  if (msg.type === 'bfb-open-settings') {
+    openSettingsPage(typeof msg.tab === 'string' ? msg.tab : 'web', msg.inTab ? _sender.tab?.id : undefined)
+      .then(() => sendResponse({ ok: true }), err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+  if (msg.type === 'bfb-open-shortcuts') {
+    chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).then(() => sendResponse({ ok: true }), err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+  if (msg.type === 'bfb-fetch-css') {
+    fetchCss(msg.url).then(text => sendResponse({ ok: true, text }), err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
   // One-shot native call (terminal button): content scripts cannot use
   // connectNative, so the round-trip happens here.
   if (msg.type === 'bfb-native-oneshot') {
@@ -327,3 +344,116 @@ function setActionIcon(id) {
   return chrome.action.setIcon({ path: { 16: p(16), 32: p(32), 48: p(48), 128: p(128) } });
 }
 chrome.storage?.local?.get('bfb-app-icon').then(r => { if (r['bfb-app-icon']) setActionIcon(r['bfb-app-icon']).catch(() => {}); });
+
+// ---- Site tools: Lights (dark mode) and Marks (comments and pins) ----
+
+const LIGHTS_KEY = 'bfb-lights-v1';
+const CSS_MAX = 4 * 1024 * 1024;
+
+async function fetchCss(url) {
+  const u = new URL(url);
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('not a web address');
+  const res = await fetch(u.href, { credentials: 'omit' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const type = res.headers.get('content-type') || '';
+  if (/html|javascript|json|image|font/i.test(type)) throw new Error(`not a stylesheet (${type})`);
+  const text = await res.text();
+  if (text.length > CSS_MAX) throw new Error('stylesheet too large');
+  return text;
+}
+
+/**
+ * Opens Home with Settings showing one tab. A new tab, or the given one (the
+ * Options page) sent there. Home's page needs a moment to start, so the ask is
+ * repeated until it answers, for up to ten seconds.
+ */
+async function openSettingsPage(tab, reuseTabId) {
+  const home = (await chrome.storage.local.get('bfb-home-v1'))['bfb-home-v1'];
+  const url = homeUrl(home);
+  const target = reuseTabId != null ? await chrome.tabs.update(reuseTabId, { url }) : await chrome.tabs.create({ url });
+  for (let i = 0; i < 40; i++) {
+    await new Promise(r => setTimeout(r, 250));
+    try {
+      const res = await chrome.tabs.sendMessage(target.id, { type: 'bfb-open-settings', tab });
+      if (res?.ok) return;
+    } catch { /* the page has not started listening yet */ }
+  }
+  throw new Error('Home did not answer');
+}
+
+/** Sends a site tools action to the page in a tab. */
+function siteTool(tabId, action, extra = {}) {
+  if (tabId == null) return;
+  chrome.tabs.sendMessage(tabId, { type: 'bfb-site-tools', action, ...extra }).catch(() => {});
+}
+
+const WEB_PAGES = ['http://*/*', 'https://*/*'];
+const LIGHT_MODES = [['off', 'Off'], ['auto', 'Auto'], ['native', 'Site\'s own dark theme'], ['smart', 'Smart'], ['invert', 'Invert']];
+
+// Menus persist across worker restarts, so they are made once per install or update.
+chrome.runtime.onInstalled?.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: 'bfb-comment', title: 'Comment on “%s”', contexts: ['selection'], documentUrlPatterns: WEB_PAGES });
+    chrome.contextMenus.create({ id: 'bfb-pin', title: 'Drop a pin here', contexts: ['page', 'image', 'link', 'frame'], documentUrlPatterns: WEB_PAGES });
+    chrome.contextMenus.create({ id: 'bfb-lights', title: 'Dark mode for this site', contexts: ['page', 'selection', 'image', 'link'], documentUrlPatterns: WEB_PAGES });
+    for (const [mode, title] of LIGHT_MODES) chrome.contextMenus.create({ id: `bfb-lights-${mode}`, parentId: 'bfb-lights', title, contexts: ['page', 'selection', 'image', 'link'], documentUrlPatterns: WEB_PAGES });
+    chrome.contextMenus.create({ id: 'bfb-panel', title: 'Page tools…', contexts: ['page', 'selection', 'image', 'link'], documentUrlPatterns: WEB_PAGES });
+  });
+  syncEarlyLights().catch(() => {});
+});
+
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
+  const id = String(info.menuItemId);
+  if (id === 'bfb-comment') siteTool(tab?.id, 'comment');
+  else if (id === 'bfb-pin') siteTool(tab?.id, 'pin-here');
+  else if (id === 'bfb-panel') siteTool(tab?.id, 'panel');
+  else if (id.startsWith('bfb-lights-')) siteTool(tab?.id, 'lights-set', { mode: id.slice('bfb-lights-'.length) });
+});
+
+chrome.commands?.onCommand.addListener((command, tab) => {
+  if (command === 'lights-toggle' || command === 'mark' || command === 'panel') siteTool(tab?.id, command);
+});
+
+// Before a page's first paint, a site with dark mode on gets a small stylesheet
+// that keeps it from flashing white while Lights reads its colours. Chrome only
+// applies such a stylesheet early when it is registered by address, so the
+// registrations follow the saved choices.
+async function syncEarlyLights() {
+  const raw = (await chrome.storage.local.get(LIGHTS_KEY))[LIGHTS_KEY] || {};
+  const sites = raw.sites && typeof raw.sites === 'object' ? raw.sites : {};
+  const def = typeof raw.default === 'string' ? raw.default : 'off';
+  const valid = h => /^[a-z0-9.-]{1,253}$/i.test(h);
+  const pattern = h => [`http://${h}/*`, `https://${h}/*`];
+  const hostsFor = test => Object.entries(sites).filter(([h, m]) => valid(h) && test(m)).flatMap(([h]) => pattern(h));
+  const isDark = m => m === 'auto' || m === 'native' || m === 'smart';
+
+  const scripts = [];
+  const add = (id, css, matches, excludeMatches) => {
+    if (matches.length) scripts.push({ id, css: [css], matches, excludeMatches, runAt: 'document_start', allFrames: false, persistAcrossSessions: true });
+  };
+  if (def === 'off') {
+    add('bfb-lights-early-dark', 'assets/site-tools/early-dark.css', hostsFor(isDark));
+    add('bfb-lights-early-invert', 'assets/site-tools/early-invert.css', hostsFor(m => m === 'invert'));
+  } else {
+    // Every site follows the default except those with their own choice.
+    const own = hostsFor(m => m !== def);
+    if (isDark(def)) {
+      add('bfb-lights-early-dark', 'assets/site-tools/early-dark.css', WEB_PAGES, own);
+      add('bfb-lights-early-invert', 'assets/site-tools/early-invert.css', hostsFor(m => m === 'invert'));
+    } else {
+      add('bfb-lights-early-invert', 'assets/site-tools/early-invert.css', WEB_PAGES, own);
+      add('bfb-lights-early-dark', 'assets/site-tools/early-dark.css', hostsFor(isDark));
+    }
+  }
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: ['bfb-lights-early-dark', 'bfb-lights-early-invert'] });
+  if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: existing.map(s => s.id) });
+  for (const s of scripts) if (!s.excludeMatches?.length) delete s.excludeMatches;
+  if (scripts.length) await chrome.scripting.registerContentScripts(scripts);
+}
+
+// One sync at a time: two quick changes would otherwise both register the same ids.
+let earlySync = Promise.resolve();
+chrome.storage?.onChanged?.addListener((changes, area) => {
+  if (area !== 'local' || !changes[LIGHTS_KEY]) return;
+  earlySync = earlySync.then(syncEarlyLights).catch(err => console.warn('[bfb] early Lights stylesheet', err));
+});

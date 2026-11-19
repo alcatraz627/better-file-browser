@@ -3,7 +3,14 @@
   "name": "Better File Browser",
   "version": "2.12.0",
   "description": "Transforms Chrome's plain directory listings into a rich, modern file explorer with file previews and local-model AI",
-  "permissions": ["storage", "nativeMessaging", "clipboardWrite", "tabs", "alarms", "idle"],
+  "permissions": ["storage", "nativeMessaging", "clipboardWrite", "tabs", "alarms", "idle", "contextMenus", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "options_page": "options.html",
+  "commands": {
+    "lights-toggle": { "suggested_key": { "default": "Alt+Shift+D" }, "description": "Dark mode on or off for this site" },
+    "mark": { "suggested_key": { "default": "Alt+Shift+M" }, "description": "Comment on the selected words, or drop a pin" },
+    "panel": { "suggested_key": { "default": "Alt+Shift+K" }, "description": "Open the page tools panel" }
+  },
   "background": { "service_worker": "background.js" },
   "action": {
     "default_icon": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
@@ -66,6 +73,12 @@
         "https://*.airbnb.ae/*", "https://*.airbnb.co.za/*"
       ],
       "js": ["site-bridge.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["site-tools.js"],
       "run_at": "document_start",
       "all_frames": false
     }

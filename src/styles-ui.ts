@@ -256,6 +256,14 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
 .fe-rule:hover{background:var(--hover)}
 .fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
+/* Settings, Web pages: a site with its mode, and a marked page with its count. */
+.fe-rule.fe-web-site{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
+.fe-rule.fe-web-page{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
+.fe-web-host,.fe-web-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-web-title{color:inherit;text-decoration:none}
+.fe-web-title:hover{text-decoration:underline}
+.fe-web-meta{color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}
+#fe-st-web-add-host{width:200px}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
 .fe-switch.sm::after{width:12px;height:12px}
 .fe-switch.sm:checked::after{transform:translateX(12px)}

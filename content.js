@@ -869,12 +869,12 @@
     } catch {
     }
   }
-  function makePref(id, read2, write, where2 = "profile") {
+  function makePref(id, read3, write2, where2 = "profile") {
     const tab = where2 === "tab";
     return {
-      get: () => read2(tab ? sessionGet(id) : kvGet(id)),
+      get: () => read3(tab ? sessionGet(id) : kvGet(id)),
       set: (v) => {
-        const s = write(v);
+        const s = write2(v);
         if (tab) sessionSet(id, s);
         else kvSet(id, s);
       },
@@ -20056,6 +20056,14 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
 .fe-rule:hover{background:var(--hover)}
 .fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
+/* Settings, Web pages: a site with its mode, and a marked page with its count. */
+.fe-rule.fe-web-site{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
+.fe-rule.fe-web-page{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
+.fe-web-host,.fe-web-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-web-title{color:inherit;text-decoration:none}
+.fe-web-title:hover{text-decoration:underline}
+.fe-web-meta{color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}
+#fe-st-web-add-host{width:200px}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
 .fe-switch.sm::after{width:12px;height:12px}
 .fe-switch.sm:checked::after{transform:translateX(12px)}
@@ -20286,8 +20294,8 @@ button.chip:disabled{opacity:.45;cursor:default}
   async function readable(path, waitMs = 9e3) {
     if (!path.endsWith("/")) return true;
     const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
-    const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
-    return Promise.race([read2, timeout]);
+    const read3 = fetchFileText(fileHref(path)).then(() => true, () => false);
+    return Promise.race([read3, timeout]);
   }
   async function resolvePath(path) {
     const clean2 = path.replace(/\/+$/, "");
@@ -21481,7 +21489,7 @@ and ${diags.length - 12} more` : "");
     let saveAgain = false;
     let retryTimer = 0;
     let gone = false;
-    const write = (expect) => {
+    const write2 = (expect) => {
       const p = writeNow(expect);
       inflight = p;
       return p;
@@ -21522,7 +21530,7 @@ and ${diags.length - 12} more` : "");
         saving = false;
         paint();
       }
-      if (retryAt) return write(retryAt);
+      if (retryAt) return write2(retryAt);
       if (saveAgain) {
         saveAgain = false;
         save();
@@ -21543,7 +21551,7 @@ and ${diags.length - 12} more` : "");
         if (asked) askToChoose();
         return;
       }
-      void write(doc.mtime);
+      void write2(doc.mtime);
     };
     const askToChoose = () => {
       const msg = "Not saved: choose Reload, Compare or Keep mine.";
@@ -21619,7 +21627,7 @@ and ${diags.length - 12} more` : "");
       clearTimeout(timer3);
       clearTimeout(retryTimer);
       if (saving && inflight) await inflight;
-      if (isDirty() && banner.hidden) await write(doc.mtime);
+      if (isDirty() && banner.hidden) await write2(doc.mtime);
       return !isDirty();
     };
     const close = async () => {
@@ -21700,7 +21708,7 @@ and ${diags.length - 12} more` : "");
         }
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
-        void write(now.mtime);
+        void write2(now.mtime);
       }
     });
     const keepCaretClear = () => {
@@ -22315,7 +22323,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         focusThread(first.id);
       }
     };
-    const write = async (ops, what) => {
+    const write2 = async (ops, what) => {
       const root2 = o.root();
       if (!root2 || busy2) return null;
       busy2 = true;
@@ -22372,7 +22380,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return;
       }
       o.edited?.(next);
-      const r = await write([{ op: "decide", thread: t.id, comment: commentId, state: "accepted", start, end: start + c.suggestion.replace.length, was: cur.text.slice(start, end) }], "Accept");
+      const r = await write2([{ op: "decide", thread: t.id, comment: commentId, state: "accepted", start, end: start + c.suggestion.replace.length, was: cur.text.slice(start, end) }], "Accept");
       if (r) o.status("Suggestion applied; the old text is in the backups");
     };
     const people = () => [
@@ -22682,7 +22690,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (!draft) return;
       const d = draft;
       if (d.attach) {
-        if (await write([{ op: "attach", thread: d.attach, start: d.start, end: d.end }], "Attach")) {
+        if (await write2([{ op: "attach", thread: d.attach, start: d.start, end: d.end }], "Attach")) {
           draft = null;
           focusThread(d.attach);
         }
@@ -22694,7 +22702,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         ta?.focus();
         return;
       }
-      const r = await write([{ op: "new", start: d.start, end: d.end, text }], "Comment");
+      const r = await write2([{ op: "new", start: d.start, end: d.end, text }], "Comment");
       if (!r) return;
       draft = null;
       typed.delete("new");
@@ -22722,7 +22730,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const seen2 = new Set(t.comments.map((c) => c.id));
       const leaving = close && wasOpen && (filter === "open" || filter === "me") ? o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`) : null;
       if (leaving) await collapseOut(leaving);
-      if (!await write(ops, "Reply")) {
+      if (!await write2(ops, "Reply")) {
         typed.set(id, text);
         paint();
         return;
@@ -22769,7 +22777,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         ta?.focus();
         return;
       }
-      if (await write([{ op: "edit", thread: active, comment: cid, text }], "Edit")) {
+      if (await write2([{ op: "edit", thread: active, comment: cid, text }], "Edit")) {
         typed.delete("edit:" + cid);
         editing = "";
         paint();
@@ -22973,7 +22981,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const inp = e.target;
       if (inp.dataset.a === "due-in" && active) {
         dueOpen = "";
-        void write([{ op: "due", thread: active, due: inp.value || void 0 }], "Due date");
+        void write2([{ op: "due", thread: active, due: inp.value || void 0 }], "Due date");
       }
     });
     o.box.addEventListener("click", async (e) => {
@@ -23037,17 +23045,17 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
           return;
         }
         if (a === "untag") {
-          void write([{ op: "untag", thread: active, tags: [v] }], "Tag");
+          void write2([{ op: "untag", thread: active, tags: [v] }], "Tag");
           return;
         }
         if (a === "undue") {
-          void write([{ op: "due", thread: active }], "Due date");
+          void write2([{ op: "due", thread: active }], "Due date");
           return;
         }
         if (a === "del") {
           const thread = active;
           void askYesNo("Delete this comment? This cannot be undone.", "Delete").then((yes) => {
-            if (yes) void write([{ op: "delete", thread, comment: v }], "Delete");
+            if (yes) void write2([{ op: "delete", thread, comment: v }], "Delete");
           });
           return;
         }
@@ -23068,7 +23076,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
           return;
         }
         if (a === "reject") {
-          void write([{ op: "decide", thread: active, comment: v, state: "rejected" }], "Reject");
+          void write2([{ op: "decide", thread: active, comment: v, state: "rejected" }], "Reject");
           return;
         }
         if (a === "accept" && t) {
@@ -25691,7 +25699,170 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     });
   }
 
+  // src/site-lights-settings.ts
+  var LIGHTS_MODES = ["off", "auto", "native", "smart", "invert"];
+  var LIGHTS_KEY = "bfb-lights-v1";
+  var MODE_LABEL = { off: "Off", auto: "Auto", native: "Site", smart: "Smart", invert: "Invert" };
+  var MODE_TIP = {
+    off: "Leave the site as it is",
+    auto: "Pick the best way for each page",
+    native: "Turn on the site's own dark theme",
+    smart: "Rewrite the site's colours, keep pictures",
+    invert: "Flip the whole page, flip pictures back"
+  };
+  var isMode = (m) => LIGHTS_MODES.includes(m);
+  function readSettings(raw) {
+    const s = raw && typeof raw === "object" ? raw : {};
+    const sites = {};
+    for (const [h, m] of Object.entries(s.sites ?? {})) if (isMode(m)) sites[h] = m;
+    return { default: isMode(s.default) ? s.default : "off", sites };
+  }
+  function hostFrom(typed) {
+    const t = typed.trim().toLowerCase();
+    if (!t) return null;
+    try {
+      const host = new URL(/^[a-z]+:\/\//.test(t) ? t : `https://${t}`).hostname;
+      return /^[a-z0-9.-]{1,253}$/.test(host) && host.includes(".") || host === "localhost" ? host : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // src/settings-web.ts
+  var MARKS_PREFIX = "bfb-marks-v1:";
+  var MARKS_INDEX = "bfb-marks-index-v1";
+  var MODE_OPTS = LIGHTS_MODES.map((m) => ({ value: m, label: MODE_LABEL[m], hint: MODE_TIP[m] }));
+  var read = async () => readSettings((await chrome.storage.local.get(LIGHTS_KEY))[LIGHTS_KEY]);
+  var write = (s) => chrome.storage.local.set({ [LIGHTS_KEY]: s });
+  var ago3 = (ms) => {
+    const d = Date.now() - ms;
+    if (d < 36e5) return `${Math.max(1, Math.round(d / 6e4))} min ago`;
+    if (d < 864e5) return `${Math.round(d / 36e5)} h ago`;
+    return new Date(ms).toLocaleDateString(void 0, { day: "numeric", month: "short" });
+  };
+  function initWebSettings(toast) {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) return async () => {
+    };
+    const defaultCtl = el("fe-st-web-default");
+    const sitesBox = el("fe-st-web-sites");
+    const marksBox = el("fe-st-web-marks");
+    const addInput = el("fe-st-web-add-host");
+    const addMode = el("fe-st-web-add-mode");
+    addMode.value = "auto";
+    async function renderSites() {
+      const s = await read();
+      defaultCtl.value = s.default;
+      el("fe-st-web-default-note").textContent = s.default === "off" ? "Sites stay as they are unless you set them below, from a page's panel, or with Alt+Shift+D." : `Every site uses ${MODE_LABEL[s.default]} unless it is listed below.`;
+      const hosts = Object.keys(s.sites).sort();
+      sitesBox.innerHTML = hosts.length ? hosts.map((h) => `<div class="fe-rule fe-web-site" data-host="${esc(h)}">
+          <span class="fe-web-host" title="${esc(h)}">${esc(h)}</span>
+          ${ddHtml(`fe-st-web-site-${hosts.indexOf(h)}`, MODE_OPTS, `Dark mode for ${h}`)}
+          <button type="button" class="btn fe-ibtn fe-web-del" data-icon data-size="sm" data-tone="danger" title="Forget ${esc(h)}: it follows the default again" aria-label="Forget ${esc(h)}">${UI_ICON.trash}</button>
+        </div>`).join("") : emptyHtml("empty", "No sites of their own yet", { inline: true, hint: "Add one here, or pick a mode on any page" });
+      upgradeControls(sitesBox);
+      sitesBox.querySelectorAll(".fe-web-site").forEach((row2) => {
+        row2.querySelector(".fe-dd").value = s.sites[row2.dataset.host];
+      });
+    }
+    async function renderMarks() {
+      const index = (await chrome.storage.local.get(MARKS_INDEX))[MARKS_INDEX] ?? {};
+      const pages = Object.entries(index).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.updated - a.updated);
+      const total = pages.reduce((n, p) => n + p.count, 0);
+      el("fe-st-web-marks-count").textContent = pages.length ? `${total} mark${total === 1 ? "" : "s"} on ${pages.length} page${pages.length === 1 ? "" : "s"}` : "";
+      marksBox.innerHTML = pages.length ? pages.map((p) => {
+        let host = p.key;
+        try {
+          host = new URL(p.key).hostname;
+        } catch {
+        }
+        return `<div class="fe-rule fe-web-page" data-key="${esc(p.key)}">
+          <a class="fe-web-title" href="${esc(p.key)}" target="_blank" rel="noopener" title="Open ${esc(p.key)}">${esc(p.title)}</a>
+          <span class="fe-web-meta">${p.count} mark${p.count === 1 ? "" : "s"} \xB7 ${esc(host)} \xB7 ${ago3(p.updated)}</span>
+          <button type="button" class="btn fe-ibtn fe-web-forget" data-icon data-size="sm" data-tone="danger" title="Delete this page's marks" aria-label="Delete this page's marks">${UI_ICON.trash}</button>
+        </div>`;
+      }).join("") : emptyHtml("empty", "No marks yet", { inline: true, hint: "On any page, select words and press Alt+Shift+M" });
+    }
+    defaultCtl.addEventListener("change", async () => {
+      const s = await read();
+      s.default = defaultCtl.value;
+      for (const [h, m] of Object.entries(s.sites)) if (m === s.default) delete s.sites[h];
+      await write(s);
+    });
+    sitesBox.addEventListener("change", async (e) => {
+      const row2 = e.target.closest(".fe-web-site");
+      const dd = row2?.querySelector(".fe-dd");
+      if (!row2 || !dd) return;
+      const s = await read();
+      s.sites[row2.dataset.host] = dd.value;
+      await write(s);
+    });
+    sitesBox.addEventListener("click", async (e) => {
+      const row2 = e.target.closest(".fe-web-site");
+      if (!row2 || !e.target.closest(".fe-web-del")) return;
+      const host = row2.dataset.host;
+      const s = await read();
+      const was = s.sites[host];
+      delete s.sites[host];
+      await write(s);
+      toast(`${host} follows the default again`, 8e3, { label: "Undo", run: async () => {
+        const now = await read();
+        now.sites[host] = was;
+        await write(now);
+      } });
+    });
+    const add = async () => {
+      const host = hostFrom(addInput.value);
+      if (!host) {
+        addInput.setAttribute("aria-invalid", "true");
+        addInput.title = "Type a site such as github.com";
+        addInput.focus();
+        return;
+      }
+      addInput.removeAttribute("aria-invalid");
+      const s = await read();
+      s.sites[host] = addMode.value;
+      await write(s);
+      addInput.value = "";
+      toast(`${host}: ${MODE_LABEL[addMode.value]}`);
+    };
+    el("fe-st-web-add").addEventListener("click", () => void add());
+    addInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void add();
+      }
+    });
+    addInput.addEventListener("input", () => addInput.removeAttribute("aria-invalid"));
+    marksBox.addEventListener("click", async (e) => {
+      const row2 = e.target.closest(".fe-web-page");
+      if (!row2 || !e.target.closest(".fe-web-forget")) return;
+      const key = row2.dataset.key;
+      const got = await chrome.storage.local.get([MARKS_PREFIX + key, MARKS_INDEX]);
+      const marks = got[MARKS_PREFIX + key];
+      const index = got[MARKS_INDEX] ?? {};
+      const entry = index[key];
+      delete index[key];
+      await chrome.storage.local.remove(MARKS_PREFIX + key);
+      await chrome.storage.local.set({ [MARKS_INDEX]: index });
+      toast("Marks deleted", 8e3, { label: "Undo", run: async () => {
+        const now = (await chrome.storage.local.get(MARKS_INDEX))[MARKS_INDEX] ?? {};
+        now[key] = entry;
+        await chrome.storage.local.set({ [MARKS_PREFIX + key]: marks, [MARKS_INDEX]: now });
+      } });
+    });
+    el("fe-st-web-shortcuts").addEventListener("click", () => void chrome.runtime.sendMessage({ type: "bfb-open-shortcuts" }));
+    chrome.storage.onChanged.addListener((changes, area2) => {
+      if (area2 !== "local") return;
+      if (changes[LIGHTS_KEY]) void renderSites();
+      if (changes[MARKS_INDEX]) void renderMarks();
+    });
+    return async () => {
+      await Promise.all([renderSites(), renderMarks()]);
+    };
+  }
+
   // src/settings-page.ts
+  var WEB_ICON = line('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>');
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
@@ -25835,6 +26006,20 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           "Keyboard",
           row("Keys", "Every key, on a map", `<button id="fe-st-keys" class="btn" data-size="lg" data-variant="outline" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)
         ) },
+        { key: "web", label: "Web pages", hint: "Dark mode, marks", icon: WEB_ICON, tone: "var(--nc-blue)", desc: "Dark mode on websites, and the comments and pins you leave on them.", body: card2(
+          "Dark mode",
+          row("Every site", "Sites without a mode of their own", segHtml("fe-st-web-default", MODE_OPTS, "Dark mode for every site", "lg")) + note("", "fe-st-web-default-note") + note("<b>Auto</b> picks per page. <b>Site</b> turns on the site's own dark theme. <b>Smart</b> rewrites its colours and keeps pictures. <b>Invert</b> flips the page.")
+        ) + card2(
+          "Sites with their own mode",
+          '<div id="fe-st-web-sites"></div>' + row("Add a site", "", `<input type="text" id="fe-st-web-add-host" class="tb fe-st-input" data-size="lg" placeholder="github.com" spellcheck="false" title="A site, such as github.com">${ddHtml("fe-st-web-add-mode", MODE_OPTS, "Mode for the new site", "lg")}<button type="button" id="fe-st-web-add" class="btn" data-size="lg" data-variant="outline" title="Give this site its own mode">${UI_ICON.add}Add</button>`)
+        ) + card2(
+          "Keys",
+          row(
+            "On any page",
+            "Alt+Shift+D dark mode on or off \xB7 Alt+Shift+M comment or pin \xB7 Alt+Shift+K page panel",
+            `<button type="button" id="fe-st-web-shortcuts" class="btn" data-size="lg" data-variant="outline" title="Change these keys in Chrome">${UI_ICON.keyboard}Change</button>`
+          )
+        ) + card2("Marked pages", '<div id="fe-st-web-marks"></div>', '<span class="sect-acts fe-set-d" id="fe-st-web-marks-count"></span>') },
         { key: "notes", label: "Notes and Saved", hint: "Folder, tags", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, where Saved lives, and tag colours.", body: card2(
           "Notes",
           row("Folder", "Markdown files, for example ~/Notes", `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="Not set" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint") + row("Saved", '<span id="fe-st-saved-where"></span>', `<button id="fe-st-saved-move" class="btn" data-size="lg" data-variant="outline" title="Keep Saved in the notes folder" hidden>${UI_ICON.notes}Move to Notes</button>`)
@@ -25924,14 +26109,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const start = first.at - from + (from ? 1 : 0);
     return { count, line: line2, start, end: Math.min(line2.length, start + first.length), lineNumber: first.number };
   }
-  async function searchContents(files, read2, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
+  async function searchContents(files, read3, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
     const hits = /* @__PURE__ */ new Map();
     let scanned = 0, failed2 = 0, next = 0;
     const worker = async () => {
       while (next < files.length && !isCancelled()) {
         const f = files[next++];
         try {
-          const text = await read2(f.href);
+          const text = await read3(f.href);
           if (isCancelled()) break;
           const hit = await match(text, q);
           if (isCancelled()) break;
@@ -28775,7 +28960,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   // src/sync-state.ts
   var STALE_SECONDS = 10 * 60;
   var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
-  function ago3(seconds) {
+  function ago4(seconds) {
     const m = Math.floor(seconds / 60);
     if (m < 1) return "less than a minute ago";
     if (m < 60) return `${plural2(m, "minute")} ago`;
@@ -28792,7 +28977,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const at = s.at ? Date.parse(s.at) / 1e3 : NaN;
     const clashes = s.clashes ?? 0, cameBack = s.cameBack ?? [];
     if (!isFinite(at) || r.now - at > STALE_SECONDS) {
-      const when2 = isFinite(at) ? ` Its last report was ${ago3(r.now - at)}.` : "";
+      const when2 = isFinite(at) ? ` Its last report was ${ago4(r.now - at)}.` : "";
       return { level: "off", text: `Sync is not running.${when2} Notes still save here, but they are not reaching other devices.`, clashes, cameBack };
     }
     if (s.ok === false) {
@@ -28803,7 +28988,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     if (s.behind) parts2.push(`${plural2(s.behind, "change")} from other devices ${s.behind === 1 ? "is" : "are"} waiting here`);
     if (s.ahead) parts2.push(`${plural2(s.ahead, "change")} here ${s.ahead === 1 ? "has" : "have"} not been sent yet`);
     if (cameBack.length) parts2.push(`${plural2(cameBack.length, "deleted note")} came back because it was edited elsewhere`);
-    if (!parts2.length) return { level: "ok", text: `Synced ${ago3(r.now - at)}.`, clashes, cameBack };
+    if (!parts2.length) return { level: "ok", text: `Synced ${ago4(r.now - at)}.`, clashes, cameBack };
     return { level: clashes ? "trouble" : "waiting", text: parts2.join("; ").replace(/^./, (c) => c.toUpperCase()) + ".", clashes, cameBack };
   }
 
@@ -29140,7 +29325,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const box = document.getElementById("fe-lenses");
     if (!box) return;
     const KEY = "bfb-lens-scroll";
-    const read2 = () => {
+    const read3 = () => {
       try {
         return JSON.parse(sessionStorage.getItem(KEY) ?? "{}");
       } catch {
@@ -29149,11 +29334,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     window.addEventListener("pagehide", () => {
       try {
-        sessionStorage.setItem(KEY, JSON.stringify({ ...read2(), [lens()]: box.scrollTop }));
+        sessionStorage.setItem(KEY, JSON.stringify({ ...read3(), [lens()]: box.scrollTop }));
       } catch {
       }
     });
-    const want = read2()[lens()];
+    const want = read3()[lens()];
     if (!want) return;
     let frames = 60;
     const stop = () => {
@@ -30566,7 +30751,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   function llmOrphans() {
     return oneFrame({ op: "orphans" }, "orphans", (m) => m.list ?? [], []);
   }
-  function oneFrame(msg, t, read2, empty) {
+  function oneFrame(msg, t, read3, empty) {
     return new Promise((resolve) => {
       const port = openProxyPort();
       if (!port) {
@@ -30587,7 +30772,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           port.disconnect();
         } catch {
         }
-        resolve(read2(m));
+        resolve(read3(m));
       });
       port.onDisconnect.addListener(() => {
         clearTimeout(timer3);
@@ -30780,20 +30965,20 @@ ${answer2}`;
   var CHATS_PER_SUBJECT = 20;
   var SUBJECTS = 100;
   var ANSWER_MAX = 2e4;
-  function read() {
+  function read2() {
     return historyPref.get();
   }
   function allChats() {
-    return Object.entries(read()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+    return Object.entries(read2()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
   }
   function chatsUnder(folder, depth = 4) {
     return allChats().filter(({ subject }) => isWithin(subject, folder, depth));
   }
   function chatsFor(subject) {
-    return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
+    return (read2()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
   }
   function addTurn(subject, chatId, turn) {
-    const store2 = read();
+    const store2 = read2();
     const list3 = store2[subject] ?? [];
     let chat = list3.find((c) => c.id === chatId);
     if (!chat) {
@@ -30815,7 +31000,7 @@ ${answer2}`;
     return chat;
   }
   function deleteChat(subject, chatId) {
-    const store2 = read();
+    const store2 = read2();
     store2[subject] = (store2[subject] ?? []).filter((c) => c.id !== chatId);
     if (!store2[subject].length) delete store2[subject];
     historyPref.set(store2);
@@ -31337,9 +31522,9 @@ ${rows.join("\n")}`, name: subject };
             over = true;
             done();
             paint(turn, full, true);
-            const read2 = steps.map((s) => esc(s.replace(/^Reading/, "Read")));
-            if (read2.length === 1) out.insertAdjacentHTML("afterbegin", `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read2[0]}</span></div>`);
-            else if (read2.length) out.insertAdjacentHTML("afterbegin", `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read2.length} images</span></summary><div class="fe-md">${read2.map((s) => `<p>${s}</p>`).join("")}</div></details>`);
+            const read3 = steps.map((s) => esc(s.replace(/^Reading/, "Read")));
+            if (read3.length === 1) out.insertAdjacentHTML("afterbegin", `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read3[0]}</span></div>`);
+            else if (read3.length) out.insertAdjacentHTML("afterbegin", `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read3.length} images</span></summary><div class="fe-md">${read3.map((s) => `<p>${s}</p>`).join("")}</div></details>`);
             const t = { ...base2, a: full, model: info.model || base2.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
             meta.textContent = turnMeta(t, info.truncated);
             save(t);
@@ -32053,6 +32238,7 @@ ${rows.join("\n")}`, name: subject };
     const { fe, settings, toast } = app;
     const v = (id) => el(id);
     upgradeControls(el("fe-settings-modal"));
+    const refreshWeb = initWebSettings(toast);
     const badRegex = (p) => {
       try {
         new RegExp(p, "i");
@@ -32367,8 +32553,14 @@ ${rows.join("\n")}`, name: subject };
       renderRulesList();
       refreshAi();
       paintSamples();
+      void refreshWeb();
       settingsDlg.open(tab);
     }
+    chrome.runtime?.onMessage?.addListener((msg, _sender, reply) => {
+      if (msg?.type !== "bfb-open-settings") return;
+      openSettings(typeof msg.tab === "string" ? msg.tab : void 0);
+      reply({ ok: true });
+    });
     el("fe-settings-btn").addEventListener("click", () => openSettings());
     const helpDlg = mountDialog("fe-help-modal");
     wireKeyboardMap(el("fe-help-modal"));
@@ -32748,8 +32940,8 @@ ${rows.join("\n")}`, name: subject };
     const el2 = document.createElement("div");
     el2.className = "fe-ctx fe-ref-card";
     el2.innerHTML = `<div class="fe-ref-head"><span class="badge" data-size="sm">${ref.kind}</span><span class="fe-ref-path">${esc(ref.rel)}</span></div><p class="fe-ref-about">Reading\u2026</p>`;
-    const read2 = ref.kind === "script" ? (t) => scriptFacts(t, ref.rel) : cardFacts;
-    if (!facts.has(url)) facts.set(url, fetchFileText(url).then(read2).catch(() => null));
+    const read3 = ref.kind === "script" ? (t) => scriptFacts(t, ref.rel) : cardFacts;
+    if (!facts.has(url)) facts.set(url, fetchFileText(url).then(read3).catch(() => null));
     void facts.get(url).then((f) => {
       if (!f) {
         el2.querySelector(".fe-ref-about").textContent = "Could not read this file.";
@@ -33535,7 +33727,7 @@ ${rows.join("\n")}`, name: subject };
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
     const section = box.closest(".fe-sec");
-    const ago4 = (at) => {
+    const ago5 = (at) => {
       const m = Math.round((Date.now() - at) / 6e4);
       return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
     };
@@ -33554,7 +33746,7 @@ ${rows.join("\n")}`, name: subject };
       const ownRows = own2.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
       box.innerHTML = ownRows + sets.map((s) => {
         const n = s.labels.length;
-        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago4(s.at)}</span></button>`;
+        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago5(s.at)}</span></button>`;
       }).join("");
       section.hidden = !(visible2 && (sets.length || own2.length));
     }
@@ -33625,7 +33817,7 @@ ${rows.join("\n")}`, name: subject };
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
     if (!homeMode) pushRecent(rawPath);
-    const ago4 = (ts) => {
+    const ago5 = (ts) => {
       if (!ts) return "";
       const m = Math.round((Date.now() - ts) / 6e4);
       return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
@@ -33634,7 +33826,7 @@ ${rows.join("\n")}`, name: subject };
       const name2 = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
       const ext2 = name2.includes(".") ? name2.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago4(r.ts)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago5(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);

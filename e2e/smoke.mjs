@@ -620,7 +620,7 @@ try {
   // Dialogs: Help and Settings share one chrome. A title row with a mark and
   // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
   // while a pane scrolls; Esc closes.
-  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 8, 'settings-dialog']]) {
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 9, 'settings-dialog']]) {
     await page.click(btn);
     await page.waitForFunction(i => !document.getElementById(i).hidden, { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
