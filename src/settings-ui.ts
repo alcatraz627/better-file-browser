@@ -11,6 +11,7 @@ import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferen
 import { runOpenWith } from './open-with';
 import { initOpenWithSettings } from './settings-open-with';
 import { initLensSettings } from './settings-lenses';
+import { initSettingsSearch, resetSettingsSearch } from './settings-search';
 import { notes } from './notes';
 import { copyWithCheck } from './copy-done';
 import { llmAvailability, llmWarm, llmModels, defaultTier } from './llm';
@@ -300,7 +301,8 @@ export function initSettingsUi(app: App): void {
   }
   const refreshPhone = initPhoneSettings(toast);
   const refreshTagColours = mountTagColours(el('fe-st-tags'), { root: () => (settings.notesRoot || '').replace(/\/$/, ''), toast, refresh: () => { app.refreshSaved(); app.refreshNotes(); } });
-  const settingsDlg = mountDialog('fe-settings-modal', { onClose: closePop });
+  const settingsDlg = mountDialog('fe-settings-modal', { onClose: () => { closePop(); resetSettingsSearch(el('fe-settings-modal')); } });
+  initSettingsSearch(el('fe-settings-modal'));
   // Where Saved and tag colours live right now, in the words the Saved lens uses.
   function paintSavedRow(): void {
     const { where, why } = savedWhere();

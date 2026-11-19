@@ -17,7 +17,7 @@ describe('sidebar sections', () => {
     const old = ['notes', 'home', 'places', 'saved', 'history', 'search', 'ask'];
     expect(ids({ lensOrder: old })).toEqual(['notes', 'home', 'places', 'saved', 'history', 'search', 'ask', 'comments', 'decisions']);
     expect(ids({ lensOrder: ['decisions'] })[0]).toBe('home');
-    expect(ids({ lensOrder: ['decisions'] }).at(-1)).toBe('decisions');
+    expect(ids({ lensOrder: ['decisions'] }).slice(-1)[0]).toBe('decisions');
   });
   it('reads History from the older hideRecent switch', () => {
     expect(lensOn({ hideRecent: true }, 'history')).toBe(false);

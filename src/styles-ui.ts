@@ -318,6 +318,27 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-c:hover{transform:scale(1.1)}
 .fe-rp-c.none{background:linear-gradient(135deg,transparent 46%,var(--nc-red) 46% 54%,transparent 54%);box-shadow:inset 0 0 0 1px var(--bd2)}
 .fe-rp-c.none.on{box-shadow:inset 0 0 0 1px var(--bd2),0 0 0 2px var(--card),0 0 0 4px var(--dm)}
+.fe-dlg-title:has(.fe-dlg-search){flex-wrap:wrap;row-gap:var(--sp-5)}
+.fe-dlg-search{display:flex;flex-basis:100%}
+.fe-dlg-search>input{width:100%}
+.fe-dlg.searching .fe-dlg-tab.on:not(:hover){background:none;color:var(--mt)}
+.fe-dlg-results{display:none}
+.fe-dlg.searching .fe-dlg-box>.fe-dlg-pane:not(.fe-dlg-results){display:none}
+.fe-dlg.searching .fe-dlg-results{display:flex;flex-direction:column;gap:var(--sp-7);padding-top:var(--sp-5)}
+.fe-dlg-results>.fe-dlg-pane{display:flex;flex-direction:column;gap:var(--sp-6);padding:0;overflow:visible;min-height:auto}
+.fe-dlg-results .fe-dlg-ph{position:static}
+.fe-sr-miss{display:none!important}
+.fe-dlg-tab.fe-sr-none{opacity:.45}
+.fe-dlg-n{margin-left:auto;min-width:20px;padding:0 6px;border-radius:10px;background:color-mix(in srgb,var(--ac) 22%,transparent);color:var(--tx);font:600 var(--fs-xs)/18px var(--font-text);text-align:center}
+.fe-dlg-hits{display:flex;flex-direction:column;gap:1px;margin:calc(var(--sp-1) * -1) 0 var(--sp-2);padding-left:calc(var(--sp-4) + 22px + var(--row-gap))}
+.fe-dlg-hit{padding:3px var(--sp-3);border:0;border-radius:6px;background:none;color:var(--mt);font-size:var(--fs-sm);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-dlg-hit:hover,.fe-dlg-hit:focus-visible{background:var(--hover);color:var(--tx)}
+.fe-dlg-more{padding:2px var(--sp-3);font-size:var(--fs-xs);color:var(--dm)}
+.fe-sr-empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-9) var(--sp-6);color:var(--dm);text-align:center}
+.fe-sr-empty b{color:var(--tx);font-weight:600}
+::highlight(bfb-settings-hit){background:color-mix(in srgb,var(--gold) 45%,transparent);color:inherit}
+@keyframes fe-sr-flash{from{background:color-mix(in srgb,var(--ac) 22%,transparent)}to{background:transparent}}
+.fe-sr-flash{animation:fe-sr-flash 1.2s var(--ease)}
 .fe-st-lenses{display:flex;flex-direction:column;gap:2px;max-width:420px}
 .fe-lens-row{display:grid;grid-template-columns:24px 20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);border-radius:9px;background:var(--card)}
 .fe-lens-row:hover{background:var(--hover)}
