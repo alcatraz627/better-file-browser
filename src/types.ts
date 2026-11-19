@@ -39,7 +39,7 @@ export interface Tag {
 }
 
 export interface Settings {
-  compactMode:  boolean;
+  compactMode?: boolean;       // older Row spacing; a Compact choice is read once into the Detail scale and dropped
   showSidebar:  boolean;
   openWithCmds?: string;        // the older form of the commands, one per line as `Name: command` (& = background); read until openWith is saved
   openWith?: { name: string; cmd: string; terminal: boolean; filesOnly?: boolean; color?: string }[];   // the person's own "Open with" commands, as Settings rows
@@ -56,6 +56,8 @@ export interface Settings {
   renderFilePages?: 'all' | 'not-md' | 'off';   // take over file:// text pages
   excludedFileExtensions?: string[];
   hideRecent?: boolean;              // the History lens off
+  lensOrder?: string[];              // the sidebar's lenses in the person's order (lens-list.ts)
+  lensOff?: string[];                // lenses switched off, other than History
   hideFavorites?: boolean; hideSystem?: boolean;   // no longer read: Places replaced both sections
   sidebarRail?: boolean;             // sidebarWidth already includes the lens rail
   wrapLines?: boolean;               // fold long lines in raw, code and previews (default on)

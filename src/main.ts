@@ -4,7 +4,7 @@
 import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
-  getView, getPalette, getDensity, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
+  getView, getPalette, getDensity, takeCompactMode, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
   homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, keepPageBg, textPref, type CoverShape, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
 } from './storage';
 import { notes } from './notes';
@@ -144,6 +144,7 @@ loadKv().catch(() => {}).then(function () {
   const extOpts = allExts;
 
   const iconRules = getIconRules();
+  if (takeCompactMode(settings)) saveSettings(settings);
   const initDensity = getDensity();
   const initView   = getView();
   const initTheme  = resolveTheme(themeMode());
@@ -240,7 +241,6 @@ loadKv().catch(() => {}).then(function () {
   // tab's zoom, which Chrome keeps per tab, so 100% is set too, not skipped.
   const applyLook = () => {
     setUiScale(settings.uiScale || 100);
-    fe.classList.toggle('compact', !!settings.compactMode);
     document.documentElement.style.setProperty('--ui-text-scale', String((settings.readerSize || 15) / 15));
     fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));
     fe.style.setProperty('--rd-code', `${settings.readerCodeSize || 13}px`);

@@ -29,7 +29,6 @@ export const DEFAULT_ICON_RULES: IconRule[] = [
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
-  compactMode: false,
   showSidebar: true,
   dateFormat:  'short',
   terminalApp: 'ghostty',
@@ -407,6 +406,15 @@ export const numberPref = (id: string, init: number, ok: (n: number) => boolean 
 export const viewPref = textPref(VIEW_KEY, 'details');
 export const palettePref = choicePref(PALETTE_KEY, PALETTES, 'slate');
 export const densityPref = numberPref(DENSITY_KEY, 3, n => n >= 1 && n <= 5);
+
+/** Row spacing and the toolbar's Detail slider are one scale now. A Compact
+ *  choice from before becomes Detailed (4), unless Detail was already denser. */
+export function takeCompactMode(s: Settings): boolean {
+  if (!('compactMode' in s)) return false;
+  if (s.compactMode) densityPref.set(Math.max(4, densityPref.get()));
+  delete s.compactMode;
+  return true;
+}
 export const hiddenPref = flagPref(HIDDEN_KEY, false, 'true', 'false');
 /** Whether a sorted listing keeps folders above files, with no group headers. */
 export const dirsFirstPref = flagPref('bfb-dirs-first-v1', false);

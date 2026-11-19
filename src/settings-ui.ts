@@ -7,9 +7,10 @@ import type { Entry, IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc, fileHref } from './utils';
 import { icoCustom, getIcon, ruleFor, RULE_GLYPHS, SWATCHES } from './icons';
-import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
+import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, densityPref, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
 import { runOpenWith } from './open-with';
 import { initOpenWithSettings } from './settings-open-with';
+import { initLensSettings } from './settings-lenses';
 import { notes } from './notes';
 import { copyWithCheck } from './copy-done';
 import { llmAvailability, llmWarm, llmModels, defaultTier } from './llm';
@@ -75,6 +76,7 @@ export function initSettingsUi(app: App): void {
   upgradeControls(el('fe-settings-modal'));
   const refreshWeb = initWebSettings(toast);
   const refreshOpenWith = initOpenWithSettings(settings, toast);
+  const refreshLenses = initLensSettings(app, settings, toast);
 
   // Icon rules.
   const badRegex = (p: string) => { try { new RegExp(p, 'i'); return ''; } catch (e) { return String((e as Error).message); } };
@@ -311,7 +313,6 @@ export function initSettingsUi(app: App): void {
   el('fe-st-saved-move').addEventListener('click', () => void enableSavedFolder());
   // The samples in the dialog follow the settings they show.
   const paintSamples = () => {
-    el('fe-st-rows').dataset.d = v('fe-st-density').value;
     el('fe-st-readsample').dataset.col = v('fe-st-rd-column').value;
   };
   function openSettings(tab?: string): void {
@@ -331,7 +332,7 @@ export function initSettingsUi(app: App): void {
     v('fe-st-font-code').value = fontPrefs.code.get();
     v('fe-st-uiscale').value = String(settings.uiScale || 100);
     v('fe-st-rd-size').value = String(settings.readerSize || 15);
-    v('fe-st-density').value = settings.compactMode ? 'compact' : 'roomy';
+    v('fe-st-density').value = String(densityPref.get());
     el<HTMLInputElement>('fe-st-tooltips').checked = settings.tooltips !== false;
     v('fe-st-defview').value = getView();
     const order = getSortConfig();
@@ -350,7 +351,7 @@ export function initSettingsUi(app: App): void {
     v('fe-st-peek-close').value = String(settings.peekCloseMs ?? 500);
     v('fe-st-pan').value = settings.panKey ?? 'Shift';
     refreshOpenWith();
-    el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
+    refreshLenses();
     el<HTMLInputElement>('fe-st-newtab-home').checked = settings.newTabHome === true;
     el<HTMLInputElement>('fe-st-home-url').value = homeAddress();
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
@@ -404,10 +405,12 @@ export function initSettingsUi(app: App): void {
   const textScale = () => document.documentElement.style.setProperty('--ui-text-scale', String(Number(v('fe-st-rd-size').value) / 15));
   v('fe-st-rd-size').addEventListener('input', textScale);
   v('fe-st-rd-size').addEventListener('change', () => { textScale(); settings.readerSize = Number(v('fe-st-rd-size').value); saveSettings(settings); });
+  // The same scale as the toolbar's Detail slider: moving this one moves that one.
   v('fe-st-density').addEventListener('change', () => {
-    settings.compactMode = v('fe-st-density').value === 'compact'; saveSettings(settings);
-    fe.classList.toggle('compact', settings.compactMode);
-    paintSamples();
+    const n = v('fe-st-density').value;
+    const bar = document.getElementById('fe-density') as ValuedEl | null;
+    if (bar) { bar.value = n; bar.dispatchEvent(new Event('change')); }
+    else { densityPref.set(Number(n)); fe.dataset.density = n; }
   });
   el<HTMLInputElement>('fe-st-tooltips').addEventListener('change', function () {
     settings.tooltips = this.checked; saveSettings(settings);
@@ -455,10 +458,6 @@ export function initSettingsUi(app: App): void {
     settings.dockFoldsSidebar = this.checked; saveSettings(settings);
     // A docked preview already open makes or gives back its room now.
     if (document.querySelector<HTMLElement>('#fe-qlook.side')?.checkVisibility()) setSidebarShown(this.checked ? false : settings.showSidebar);
-  });
-  el<HTMLInputElement>('fe-st-sec-recent').addEventListener('change', function () {
-    settings.hideRecent = !this.checked; saveSettings(settings);
-    app.showLens?.(this.checked ? null : 'notes', !this.checked);
   });
   el<HTMLInputElement>('fe-st-newtab-home').addEventListener('change', function () {
     settings.newTabHome = this.checked; saveSettings(settings);

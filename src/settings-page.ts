@@ -9,6 +9,7 @@ import { segHtml, sliderHtml, ddHtml, chipsHtml, switchHtml, type Opt } from './
 import { APP_ICONS, TEXT_FONTS, HEAD_FONTS, CODE_FONTS, type FontChoice } from './theme';
 import { MODE_OPTS } from './settings-web';
 import { EXPORT_PARTS } from './export-parts';
+import { DENSITY_NAMES } from './storage';
 
 // A view drawn small: bars for rows, boxes for tiles.
 const bars = (n: number, w: (i: number) => string) => Array.from({ length: n }, (_, i) => `<i style="width:${w(i)}"></i>`).join('');
@@ -100,9 +101,7 @@ export function settingsDialog(): DialogSpec {
           row('Interface', 'Everything', sliderHtml('fe-st-uiscale', [80, 90, 100, 110, 125, 150], '%', 'Interface size')) +
           row('Text', 'Page text; lists and the sidebar scale with it', sliderHtml('fe-st-rd-size', [12, 13, 14, 15, 16, 17, 18], ' px', 'Text size')) +
           row('Code', 'Code blocks and raw files', sliderHtml('fe-st-rd-code', [11, 12, 13, 14, 15, 16], ' px', 'Code size')) +
-          row('Row spacing', '', `<span class="fe-st-rows" id="fe-st-rows" aria-hidden="true"><i></i><i></i><i></i></span>` + segHtml('fe-st-density', [
-            { value: 'roomy', label: 'Roomy', icon: i('<path d="M3 5h18M3 12h18M3 19h18"/>') },
-            { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing', 'lg')) +
+          row('Detail', 'Bigger items, or more facts; the toolbar slider', sliderHtml('fe-st-density', [1, 2, 3, 4, 5], '', 'Detail', DENSITY_NAMES)) +
           row('Tooltips', '', sw('fe-st-tooltips', 'Labels on hover, on every control'))) +
         card('App icon',
           wide('', '', `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and app window">${APP_ICONS.map(a =>
@@ -148,7 +147,7 @@ export function settingsDialog(): DialogSpec {
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
           row('Fold for a docked preview', '', sw('fe-st-dock-fold', 'Fold the sidebar while a docked preview is open')) +
           row('Peek closes', '', ddHtml('fe-st-peek-close', PEEK_OPTS, 'How long after the pointer leaves it closes', 'lg')) +
-          row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
+          wide('Sections', 'Switch one off to take it off the sidebar. Drag to reorder.', '<div id="fe-st-lenses" class="fe-st-lenses"></div>')) +
         card('Home',
           row('New tabs open Home', '', sw('fe-st-newtab-home', 'Every new Chrome tab shows Home instead of Chrome’s own page')) +
           row('Home address', '', `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="For Chrome’s start-up page or Home button">${iconBtn('fe-st-home-copy', UI_ICON.copy, 'Copy the Home address')}`)) },

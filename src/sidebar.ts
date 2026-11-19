@@ -1,6 +1,7 @@
 // The sidebar: the Saved list (star or + adds, tags group, drag reorders,
 // a filter box), the Notes list from the Settings folder, and the bookmark
 // gestures shared by sidebar rows, crumbs and the crumb dropdown.
+import { lensOrder, lensOn } from './lens-list';
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
@@ -63,9 +64,11 @@ function initLenses(app: App): void {
   const lenses = els<HTMLElement>('#fe-lenses .fe-lens');
   // The lens itself switches at once; the bar's look (which button is wide and
   // lit) goes through `paint`, so a switch can hand it to a view transition.
-  const show = (lens: string, paint: (f: () => void) => void = f => f(), quiet = false) => {
+  // A lens switched off in Settings is not offered on the rail, but one asked for
+  // by name (Ask from a menu, a Home link) still opens when `named` is set.
+  const show = (lens: string, paint: (f: () => void) => void = f => f(), quiet = false, named = false) => {
     const usable = btns.filter(b => !b.hidden).map(b => b.dataset.lens!);
-    const pick = usable.includes(lens) ? lens : 'notes';
+    const pick = usable.includes(lens) || (named && btns.some(b => b.dataset.lens === lens)) ? lens : usable.includes('notes') ? 'notes' : usable[0] ?? 'notes';
     for (const b of btns) { const on = b.dataset.lens === pick; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
     for (const l of lenses) l.hidden = l.dataset.lens !== pick;
     // The open lens shows its name already; its tooltip would only sit over
@@ -103,7 +106,18 @@ function initLenses(app: App): void {
   });
   app.showLens = (lens, hideHistory) => {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
-    show(lens ?? lensPref.get());
+    show(lens ?? lensPref.get(), undefined, false, !!lens);
+  };
+  // Settings changed the lenses' order or which are on: redraw the rail in place.
+  app.arrangeLenses = s => {
+    for (const l of lensOrder(s)) {
+      const b = btns.find(x => x.dataset.lens === l.id);
+      if (!b) continue;
+      b.hidden = !lensOn(s, l.id);
+      rail.append(b);
+    }
+    const open = btns.find(b => b.classList.contains('on'));
+    show(open && !open.hidden ? open.dataset.lens! : lensPref.get(), undefined, true);
   };
   // In a narrow window the sidebar is only its rail; picking a lens opens it
   // over the page, and picking it again, Esc or a click outside closes it.

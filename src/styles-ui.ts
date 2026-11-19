@@ -93,9 +93,6 @@ export const UI_CSS = `
 .fe-set[hidden],#fe-st-saved-move[hidden]{display:none}
 #fe-st-notes-root{width:420px}
 #fe-st-home-url{background:none;border-color:transparent;color:var(--mt);text-align:right;text-overflow:ellipsis}
-.fe-st-rows{display:inline-flex;flex-direction:column;justify-content:center;gap:5px;width:56px;height:var(--ctl-lg)}
-.fe-st-rows i{display:block;height:3px;border-radius:2px;background:var(--dm);opacity:.6}
-.fe-st-rows[data-d="compact"]{gap:2px}
 .fe-st-fontsample{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-5) var(--sp-6);background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-st-fontsample b{font:600 calc(var(--fs-xl) * 1.1) var(--font-head)}
 .fe-st-fontsample span{font:var(--fs-md) var(--font-text);color:var(--mt)}
@@ -321,6 +318,17 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-c:hover{transform:scale(1.1)}
 .fe-rp-c.none{background:linear-gradient(135deg,transparent 46%,var(--nc-red) 46% 54%,transparent 54%);box-shadow:inset 0 0 0 1px var(--bd2)}
 .fe-rp-c.none.on{box-shadow:inset 0 0 0 1px var(--bd2),0 0 0 2px var(--card),0 0 0 4px var(--dm)}
+.fe-st-lenses{display:flex;flex-direction:column;gap:2px;max-width:420px}
+.fe-lens-row{display:grid;grid-template-columns:24px 20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);border-radius:9px;background:var(--card)}
+.fe-lens-row:hover{background:var(--hover)}
+.fe-lens-row.dragging{opacity:.4}
+.fe-lens-row.off .fe-lens-ico,.fe-lens-row.off .fe-lens-nm{opacity:.45}
+.fe-lens-grip{display:grid;place-items:center;width:24px;height:28px;padding:0;border:0;border-radius:6px;background:none;color:var(--dm);cursor:grab}
+.fe-lens-grip:hover{color:var(--tx);background:var(--hover)}
+.fe-lens-grip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-lens-ico{display:grid;place-items:center;color:var(--mt)}
+.fe-lens-ico svg{width:16px;height:16px}
+.fe-lens-nm{font-size:var(--fs-lg);color:var(--tx)}
 .fe-set-c:has(>#fe-st-ow-list){flex-direction:column;align-items:stretch;gap:var(--sp-3)}
 #fe-st-ow-add{align-self:flex-start}
 .fe-ow-list{display:flex;flex-direction:column;gap:2px;min-width:0}

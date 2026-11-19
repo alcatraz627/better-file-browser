@@ -24,4 +24,19 @@ describe('resetPreferences', () => {
     expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
     expect(localStorage.getItem('bfb-view')).toBeNull();
   });
+
+  it('reads an old Compact choice once into the Detail scale', async () => {
+    const { takeCompactMode, densityPref } = await import('../src/storage');
+    const s: { compactMode?: boolean } = { compactMode: true };
+    expect(takeCompactMode(s as never)).toBe(true);
+    expect(densityPref.get()).toBe(4);
+    expect('compactMode' in s).toBe(false);
+    expect(takeCompactMode(s as never)).toBe(false);
+    densityPref.set(5);
+    expect(takeCompactMode({ compactMode: true } as never)).toBe(true);
+    expect(densityPref.get()).toBe(5);
+    densityPref.set(2);
+    expect(takeCompactMode({ compactMode: false } as never)).toBe(true);
+    expect(densityPref.get()).toBe(2);
+  });
 });

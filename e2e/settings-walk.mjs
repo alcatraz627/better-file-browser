@@ -43,10 +43,12 @@ try {
   await sleep(100);
   const txt = await page.evaluate(() => [document.querySelector('#fe-st-rd-size output').textContent, getComputedStyle(document.documentElement).getPropertyValue('--ui-text-scale')]);
   check(txt[0] === '16 px' && Math.abs(parseFloat(txt[1]) - 16 / 15) < 0.01, `text slider moves by key and applies: ${txt}`);
-  // Density segment by keys.
-  await page.focus('#fe-st-density .fe-seg-b.on');
+  // Detail by keys: one scale with the toolbar's slider.
+  await page.focus('#fe-st-density input');
   await page.keyboard.press('ArrowRight');
-  check(await page.$eval('#fe', e => e.classList.contains('compact')), 'density Compact by arrow key');
+  await sleep(150);
+  const det = await page.evaluate(() => [document.getElementById('fe').dataset.density, document.querySelector('#fe-density output')?.textContent]);
+  check(det[0] === '4' && det[1] === 'Detailed', `Detail moves by arrow key and the toolbar slider follows: ${det}`);
   await page.keyboard.press('ArrowLeft');
 
   // Folders: dropdown by keys.

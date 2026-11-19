@@ -770,8 +770,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dm)}
-#fe.compact tbody td{padding:var(--sp-1) var(--sp-5)}
-#fe.compact .fe-tile{padding:var(--sp-3) var(--sp-3) var(--sp-2);gap:var(--sp-2)}
 /* Dialog: Settings and Help. A Panel over a Scrim with the title and the
    tabs down the left and one scrolling pane on the right. Every rule for it
    is here, and in the 700px block at the end (docs/system/dialog.md). */
@@ -1550,7 +1548,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody tr:hover td{background:var(--hover)}
 #fe-table tbody tr.selected td{background:var(--on)}
 #fe-table tbody td{height:36px}
-#fe.compact #fe-table tbody td{height:var(--ctl-md)}
 /* Row height per detail level; it wins over Compact, which only sets level 3. */
 #fe[data-density="1"] #fe-table tbody td{height:52px}
 #fe[data-density="2"] #fe-table tbody td{height:44px}
