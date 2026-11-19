@@ -260,9 +260,15 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-sugg-l{position:absolute;left:var(--sp-6);top:calc(var(--sp-5) + 4px);font-size:var(--fs-sm);color:var(--dm)}
 .chip.fe-rule-add > svg{width:13px;height:15px}
 #fe-st-rules-list{padding:var(--sp-3) 0 var(--sp-4)}
-.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
+.fe-rule{display:grid;grid-template-columns:auto auto minmax(80px,.55fr) minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
 .fe-rule:hover{background:var(--hover)}
-.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
+.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern,.fe-rule.off .fe-st-rule-name{opacity:.45}
+.fe-rule.win{background:color-mix(in srgb,var(--ac) 12%,transparent);box-shadow:inset 3px 0 0 var(--ac)}
+.fe-rule-try{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-3) 0 0}
+.fe-rule-try>input{flex:0 1 260px;min-width:0}
+#fe-st-rule-try-out{display:flex;align-items:center;gap:var(--sp-3);color:var(--mt);font-size:var(--fs-sm)}
+#fe-st-rule-try-out svg{width:16px;height:18px;flex:none}
+#fe-st-rule-try-out b{color:var(--tx);font-weight:600}
 /* Settings, Web pages: a site with its mode, and a marked page with its count. */
 .fe-rule.fe-web-site{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
 .fe-rule.fe-web-page{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}

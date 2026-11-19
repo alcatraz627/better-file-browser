@@ -81,6 +81,7 @@ export interface PreviewLayout {
 
 export interface IconRule {
   id:      string;
+  name?:   string;   // what the owner calls the rule, shown in Settings
   pattern: string;
   label:   string;
   color:   string;

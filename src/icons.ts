@@ -111,18 +111,22 @@ export function icoCustom(label: string, color: string, glyph?: string): string 
   </svg>`;
 }
 
+/** Which icon rule gives a file its icon: the first rule switched on that matches, or -1. */
+export function ruleFor(name: string, isDir: boolean, rules: IconRule[]): number {
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    if (!rule.enabled || !rule.pattern) continue;
+    // A rule like "claude" means files named that; a folder of the same name stays a folder.
+    if (isDir && !/\/$/.test(rule.pattern)) continue;
+    try { if (new RegExp(rule.pattern, 'i').test(name)) return i; } catch { /* a pattern still being typed */ }
+  }
+  return -1;
+}
+
 export function getIcon(e: Entry, iconRules: IconRule[] | null): string {
   if (e.isParent) return icoParent();
-  if (iconRules) {
-    for (const rule of iconRules) {
-      if (!rule.enabled) continue;
-      // A rule like "claude" means files named that; a folder of the same name stays a folder.
-      if (e.isDir && !/\/$/.test(rule.pattern)) continue;
-      try {
-        if (new RegExp(rule.pattern, 'i').test(e.name)) return icoCustom(rule.label, rule.color, rule.glyph);
-      } catch { /* invalid regex — skip */ }
-    }
-  }
+  const won = iconRules ? ruleFor(e.name, !!e.isDir, iconRules) : -1;
+  if (won >= 0) { const r = iconRules![won]; return icoCustom(r.label, r.color, r.glyph); }
   if (e.isDir) return icoFolder(e.name);
   const ext = e.name.includes('.') ? e.name.split('.').pop()! : '';
   return icoFile(ext || '—');

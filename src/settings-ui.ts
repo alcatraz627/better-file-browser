@@ -3,10 +3,10 @@
 // AI status.
 import type { App } from './app';
 import type { LlmAvailability } from './llm';
-import type { IconRule, SortConfig, GroupMode } from './types';
+import type { Entry, IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc, fileHref } from './utils';
-import { icoCustom, RULE_GLYPHS } from './icons';
+import { icoCustom, getIcon, ruleFor, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
 import { DEFAULT_COMMANDS, runOpenWith } from './open-with';
 import { notes } from './notes';
@@ -86,6 +86,7 @@ export function initSettingsUi(app: App): void {
       return `<div class="fe-rule${rule.enabled ? '' : ' off'}" data-idx="${i}">
         ${switchHtml({ title: rule.enabled ? 'On' : 'Off', label: 'Use this rule', checked: rule.enabled, small: true, cls: 'fe-st-rule-en' })}
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
+        <input type="text" class="tb fe-st-rule-name" data-size="lg" value="${esc(rule.name || '')}" placeholder="Name" spellcheck="false" title="What you call this rule">
         <input type="text" class="tb fe-st-rule-pattern" data-size="lg" data-mono${bad ? ' aria-invalid="true"' : ''} value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : 'Matches file names, any case'}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? '!' : hits(rule.pattern)}</span>
         <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
@@ -95,7 +96,23 @@ export function initSettingsUi(app: App): void {
     const left = RULE_SUGGESTIONS.filter(s => !have.has(s.pattern));
     el('fe-st-rule-sugg').innerHTML = left.length ? `<span class="fe-rule-sugg-l">Add</span>` + left.map(s =>
       `<button type="button" class="chip fe-rule-add" data-add data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join('') : '';
+    tryName();
   }
+  // Try a name: the same matcher the listing uses says which rule gives that name its icon.
+  // A name ending in / is tried as a folder.
+  function tryName(): void {
+    const input = v<HTMLInputElement>('fe-st-rule-try'), out = el('fe-st-rule-try-out');
+    const raw = input.value.trim();
+    els('.fe-rule.win', el('fe-st-rules-list')).forEach(r => r.classList.remove('win'));
+    if (!raw) { out.innerHTML = ''; return; }
+    const isDir = raw.endsWith('/'), name = isDir ? raw.replace(/\/+$/, '') : raw;
+    const won = ruleFor(name, isDir, app.iconRules);
+    if (won < 0) { out.innerHTML = `${getIcon({ name, isDir } as Entry, null)}<span>No rule matches, so the usual icon</span>`; return; }
+    const r = app.iconRules[won];
+    el('fe-st-rules-list').querySelector(`.fe-rule[data-idx="${won}"]`)?.classList.add('win');
+    out.innerHTML = `${icoCustom(r.label, r.color, r.glyph)}<span><b>${esc(r.name || r.pattern)}</b> wins</span>`;
+  }
+  el('fe-st-rule-try').addEventListener('input', tryName);
   const saveRules = () => { saveIconRules(app.iconRules); app.applyAll(); };
   // Taken before a change that cannot be typed back, so its toast can put the list back.
   const rulesUndo = () => {
@@ -112,11 +129,12 @@ export function initSettingsUi(app: App): void {
   rulesList.addEventListener('change', e => {
     const hit = ruleAt(e); if (!hit) return;
     const t = e.target as HTMLInputElement;
-    if (t.classList.contains('fe-st-rule-en')) { app.iconRules[hit[1]].enabled = t.checked; hit[0].classList.toggle('off', !t.checked); saveRules(); }
+    if (t.classList.contains('fe-st-rule-en')) { app.iconRules[hit[1]].enabled = t.checked; hit[0].classList.toggle('off', !t.checked); saveRules(); tryName(); }
   });
   rulesList.addEventListener('input', e => {
     const hit = ruleAt(e); if (!hit) return;
     const t = e.target as HTMLInputElement;
+    if (t.classList.contains('fe-st-rule-name')) { app.iconRules[hit[1]].name = t.value.trim() || undefined; saveIconRules(app.iconRules); tryName(); return; }
     if (!t.classList.contains('fe-st-rule-pattern')) return;
     app.iconRules[hit[1]].pattern = t.value;
     const bad = badRegex(t.value);
@@ -124,6 +142,7 @@ export function initSettingsUi(app: App): void {
     t.title = bad || 'Matches file names, any case';
     hit[0].querySelector('.fe-rule-n')!.textContent = bad ? '!' : String(hits(t.value));
     if (!bad) saveRules();
+    tryName();
   });
   rulesList.addEventListener('click', e => {
     const hit = ruleAt(e); if (!hit) return;
@@ -135,7 +154,7 @@ export function initSettingsUi(app: App): void {
     const b = (e.target as Element).closest<HTMLElement>('.fe-rule-add');
     const s = b && RULE_SUGGESTIONS.find(x => x.name === b.dataset.name);
     if (!s) return;
-    app.iconRules.push({ id: 'r' + Date.now(), pattern: s.pattern, label: s.label, color: s.color, glyph: s.glyph, enabled: true });
+    app.iconRules.push({ id: 'r' + Date.now(), name: s.name, pattern: s.pattern, label: s.label, color: s.color, glyph: s.glyph, enabled: true });
     saveRules(); renderRulesList();
   });
   el('fe-st-add-rule').addEventListener('click', () => {

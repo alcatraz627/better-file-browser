@@ -1734,7 +1734,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c .fe-st-input{width:260px;max-width:100%}
 .fe-set-note{padding:var(--sp-1) var(--sp-6) var(--sp-4);font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
-.fe-set-card #fe-st-rules-list{margin:0 var(--sp-6)}
+.fe-set-card #fe-st-rules-list,.fe-set-card .fe-rule-try{margin:0 var(--sp-6)}
 .fe-set-danger{color:var(--nc-red)}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;

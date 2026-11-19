@@ -162,6 +162,7 @@ export function settingsDialog(): DialogSpec {
             `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="5" spellcheck="false" title="One per line, Name: command"></textarea>`)) +
         card('Icon rules', `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
+          <div class="fe-rule-try"><input type="text" id="fe-st-rule-try" class="tb" data-size="lg" placeholder="Try a file name, e.g. notes.md" spellcheck="false" title="Which rule wins; end with / for folders"><span id="fe-st-rule-try-out" aria-live="polite"></span></div>
           <div id="fe-st-rules-list"></div>`,
           `<span class="sect-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" data-variant="outline" title="Add a rule">${UI_ICON.add}Rule</button></span>`) +
         card('Keyboard',

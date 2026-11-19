@@ -23,9 +23,9 @@ export const GROUP_KEY     = 'bfb-group-v1';
 export const PREVIEW_LAYOUT_KEY = 'bfb-preview-layout-v1';
 
 export const DEFAULT_ICON_RULES: IconRule[] = [
-  { id: 'r1', pattern: '\\.claude$|^Claude', label: 'Cld', color: '#d97757', enabled: true },
-  { id: 'r2', pattern: '\\.md$',             label: 'MD↓', color: '#4a9eff', enabled: true },
-  { id: 'r3', pattern: '^\\.DS_Store$',      label: 'DS',  color: '#8b949e', enabled: true },
+  { id: 'r1', name: 'Claude', pattern: '\\.claude$|^Claude', label: 'Cld', color: '#d97757', enabled: true },
+  { id: 'r2', name: 'Markdown', pattern: '\\.md$',             label: 'MD↓', color: '#4a9eff', enabled: true },
+  { id: 'r3', name: 'Finder files', pattern: '^\\.DS_Store$',      label: 'DS',  color: '#8b949e', enabled: true },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
