@@ -587,6 +587,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   };
   // New text from disk: the caret keeps its words and the view stays put.
   function takeFromDisk(next: string): void {
+    // An open Rich block holds offsets into the old text; it must end before the text moves.
+    closeBlock();
     const was = tw.selection(), change = diffText(tw.text(), next), vp = viewport(), top = vp.scrollTop;
     base = next;
     buf.snap();
@@ -780,13 +782,19 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
         view.innerHTML = head + fmt.rich(text, host.href);
       } else { diffBox.innerHTML = head + lineDiffHtml(text, tw.text()); diffBox.hidden = false; }
     },
-    use: text => { buf.snap(); tw.set(text); leaveVersion(); paintSource(); paint(); later(); checkLater(); host.typed?.(text); ta.focus({ preventScroll: true }); },
+    use: text => { closeBlock(); buf.snap(); tw.set(text); leaveVersion(); paintSource(); paint(); later(); checkLater(); host.typed?.(text); ta.focus({ preventScroll: true }); },
     back: leaveVersion,
     emptyHint: notRepo => notRepo
       ? 'This folder is not a git repository, so earlier saves are not kept here.'
       : `${fileName()} has not been committed to this folder's git history.`,
   });
   wireBar(box.querySelector<HTMLElement>('#fe-fe-bar')!, name => {
+    // With a Rich block open, a format button works on the block, not the hidden text behind it.
+    if (block) {
+      const ed = block.ed, r = formatEdit(name, ed.value, { start: ed.selectionStart, end: ed.selectionEnd });
+      if (r) { ed.value = r.text; ed.setSelectionRange(r.start, r.end); ed.dispatchEvent(new Event('input')); ed.focus(); return; }
+      closeBlock();
+    }
     const change = formatEdit(name, ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
     if (change) { applyEdit(change); return; }
     if (name === 'table') buf.insert(tableAt(ta.value, ta.selectionStart));

@@ -20091,7 +20091,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 #fe-st-defview .fe-seg-b{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);height:auto;padding:var(--sp-4) var(--sp-2) var(--sp-3);border:1px solid var(--bd);border-radius:10px;background:none;color:var(--mt)}
 #fe-st-defview .fe-seg-b:hover{background:var(--hover);color:var(--tx)}
 #fe-st-defview .fe-seg-b[aria-checked="true"]{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--tx)}
-.fe-st-mini{display:flex;flex-direction:column;gap:4px;width:84px;height:48px;padding:6px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);overflow:hidden}
+.fe-st-mini{display:flex;flex-direction:column;gap:4px;width:100%;max-width:84px;height:48px;padding:6px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);overflow:hidden}
 .fe-st-mini i,.fe-st-mini b{display:block}
 .fe-st-mini i{height:3px;border-radius:2px;background:color-mix(in srgb,var(--tx) 24%,transparent)}
 .fe-st-mini b{display:grid;gap:4px;width:100%}
@@ -21783,6 +21783,7 @@ and ${diags.length - 12} more` : "");
       }
     };
     function takeFromDisk(next) {
+      closeBlock();
       const was = tw.selection(), change = diffText(tw.text(), next), vp = viewport(), top = vp.scrollTop;
       base2 = next;
       buf.snap();
@@ -22029,6 +22030,7 @@ and ${diags.length - 12} more` : "");
         }
       },
       use: (text) => {
+        closeBlock();
         buf.snap();
         tw.set(text);
         leaveVersion();
@@ -22043,6 +22045,17 @@ and ${diags.length - 12} more` : "");
       emptyHint: (notRepo) => notRepo ? "This folder is not a git repository, so earlier saves are not kept here." : `${fileName2()} has not been committed to this folder's git history.`
     });
     wireBar(box.querySelector("#fe-fe-bar"), (name2) => {
+      if (block) {
+        const ed = block.ed, r = formatEdit(name2, ed.value, { start: ed.selectionStart, end: ed.selectionEnd });
+        if (r) {
+          ed.value = r.text;
+          ed.setSelectionRange(r.start, r.end);
+          ed.dispatchEvent(new Event("input"));
+          ed.focus();
+          return;
+        }
+        closeBlock();
+      }
       const change = formatEdit(name2, ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
       if (change) {
         applyEdit(change);
@@ -24991,19 +25004,36 @@ ${d.message}` : d.message;
     };
     let waiting = null;
     const take = (fresh) => {
-      waiting = null;
-      reloadEl.classList.remove("waiting");
-      reloadEl.removeAttribute("role");
+      stopWaiting();
       text = fresh;
       paintMeta();
       render2();
       live2(true, "reloaded " + whenText(Date.now()).replace("Today ", ""));
     };
+    const stopWaiting = () => {
+      waiting = null;
+      reloadEl.classList.remove("waiting");
+      reloadEl.removeAttribute("role");
+      reloadEl.removeAttribute("tabindex");
+    };
     reloadEl.addEventListener("click", () => {
       if (waiting !== null) take(waiting);
     });
+    reloadEl.addEventListener("keydown", (e) => {
+      if (waiting !== null && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        take(waiting);
+      }
+    });
     watch(() => fetchFileText(href).then((fresh) => {
-      if (fresh === text || fresh === waiting) return;
+      if (fresh === text) {
+        if (waiting !== null) {
+          stopWaiting();
+          reloadEl.hidden = true;
+        }
+        return;
+      }
+      if (fresh === waiting) return;
       if (getSettings().followDisk === false) {
         waiting = fresh;
         clearTimeout(liveTimer);
@@ -25011,12 +25041,16 @@ ${d.message}` : d.message;
         reloadEl.classList.remove("off");
         reloadEl.classList.add("waiting");
         reloadEl.setAttribute("role", "button");
+        reloadEl.tabIndex = 0;
         reloadEl.textContent = "Changed on disk \xB7 Reload";
         reloadEl.title = "The file changed elsewhere. Click to show it.";
         return;
       }
       take(fresh);
-    }).catch(() => live2(false, "not watching")), { pause: () => !!editor });
+    }).catch(() => {
+      stopWaiting();
+      live2(false, "not watching");
+    }), { pause: () => !!editor });
     return {
       toggleRaw,
       edit: () => void edit2(),
@@ -26064,6 +26098,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
 
   // src/export-parts.ts
   var webKey = (k) => k === "bfb-lights-v1" || k.startsWith("bfb-marks-");
+  var isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  function webValueOk(key, value) {
+    if (key === "bfb-marks-index-v1") return isObject(value);
+    if (key.startsWith("bfb-marks-v1:")) return Array.isArray(value) && value.every(isObject);
+    if (key === "bfb-lights-v1") return isObject(value);
+    return false;
+  }
+  var WEB_UNDO_KEY = "bfb-web-undo-v1";
   var SAVED = /* @__PURE__ */ new Set([SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, "bfb-tag-colours-v1"]);
   var isSaved2 = (k) => SAVED.has(k) || k.startsWith("bfb-saved-");
   var isHistory = (k) => k === RECENTS_KEY;
@@ -32784,6 +32826,7 @@ ${rows.join("\n")}`, name: subject };
       el("fe-st-wrap").checked = settings.wrapLines !== false;
       el("fe-st-follow").checked = settings.followDisk !== false;
       for (const sw2 of els("#fe-st-export-parts [data-part]")) sw2.checked = partOn(settings.exportParts, EXPORT_PARTS.find((p) => p.id === sw2.dataset.part));
+      el("fe-st-export").disabled = !EXPORT_PARTS.some((p) => partOn(settings.exportParts, p));
       el("fe-st-local-only").checked = settings.localOnly === true;
       v("fe-st-filepages").value = settings.renderFilePages || "all";
       const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
@@ -33122,8 +33165,11 @@ ${rows.join("\n")}`, name: subject };
         const data = JSON.parse(text);
         if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("not an export");
         pendingWeb = {};
-        for (const k of Object.keys(data)) if (webKey(k)) {
-          pendingWeb[k] = data[k];
+        let badWeb = 0;
+        for (const k of Object.keys(data)) {
+          if (!webKey(k)) continue;
+          if (webValueOk(k, data[k])) pendingWeb[k] = data[k];
+          else badWeb++;
           delete data[k];
         }
         const webCount = Object.keys(pendingWeb).length;
@@ -33134,7 +33180,7 @@ ${rows.join("\n")}`, name: subject };
           return;
         }
         pending3 = plan;
-        el("fe-st-import-plan-tx").textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? "items" : "item"}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ""} and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ""}. ${plan.same} already match.` + (webCount ? ` It also brings dark mode choices and marks (${webCount} ${webCount === 1 ? "entry" : "entries"}).` : "");
+        el("fe-st-import-plan-tx").textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? "items" : "item"}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ""} and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ""}. ${plan.same} already match.` + (webCount ? ` It also replaces dark mode choices and marks with the file's (${webCount} ${webCount === 1 ? "entry" : "entries"}).` : "") + (badWeb ? ` ${badWeb} damaged ${badWeb === 1 ? "entry is" : "entries are"} left out.` : "");
         planBox.hidden = false;
       }).catch(() => {
         hidePlan();
@@ -33145,10 +33191,19 @@ ${rows.join("\n")}`, name: subject };
     el("fe-st-import-apply").addEventListener("click", () => {
       if (!pending3) return;
       const n = importPlan(pending3);
-      if (Object.keys(pendingWeb).length && typeof chrome !== "undefined") void chrome.storage?.local?.set(pendingWeb);
+      const web = pendingWeb;
+      const webKeys = Object.keys(web);
       hidePlan();
-      toast(`Imported ${n} setting${n !== 1 ? "s" : ""}, reloading`);
-      reloadWhenSaved();
+      toast(`Imported ${n} setting${n !== 1 ? "s" : ""}${webKeys.length ? " and dark mode and marks" : ""}, reloading`);
+      if (!webKeys.length || typeof chrome === "undefined" || !chrome.storage?.local) {
+        reloadWhenSaved();
+        return;
+      }
+      void chrome.storage.local.get(webKeys).then(async (was) => {
+        const old = {};
+        for (const k of webKeys) old[k] = k in was ? was[k] : null;
+        await chrome.storage.local.set({ [WEB_UNDO_KEY]: { at: Date.now(), old }, ...web });
+      }).finally(reloadWhenSaved);
     });
     el("fe-st-reset").addEventListener("click", () => {
       const n = resetPreferences();
@@ -33156,11 +33211,30 @@ ${rows.join("\n")}`, name: subject };
       reloadWhenSaved();
     });
     const undo = takeUndo();
+    const putWebBack = async () => {
+      if (typeof chrome === "undefined" || !chrome.storage?.local) return false;
+      const rec = (await chrome.storage.local.get(WEB_UNDO_KEY))[WEB_UNDO_KEY];
+      if (!rec || Date.now() - rec.at > 12e4) return false;
+      const gone = Object.keys(rec.old).filter((k) => rec.old[k] === null);
+      const kept = Object.fromEntries(Object.entries(rec.old).filter(([, v2]) => v2 !== null));
+      if (gone.length) await chrome.storage.local.remove(gone);
+      await chrome.storage.local.set(kept);
+      await chrome.storage.local.remove(WEB_UNDO_KEY);
+      return true;
+    };
     if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? "s" : ""}`, 12e3, { label: "Undo", run: () => {
       undoWrites(undo);
-      toast("Put back, reloading");
-      reloadWhenSaved();
+      void putWebBack().finally(() => {
+        toast("Put back, reloading");
+        reloadWhenSaved();
+      });
     } });
+    else if (typeof chrome !== "undefined") void chrome.storage?.local?.get(WEB_UNDO_KEY).then((r) => {
+      const rec = r[WEB_UNDO_KEY];
+      if (rec && Date.now() - rec.at < 12e4) toast("Imported dark mode and marks", 12e3, { label: "Undo", run: () => {
+        void putWebBack().then(() => toast("Put back"));
+      } });
+    });
   }
 
   // src/gcc-refs.ts

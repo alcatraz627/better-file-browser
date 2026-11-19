@@ -35,7 +35,7 @@ import { setTooltips } from './tooltip';
 import { askModelPref } from './tool-lenses';
 import { savedWhere, onSavedWhere, enableSavedFolder } from './saved-sync';
 import { initWebSettings } from './settings-web';
-import { EXPORT_PARTS, keepKey, partOn, webKey } from './export-parts';
+import { EXPORT_PARTS, keepKey, partOn, webKey, webValueOk, WEB_UNDO_KEY } from './export-parts';
 
 // What a stored key is called on screen, for the import preview.
 const KEY_NAMES: Record<string, string> = {
@@ -343,6 +343,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-wrap').checked = settings.wrapLines !== false;
     el<HTMLInputElement>('fe-st-follow').checked = settings.followDisk !== false;
     for (const sw of els<HTMLInputElement>('#fe-st-export-parts [data-part]')) sw.checked = partOn(settings.exportParts, EXPORT_PARTS.find(p => p.id === sw.dataset.part)!);
+    el<HTMLButtonElement>('fe-st-export').disabled = !EXPORT_PARTS.some(p => partOn(settings.exportParts, p));
     el<HTMLInputElement>('fe-st-local-only').checked = settings.localOnly === true;
     v('fe-st-filepages').value = settings.renderFilePages || 'all';
     const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
@@ -601,14 +602,21 @@ export function initSettingsUi(app: App): void {
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('not an export');
       // Dark mode and marks go back into chrome.storage as the objects they are.
       pendingWeb = {};
-      for (const k of Object.keys(data)) if (webKey(k)) { pendingWeb[k] = data[k]; delete data[k]; }
+      let badWeb = 0;
+      for (const k of Object.keys(data)) {
+        if (!webKey(k)) continue;
+        // A value of the wrong shape would stop Lights or Marks reading their own data, so it stays out.
+        if (webValueOk(k, data[k])) pendingWeb[k] = data[k]; else badWeb++;
+        delete data[k];
+      }
       const webCount = Object.keys(pendingWeb).length;
       const plan = planImport(data);
       if (!plan.changed.length && !plan.added.length && !webCount) { hidePlan(); toast('Nothing to change: this export matches what you have'); return; }
       pending = plan;
       el('fe-st-import-plan-tx').textContent = `This file changes ${plan.changed.length} ${plan.changed.length !== 1 ? 'items' : 'item'}${plan.changed.length ? ` (${short(plan.changed, plan)})` : ''}`
         + ` and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added, plan)})` : ''}. ${plan.same} already match.`
-        + (webCount ? ` It also brings dark mode choices and marks (${webCount} ${webCount === 1 ? 'entry' : 'entries'}).` : '');
+        + (webCount ? ` It also replaces dark mode choices and marks with the file's (${webCount} ${webCount === 1 ? 'entry' : 'entries'}).` : '')
+        + (badWeb ? ` ${badWeb} damaged ${badWeb === 1 ? 'entry is' : 'entries are'} left out.` : '');
       planBox.hidden = false;
     }).catch(() => { hidePlan(); toast('That file is not a JSON export'); });
   });
@@ -616,10 +624,17 @@ export function initSettingsUi(app: App): void {
   el('fe-st-import-apply').addEventListener('click', () => {
     if (!pending) return;
     const n = importPlan(pending);
-    if (Object.keys(pendingWeb).length && typeof chrome !== 'undefined') void chrome.storage?.local?.set(pendingWeb);
+    const web = pendingWeb;
+    const webKeys = Object.keys(web);
     hidePlan();
-    toast(`Imported ${n} setting${n !== 1 ? 's' : ''}, reloading`);
-    reloadWhenSaved();
+    toast(`Imported ${n} setting${n !== 1 ? 's' : ''}${webKeys.length ? ' and dark mode and marks' : ''}, reloading`);
+    if (!webKeys.length || typeof chrome === 'undefined' || !chrome.storage?.local) { reloadWhenSaved(); return; }
+    // What the import replaces is kept first, so the Undo after the reload can put it back.
+    void chrome.storage.local.get(webKeys).then(async was => {
+      const old: Record<string, unknown> = {};
+      for (const k of webKeys) old[k] = k in was ? was[k] : null;
+      await chrome.storage.local.set({ [WEB_UNDO_KEY]: { at: Date.now(), old }, ...web });
+    }).finally(reloadWhenSaved);
   });
   el('fe-st-reset').addEventListener('click', () => {
     const n = resetPreferences();
@@ -628,5 +643,21 @@ export function initSettingsUi(app: App): void {
   });
   // After a reset or an import, the reloaded page offers to take it back, once.
   const undo = takeUndo();
-  if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? 's' : ''}`, 12_000, { label: 'Undo', run: () => { undoWrites(undo); toast('Put back, reloading'); reloadWhenSaved(); } });
+  // An import's dark mode and marks are put back with it, or on their own when nothing else changed.
+  const putWebBack = async (): Promise<boolean> => {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local) return false;
+    const rec = (await chrome.storage.local.get(WEB_UNDO_KEY))[WEB_UNDO_KEY] as { at: number; old: Record<string, unknown> } | undefined;
+    if (!rec || Date.now() - rec.at > 120_000) return false;
+    const gone = Object.keys(rec.old).filter(k => rec.old[k] === null);
+    const kept = Object.fromEntries(Object.entries(rec.old).filter(([, v]) => v !== null));
+    if (gone.length) await chrome.storage.local.remove(gone);
+    await chrome.storage.local.set(kept);
+    await chrome.storage.local.remove(WEB_UNDO_KEY);
+    return true;
+  };
+  if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? 's' : ''}`, 12_000, { label: 'Undo', run: () => { undoWrites(undo); void putWebBack().finally(() => { toast('Put back, reloading'); reloadWhenSaved(); }); } });
+  else if (typeof chrome !== 'undefined') void chrome.storage?.local?.get(WEB_UNDO_KEY).then(r => {
+    const rec = r[WEB_UNDO_KEY] as { at: number } | undefined;
+    if (rec && Date.now() - rec.at < 120_000) toast('Imported dark mode and marks', 12_000, { label: 'Undo', run: () => { void putWebBack().then(() => toast('Put back')); } });
+  });
 }

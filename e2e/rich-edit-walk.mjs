@@ -128,6 +128,21 @@ try {
   // Front matter is not a block here, and a ⌘-click on a link would still follow it.
   check(await page.evaluate(() => ![...document.querySelectorAll('#fe-fe-view [data-sl]')].some(el => el.textContent.includes('title: Odd file'))), 'front matter is not offered as a block');
 
+  // A block left open while another program writes the file: the next key must not land in the wrong place.
+  const lastP = await page.evaluate(() => { const p = [...document.querySelectorAll('#fe-fe-view p')].pop(); const r = p.getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 }; });
+  await page.mouse.click(lastP.x, lastP.y);
+  await page.waitForSelector('.fe-fe-block');
+  const before2 = readFileSync(file, 'utf8');
+  writeFileSync(file, 'ADDED ONE\nADDED TWO\n' + before2);
+  await wait(3000);
+  await page.evaluate(() => { const b = document.querySelector('.fe-fe-block'); if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } });
+  await page.keyboard.type(' TYPED');
+  await page.keyboard.press('Escape');
+  await wait(1300);
+  const after2 = readFileSync(file, 'utf8');
+  const kept = ('ADDED ONE\nADDED TWO\n' + before2).split('\n').filter(l => !l.startsWith('Last line.'));
+  check(kept.every(l => after2.split('\n').includes(l)), 'a disk change under an open block leaves every other line intact', after2.split('\n').slice(0, 8));
+
   async function shot(name) {
     if (!shots) return;
     await wait(300);

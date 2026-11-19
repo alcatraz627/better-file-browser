@@ -600,17 +600,24 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // and waits for a click, so the page never moves under the reader.
   let waiting: string | null = null;
   const take = (fresh: string) => {
-    waiting = null;
-    reloadEl.classList.remove('waiting');
-    reloadEl.removeAttribute('role');
+    stopWaiting();
     text = fresh;
     paintMeta();
     render();
     live(true, 'reloaded ' + whenText(Date.now()).replace('Today ', ''));
   };
+  const stopWaiting = () => {
+    waiting = null;
+    reloadEl.classList.remove('waiting');
+    reloadEl.removeAttribute('role');
+    reloadEl.removeAttribute('tabindex');
+  };
   reloadEl.addEventListener('click', () => { if (waiting !== null) take(waiting); });
+  reloadEl.addEventListener('keydown', e => { if (waiting !== null && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); take(waiting); } });
   watch(() => fetchFileText(href).then(fresh => {
-      if (fresh === text || fresh === waiting) return;
+      // Changed back to what is shown: nothing waits any more.
+      if (fresh === text) { if (waiting !== null) { stopWaiting(); reloadEl.hidden = true; } return; }
+      if (fresh === waiting) return;
       if (getSettings().followDisk === false) {
         waiting = fresh;
         clearTimeout(liveTimer);
@@ -618,12 +625,13 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
         reloadEl.classList.remove('off');
         reloadEl.classList.add('waiting');
         reloadEl.setAttribute('role', 'button');
+        reloadEl.tabIndex = 0;
         reloadEl.textContent = 'Changed on disk · Reload';
         reloadEl.title = 'The file changed elsewhere. Click to show it.';
         return;
       }
       take(fresh);
-    }).catch(() => live(false, 'not watching')), { pause: () => !!editor });
+    }).catch(() => { stopWaiting(); live(false, 'not watching'); }), { pause: () => !!editor });
 
   return {
     toggleRaw,

@@ -87,11 +87,39 @@ try {
   const input = await page.$('#fe-st-import-file');
   await input.uploadFile(file);
   await page.waitForFunction(() => !document.getElementById('fe-st-import-plan').hidden, { timeout: 4000 });
-  check(/dark mode choices and marks \(2 entries\)/.test(await page.$eval('#fe-st-import-plan-tx', e => e.textContent)), 'Import says it brings dark mode and marks', await page.$eval('#fe-st-import-plan-tx', e => e.textContent));
+  check(/replaces dark mode choices and marks with the file's \(2 entries\)/.test(await page.$eval('#fe-st-import-plan-tx', e => e.textContent)), 'Import says it brings dark mode and marks', await page.$eval('#fe-st-import-plan-tx', e => e.textContent));
   await page.click('#fe-st-import-apply');
   await sleep(1500);
   const back = await h.sw.evaluate(() => chrome.storage.local.get(['bfb-lights-v1', 'bfb-marks-v1:https://a.com/']));
   check(typeof back['bfb-lights-v1'] === 'object' && back['bfb-lights-v1'].sites['a.com'] === 'invert' && back['bfb-marks-v1:https://a.com/']?.[0]?.note === 'back', 'and they arrive as the objects Lights and Marks read', back);
+
+  // A damaged import leaves bad values out, and its Undo puts back what it replaced.
+  page = await h.open();
+  await page.setViewport({ width: 1200, height: 860 });
+  await openTab('data');
+  await h.sw.evaluate(() => chrome.storage.local.set({ 'bfb-marks-v1:https://keep.com/': [{ id: 'k', kind: 'pin', note: 'keep me' }], 'bfb-marks-index-v1': { 'https://keep.com/': { title: 'Keep', count: 1, updated: 1 } } }));
+  const bad = join(h.downloads, 'import-bad.json');
+  writeFileSync(bad, JSON.stringify({ 'bfb-lights-v1': 'oops', 'bfb-marks-index-v1': 5, 'bfb-marks-v1:https://keep.com/': [{ id: 'new', kind: 'pin', note: 'replaced' }] }));
+  await (await page.$('#fe-st-import-file')).uploadFile(bad);
+  await page.waitForFunction(() => !document.getElementById('fe-st-import-plan').hidden, { timeout: 4000 });
+  const planText = await page.$eval('#fe-st-import-plan-tx', e => e.textContent);
+  check(/replaces dark mode choices and marks/.test(planText) && /2 damaged entries are left out/.test(planText), 'Import says it replaces marks and leaves damaged entries out', planText);
+  await page.click('#fe-st-import-apply');
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Undo'), { timeout: 8000 });
+  let st = await h.sw.evaluate(() => chrome.storage.local.get(['bfb-lights-v1', 'bfb-marks-index-v1', 'bfb-marks-v1:https://keep.com/']));
+  check(typeof st['bfb-lights-v1'] === 'object' && typeof st['bfb-marks-index-v1'] === 'object' && st['bfb-marks-v1:https://keep.com/'][0].note === 'replaced', 'damaged values never reach storage; the good one does', st);
+  await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Undo').click());
+  await sleep(600);
+  st = await h.sw.evaluate(() => chrome.storage.local.get(['bfb-marks-v1:https://keep.com/']));
+  check(st['bfb-marks-v1:https://keep.com/']?.[0]?.note === 'keep me', 'Undo after the import puts the replaced marks back', st);
+
+  // Export with every part off cannot be pressed, even right after opening Settings.
+  await store.edit('bfb-settings-v1', s => ({ ...s, exportParts: { settings: false, saved: false, history: false, chats: false, web: false } }));
+  page = await h.open();
+  await page.setViewport({ width: 1200, height: 860 });
+  await openTab('data');
+  check(await page.$eval('#fe-st-export', b => b.disabled), 'Export is off when every part is switched off');
+  await store.edit('bfb-settings-v1', s => ({ ...s, exportParts: undefined }));
 
   // Editable folders: a list, each row edited, removed with Undo, or added.
   page = await h.open();
@@ -138,6 +166,14 @@ try {
   await fp.click('#fe-fp-reload');
   await fp.waitForFunction(() => document.body.innerText.includes('Added elsewhere'), { timeout: 4000 });
   check(true, 'Reload shows the new text');
+  // Changed and then changed back while waiting: nothing is offered any more.
+  const shown = readFileSync(md, 'utf8');
+  writeFileSync(md, shown + '\n\nBRIEF CHANGE\n');
+  await fp.waitForFunction(() => document.getElementById('fe-fp-reload')?.classList.contains('waiting'), { timeout: 8000 });
+  writeFileSync(md, shown);
+  await fp.waitForFunction(() => !document.getElementById('fe-fp-reload')?.classList.contains('waiting'), { timeout: 8000 }).catch(() => {});
+  check(!(await fp.$eval('#fe-fp-reload', e => e.classList.contains('waiting') && !e.hidden)), 'a change undone before Reload takes the offer away');
+  check(!(await fp.evaluate(() => document.body.innerText.includes('BRIEF CHANGE'))), 'and the page never shows the short-lived text');
   await store.edit('bfb-settings-v1', s => ({ ...s, followDisk: true }));
   await fp.reload({ waitUntil: 'load' });
   await sleep(600);

@@ -10,6 +10,19 @@ export interface ExportPart { id: string; label: string; title: string; on: bool
 /** A key Lights or Marks keeps as an object outside bfb's text store. */
 export const webKey = (k: string) => k === 'bfb-lights-v1' || k.startsWith('bfb-marks-');
 
+const isObject = (v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** Whether an imported dark mode or marks value has the shape its reader needs. */
+export function webValueOk(key: string, value: unknown): boolean {
+  if (key === 'bfb-marks-index-v1') return isObject(value);
+  if (key.startsWith('bfb-marks-v1:')) return Array.isArray(value) && value.every(isObject);
+  if (key === 'bfb-lights-v1') return isObject(value);
+  return false;
+}
+
+/** Where the values an import replaced are kept, so its Undo can put them back. */
+export const WEB_UNDO_KEY = 'bfb-web-undo-v1';
+
 const SAVED = new Set([SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, 'bfb-tag-colours-v1']);
 const isSaved = (k: string) => SAVED.has(k) || k.startsWith('bfb-saved-');
 const isHistory = (k: string) => k === RECENTS_KEY;

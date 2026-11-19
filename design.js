@@ -2508,7 +2508,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 #fe-st-defview .fe-seg-b{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);height:auto;padding:var(--sp-4) var(--sp-2) var(--sp-3);border:1px solid var(--bd);border-radius:10px;background:none;color:var(--mt)}
 #fe-st-defview .fe-seg-b:hover{background:var(--hover);color:var(--tx)}
 #fe-st-defview .fe-seg-b[aria-checked="true"]{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent);color:var(--tx)}
-.fe-st-mini{display:flex;flex-direction:column;gap:4px;width:84px;height:48px;padding:6px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);overflow:hidden}
+.fe-st-mini{display:flex;flex-direction:column;gap:4px;width:100%;max-width:84px;height:48px;padding:6px;border-radius:6px;background:var(--bg);border:1px solid var(--bd);overflow:hidden}
 .fe-st-mini i,.fe-st-mini b{display:block}
 .fe-st-mini i{height:3px;border-radius:2px;background:color-mix(in srgb,var(--tx) 24%,transparent)}
 .fe-st-mini b{display:grid;gap:4px;width:100%}
