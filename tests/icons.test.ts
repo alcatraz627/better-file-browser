@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getIcon, IMG_EXTS, safeColor } from '../src/icons';
+import { getIcon, ruleFor, IMG_EXTS, safeColor } from '../src/icons';
 import type { Entry, IconRule } from '../src/types';
 
 const file = (name: string): Entry =>
@@ -91,5 +91,16 @@ describe('IMG_EXTS', () => {
   it('does not contain non-image extensions', () => {
     expect(IMG_EXTS.has('ts')).toBe(false);
     expect(IMG_EXTS.has('md')).toBe(false);
+  });
+  it('ruleFor: an empty pattern matches nothing, a damaged rule is skipped', () => {
+    const r = (pattern: unknown, enabled = true) => ({ id: 'x', pattern, label: 'X', color: '#fff', enabled }) as IconRule;
+    expect(ruleFor('a.md', false, [r('')])).toBe(-1);
+    expect(ruleFor('a.md', false, [null as unknown as IconRule, r(5), r('\\.md$')])).toBe(2);
+  });
+  it('ruleFor: a folder rule ending in / matches the folder', () => {
+    const r = (pattern: string) => ({ id: 'x', pattern, label: 'X', color: '#fff', enabled: true }) as IconRule;
+    expect(ruleFor('node_modules', true, [r('^node_modules/$')])).toBe(0);
+    expect(ruleFor('node_modules', true, [r('node_modules')])).toBe(-1);
+    expect(ruleFor('node_modules', false, [r('^node_modules/$')])).toBe(-1);
   });
 });

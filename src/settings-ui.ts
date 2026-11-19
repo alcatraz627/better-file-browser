@@ -107,9 +107,9 @@ export function initSettingsUi(app: App): void {
   // A name ending in / is tried as a folder.
   function tryName(): void {
     const input = v<HTMLInputElement>('fe-st-rule-try'), out = el('fe-st-rule-try-out');
-    const raw = input.value.trim();
+    const raw = input.value;
     els('.fe-rule.win', el('fe-st-rules-list')).forEach(r => r.classList.remove('win'));
-    if (!raw) { out.innerHTML = ''; return; }
+    if (!raw.trim()) { out.innerHTML = ''; return; }
     const isDir = raw.endsWith('/'), name = isDir ? raw.replace(/\/+$/, '') : raw;
     const won = ruleFor(name, isDir, app.iconRules);
     if (won < 0) { out.innerHTML = `${getIcon({ name, isDir } as Entry, null)}<span>No rule matches, so the usual icon</span>`; return; }

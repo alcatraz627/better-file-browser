@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LENSES, lensOrder, lensOn, setLensOn } from '../src/lens-list';
+import { LENSES, lensOrder, lensOn, lensShown, setLensOn } from '../src/lens-list';
 
 const ids = (s: object) => lensOrder(s).map(l => l.id);
 
@@ -42,5 +42,10 @@ describe('sidebar sections', () => {
   it('reads damaged stored lists as empty', () => {
     expect(ids({ lensOrder: 'ask' as never })).toEqual(LENSES.map(l => l.id));
     expect(lensOn({ lensOff: { ask: 1 } as never }, 'ask')).toBe(true);
+  });
+  it('shows every lens when stored settings switch them all off', () => {
+    const all = { lensOff: LENSES.map(l => l.id), hideRecent: true };
+    expect(LENSES.every(l => lensShown(all, l.id))).toBe(true);
+    expect(lensShown({ lensOff: ['ask'] }, 'ask')).toBe(false);
   });
 });

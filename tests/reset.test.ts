@@ -39,4 +39,9 @@ describe('resetPreferences', () => {
     expect(takeCompactMode({ compactMode: false } as never)).toBe(true);
     expect(densityPref.get()).toBe(2);
   });
+  it('keeps folders kept with their own view', () => {
+    localStorage.setItem('bfb-folder-views-v1', JSON.stringify({ '/a': { view: 'tiles' } }));
+    resetPreferences();
+    expect(localStorage.getItem('bfb-folder-views-v1')).toBe(JSON.stringify({ '/a': { view: 'tiles' } }));
+  });
 });

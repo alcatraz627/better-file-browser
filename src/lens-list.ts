@@ -41,6 +41,11 @@ const offList = (s: LensSettings): string[] => (Array.isArray(s.lensOff) ? s.len
 export const lensOn = (s: LensSettings, id: string) =>
   id === 'history' ? !s.hideRecent : !offList(s).includes(id);
 
+/** Whether the rail shows a lens. Stored settings that switch every lens off
+ *  (an import, a hand edit) show them all, so the rail is never empty. */
+export const lensShown = (s: LensSettings, id: string) =>
+  lensOn(s, id) || !LENSES.some(l => lensOn(s, l.id));
+
 /** Switch a lens on or off. The last lens on cannot be switched off; returns false then. */
 export function setLensOn(s: LensSettings, id: string, on: boolean): boolean {
   if (!on && LENSES.filter(l => l.id !== id && lensOn(s, l.id)).length === 0) return false;

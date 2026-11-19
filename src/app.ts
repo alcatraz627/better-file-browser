@@ -40,6 +40,8 @@ export interface App {
   showLens?(lens: string | null, hideHistory?: boolean): void;
   arrangeLenses?(s: Settings): void;
   keptHere?(): boolean;   // this folder keeps its own view, sort and grouping
+  syncKept?(): void;      // show what is stored for this folder after Settings kept or dropped it
+  order?(): { sort: SortConfig; group: GroupMode };   // the order shown now, the folder's own when kept
   /** Open the sidebar's Ask on a file from this folder, without leaving the page. */
   askAbout?(e: Entry): void;
   /** Open a note's colour, pin and tags menu beside `anchor`; `rel` is its path inside the notes folder. */

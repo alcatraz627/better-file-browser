@@ -321,10 +321,10 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-dlg-title:has(.fe-dlg-search){flex-wrap:wrap;row-gap:var(--sp-5)}
 .fe-dlg-search{display:flex;flex-basis:100%}
 .fe-dlg-search>input{width:100%}
-.fe-dlg.searching .fe-dlg-tab.on:not(:hover){background:none;color:var(--mt)}
+.fe-dlg-box.searching .fe-dlg-tab.on:not(:hover){background:none;color:var(--mt)}
 .fe-dlg-results{display:none}
-.fe-dlg.searching .fe-dlg-box>.fe-dlg-pane:not(.fe-dlg-results){display:none}
-.fe-dlg.searching .fe-dlg-results{display:flex;flex-direction:column;gap:var(--sp-7);padding-top:var(--sp-5)}
+.fe-dlg-box.searching>.fe-dlg-pane:not(.fe-dlg-results){display:none}
+.fe-dlg-box.searching .fe-dlg-results{display:flex;flex-direction:column;gap:var(--sp-7);padding-top:var(--sp-5)}
 .fe-dlg-results>.fe-dlg-pane{display:flex;flex-direction:column;gap:var(--sp-6);padding:0;overflow:visible;min-height:auto}
 .fe-dlg-results .fe-dlg-ph{position:static}
 .fe-sr-miss{display:none!important}
@@ -333,6 +333,8 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-dlg-hits{display:flex;flex-direction:column;gap:1px;margin:calc(var(--sp-1) * -1) 0 var(--sp-2);padding-left:calc(var(--sp-4) + 22px + var(--row-gap))}
 .fe-dlg-hit{padding:3px var(--sp-3);border:0;border-radius:6px;background:none;color:var(--mt);font-size:var(--fs-sm);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-dlg-hit:hover,.fe-dlg-hit:focus-visible{background:var(--hover);color:var(--tx)}
+/* A narrow dialog has its tabs as a row of icons: counts stay, the named matches go. */
+@container dlg (max-width:420px){.fe-dlg-hits{display:none}.fe-dlg-n{margin-left:2px;min-width:16px;padding:0 4px}}
 .fe-dlg-more{padding:2px var(--sp-3);font-size:var(--fs-xs);color:var(--dm)}
 .fe-sr-empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-9) var(--sp-6);color:var(--dm);text-align:center}
 .fe-sr-empty b{color:var(--tx);font-weight:600}

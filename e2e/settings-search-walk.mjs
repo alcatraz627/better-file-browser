@@ -27,7 +27,7 @@ try {
     const vis = e => !!e && e.checkVisibility();
     const res = document.querySelector('.fe-dlg-results');
     return {
-      searching: document.getElementById('fe-settings-modal').classList.contains('searching'),
+      searching: !!document.querySelector('.fe-dlg-box.searching'),
       panes: [...res.querySelectorAll(':scope > .fe-dlg-pane')].map(p => p.dataset.tab),
       rows: [...res.querySelectorAll('.fe-set-l')].filter(vis).map(l => l.textContent.trim()),
       counts: Object.fromEntries([...document.querySelectorAll('#fe-settings-modal .fe-dlg-tab')].map(t => [t.dataset.tab, t.querySelector('.fe-dlg-n')?.textContent ?? null])),
@@ -105,6 +105,21 @@ try {
   await page.keyboard.press('Escape');
   await sleep(200);
   check(await page.$eval('#fe-settings-modal', m => m.hidden), 'a second Esc closes Settings');
+
+  // Docked in the sidebar, a search still shows its results.
+  await page.click('#fe-settings-btn');
+  await page.waitForFunction(() => !document.getElementById('fe-settings-modal').hidden);
+  await page.click('#fe-settings-modal .fe-dlg-place');
+  await page.waitForSelector('#fe-side-pane .fe-dlg-box');
+  await type('tooltips');
+  const docked = await page.evaluate(() => ({ shown: document.querySelector('#fe-side-pane .fe-dlg-results')?.checkVisibility() ?? false, rows: [...document.querySelectorAll('#fe-side-pane .fe-dlg-results .fe-set-l')].filter(l => l.checkVisibility()).map(l => l.textContent.trim()) }));
+  check(docked.shown && docked.rows.includes('Tooltips'), 'docked in the sidebar, the results show', docked);
+  await shot('settings-search-docked');
+  await page.$eval('#fe-st-search', i => { i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.click('.fe-dlg-place');
+  await sleep(300);
+  await page.click('#fe-settings-modal .fe-dlg-close').catch(() => {});
+  await sleep(200);
 
   // Closing mid-search leaves it clear next time; a tab click ends a search.
   await page.click('#fe-settings-btn');

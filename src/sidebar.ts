@@ -1,7 +1,7 @@
 // The sidebar: the Saved list (star or + adds, tags group, drag reorders,
 // a filter box), the Notes list from the Settings folder, and the bookmark
 // gestures shared by sidebar rows, crumbs and the crumb dropdown.
-import { lensOrder, lensOn } from './lens-list';
+import { lensOrder, lensShown } from './lens-list';
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
@@ -113,7 +113,7 @@ function initLenses(app: App): void {
     for (const l of lensOrder(s)) {
       const b = btns.find(x => x.dataset.lens === l.id);
       if (!b) continue;
-      b.hidden = !lensOn(s, l.id);
+      b.hidden = !lensShown(s, l.id);
       rail.append(b);
     }
     const open = btns.find(b => b.classList.contains('on'));

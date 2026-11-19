@@ -60,4 +60,16 @@ describe('open with: commands as Settings rows', () => {
     expect(ownCommands({ openWith: [null, { name: 3 }, { cmd: 'ls' }, { name: 'Ok', cmd: 'cat' }] as never }).map(c => c.name)).toEqual(['Ok']);
     expect(ownCommands({ openWith: 'junk' as never, openWithCmds: 'A: ls' }).map(c => c.name)).toEqual(['A']);
   });
+  it('catches a trailing backslash and a # comment, and reads zsh $-quotes', () => {
+    const row = (cmd: string) => ({ name: 'A', cmd });
+    expect(commandProblem(row('foo \\'))).toBe('Ends in a backslash');
+    expect(commandProblem(row('cat # note'))).toMatch(/comment/);
+    expect(commandProblem(row("echo $'a\\'b'"))).toBe('');
+    expect(commandProblem(row('echo a#b'))).toBe('');
+  });
+  it('lists a repeated name once, and reads a damaged older setting as missing', () => {
+    const rows = [{ name: 'Go', cmd: 'cat', terminal: true }, { name: 'go ', cmd: 'ls', terminal: true }];
+    expect(ownCommands({ openWith: rows }).map(c => c.cmd)).toEqual(['cat']);
+    expect(parseCommands(5).map(c => c.cmd)).toEqual(['cat', 'bash', 'code --add']);
+  });
 });

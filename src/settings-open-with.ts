@@ -47,6 +47,7 @@ const ballHtml = (c?: string) => c
 export function initOpenWithSettings(settings: Settings, toast: Toast): () => void {
   const list = el('fe-st-ow-list');
   let rows: OwnCommand[] = [];
+  const waits = new Map<number, number>();
 
   const save = () => { settings.openWith = rows.map(r => ({ ...r })); saveSettings(settings); };
 
@@ -83,12 +84,14 @@ export function initOpenWithSettings(settings: Settings, toast: Toast): () => vo
     if (problem) return paint(problem, 'bad');
     paint('', '');
     const cmd = c.cmd;
-    void lookUp(cmd).then(f => {
+    // Asked once typing pauses, not on every key: each check starts a login shell.
+    clearTimeout(waits.get(i));
+    waits.set(i, window.setTimeout(() => void lookUp(cmd).then(f => {
       if (rows[i]?.cmd !== cmd || !f) return;
       if (f.problem) paint(f.problem, 'bad');
       else if (f.found) paint(`Found ${f.where}`, 'ok');
       else { paint(`${f.program} is not installed, or not on the PATH`, 'bad'); cmdBox.setAttribute('aria-invalid', 'true'); }
-    });
+    }), 350));
   }
 
   function render(): void {

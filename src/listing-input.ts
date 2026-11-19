@@ -290,16 +290,19 @@ export function initListingInput(app: App, listing: Listing): void {
   for (const v of ['details', 'list', 'tree', 'tiles', 'icons', 'gallery']) {
     bind('view-' + v, () => document.querySelector<HTMLElement>(`#fe-view-group [data-v="${v}"]`)?.click(), onListing);
   }
-  const sortBy = (col: SortConfig['col']) => { const s = getSortConfig(); app.setOrder({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }, getGroupMode()); };
+  // The order shown now, which in a kept folder is its own, not the default.
+  const cur = () => app.order?.() ?? { sort: getSortConfig(), group: getGroupMode() };
+  const sortBy = (col: SortConfig['col']) => { const { sort: s, group } = cur(); app.setOrder({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }, group); };
   bind('sort-name', () => sortBy('name'), onListing);
   bind('sort-date', () => sortBy('date'), onListing);
   bind('sort-size', () => sortBy('size'), onListing);
   bind('sort-type', () => sortBy('type'), onListing);
-  bind('sort-rev', () => { const s = getSortConfig(); app.setOrder({ col: s.col ?? 'name', dir: s.dir === 'asc' ? 'desc' : 'asc' }, getGroupMode()); }, onListing);
+  bind('sort-rev', () => { const { sort: s, group } = cur(); app.setOrder({ col: s.col ?? 'name', dir: s.dir === 'asc' ? 'desc' : 'asc' }, group); }, onListing);
   const GROUPS: GroupMode[] = ['none', 'folders-first', 'files-first', 'ext', 'type'];
   bind('group', () => {
-    const next = GROUPS[(GROUPS.indexOf(getGroupMode()) + 1) % GROUPS.length];
-    app.setOrder(getSortConfig(), next);
+    const { sort, group } = cur();
+    const next = GROUPS[(GROUPS.indexOf(group) + 1) % GROUPS.length];
+    app.setOrder(sort, next);
     toast(`Grouping: ${next.replace('-', ' ')}`);
   }, onListing);
   // Bigger means fewer, larger items with less detail on each.

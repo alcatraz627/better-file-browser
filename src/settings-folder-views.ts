@@ -81,9 +81,11 @@ export function initFolderViewSettings(app: App, toast: Toast): () => void {
     if (!row) return;
     const path = row.dataset.path!;
     const kept = allFolderViews()[path];
+    const here = row.classList.contains('here');
     dropFolderView(path);
+    if (here) app.syncKept?.();
     render();
-    toast(`${short(path)} follows the default view`, 8000, { label: 'Undo', run: () => { keepFolderView(path, kept); render(); } });
+    toast(`${short(path)} follows the default view`, 8000, { label: 'Undo', run: () => { keepFolderView(path, kept); if (here) app.syncKept?.(); render(); } });
   });
   shape.addEventListener('change', () => { shapePref.set(shape.value); render(); });
   tree.addEventListener('change', () => { treePref.set(tree.checked ? 'on' : 'off'); render(); });

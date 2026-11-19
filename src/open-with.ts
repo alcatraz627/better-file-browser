@@ -23,8 +23,8 @@ export const DEFAULT_COMMANDS = 'Show contents (files): cat\nRun with bash (file
 const OLD_DEFAULT = 'Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add';
 
 /** The commands written in Settings; a line without a name or a command is skipped. */
-export function parseCommands(text: string | undefined): OwnCommand[] {
-  return (text === undefined || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split('\n').map(l => l.trim()).filter(Boolean).flatMap(l => {
+export function parseCommands(text: unknown): OwnCommand[] {
+  return (typeof text !== 'string' || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split('\n').map(l => l.trim()).filter(Boolean).flatMap(l => {
     const at = l.indexOf(':');
     if (at < 1) return [];
     const label = l.slice(0, at).trim();
@@ -41,7 +41,9 @@ export function parseCommands(text: string | undefined): OwnCommand[] {
 export function ownCommands(s: Pick<Settings, 'openWith' | 'openWithCmds'>): OwnCommand[] {
   if (!Array.isArray(s.openWith)) return parseCommands(s.openWithCmds);
   // A stored row is skipped, not trusted, when it is damaged or cannot run.
+  const seen = new Set<string>();
   return s.openWith.filter(c => !!c && typeof c.name === 'string' && typeof c.cmd === 'string' && !commandProblem(c))
+    .filter(c => { const k = c.name.trim().toLowerCase(); return !seen.has(k) && !!seen.add(k); })
     .map(c => ({ name: c.name, cmd: c.cmd, terminal: c.terminal !== false, ...(c.filesOnly ? { filesOnly: true } : {}), ...(typeof c.color === 'string' ? { color: c.color } : {}) }));
 }
 
@@ -55,14 +57,18 @@ export function commandProblem(c: Pick<OwnCommand, 'name' | 'cmd'>, others: Pick
   if (cmd.startsWith('&')) return 'Use the Window switch instead of &';
   if (others.some(o => o.name.trim().toLowerCase() === name.toLowerCase())) return 'Another command has this name';
   // The launcher hands the line to zsh, so an open quote would swallow the path.
-  let quote = '';
+  // `$'...'` is zsh's quote that takes backslash escapes, so it is read as its own kind.
+  let quote = '', comment = false;
   for (let i = 0; i < cmd.length; i++) {
     const ch = cmd[i];
-    if (quote) { if (ch === quote) quote = ''; else if (ch === '\\' && quote === '"') i++; }
-    else if (ch === '\\') i++;
+    if (quote) { if (ch === quote[0]) quote = ''; else if (ch === '\\' && (quote === '"' || quote === "'$")) i++; }
+    else if (ch === '\\') { if (i === cmd.length - 1) return 'Ends in a backslash'; i++; }
+    else if (ch === '$' && cmd[i + 1] === "'") { quote = "'$"; i++; }
     else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '#' && (i === 0 || /\s/.test(cmd[i - 1]))) { comment = true; break; }
   }
   if (quote) return 'A quote is left open';
+  if (comment) return 'A # comment would hide the path';
   if (/[;|&]\s*$/.test(cmd)) return 'Ends in ; | or &, so the path is lost';
   return '';
 }

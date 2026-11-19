@@ -66,14 +66,14 @@ export function initSettingsSearch(root: HTMLElement): void {
     // Every pane sat just before the results column, in tab order.
     for (const p of panes) box.insertBefore(p, results);
     results.replaceChildren();
-    root.classList.remove('searching');
+    box.classList.remove('searching');
     input.removeAttribute('data-own-esc');
   }
 
   function start(): void {
     if (searching) return;
     searching = true;
-    root.classList.add('searching');
+    box.classList.add('searching');
     input.setAttribute('data-own-esc', '');
   }
 

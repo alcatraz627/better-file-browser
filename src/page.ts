@@ -13,7 +13,7 @@ import { renderFileContent } from './file-page';
 import { renderSavedList, renderCrumbs, type RenderContext } from './render';
 import { segHtml, ddHtml, sliderHtml, checkHtml } from './controls';
 import { DENSITY_NAMES } from './storage';
-import { lensOrder, lensOn } from './lens-list';
+import { lensOrder, lensShown } from './lens-list';
 import { folderView, KEEP_ON, KEEP_OFF } from './folder-views';
 
 const SORT_ICON = line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 14);
@@ -68,7 +68,7 @@ export function renderPage(p: PageParams): string {
     gallery: 'A large preview above a strip of thumbnails',
   };
 
-  const kept = !fileMode && !!folderView(folderPath);
+  const kept = !fileMode && location.hash !== '#home' && !!folderView(folderPath);
   const keepBtn = `<button type="button" id="fe-keep-view" class="btn" data-icon aria-pressed="${kept}" title="${kept ? KEEP_ON : KEEP_OFF}" aria-label="Keep view for this folder">${UI_ICON.pin}</button>`;
   const viewSeg = segHtml('fe-view-group', VIEW_MODES.map(v => ({ value: v.id, icon: v.ico, hint: `${v.label} view: ${VIEW_LABELS[v.id]}` })), 'View');
 
@@ -108,7 +108,7 @@ export function renderPage(p: PageParams): string {
   <div id="fe-body">
     <nav id="fe-side">
       <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="horizontal">
-        ${lensOrder(settings).map(l => railBtn(l.id, l.label, l.icon, l.hint, !lensOn(settings, l.id))).join('')}
+        ${lensOrder(settings).map(l => railBtn(l.id, l.label, l.icon, l.hint, !lensShown(settings, l.id))).join('')}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-home" data-lens="home" role="tabpanel" aria-labelledby="fe-rail-home" hidden>

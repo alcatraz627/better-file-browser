@@ -79,6 +79,13 @@ r = ask({'action': 'check_cmd', 'cmd': "echo 'open"})
 verdict(r.get('success') and r.get('found') is False and r.get('problem'), f'an open quote is reported: {r}')
 r = ask({'action': 'check_cmd', 'cmd': '$(touch /tmp/bfb-check-ran)'})
 verdict(r.get('success') and not os.path.exists('/tmp/bfb-check-ran'), 'checking a command never runs it')
+tool = os.path.join(work, 'mytool'); open(tool, 'w').write('#!/bin/sh\n'); os.chmod(tool, 0o755)
+for cmd, label in [('FOO=1 cat', 'a VAR=value first'), ('cat; echo hi', 'a ; after the program'), (tool + ' --x', 'a path to a script'), ('$BFB_T/mytool', 'a $VAR in the path')]:
+    os.environ['BFB_T'] = work
+    r = ask({'action': 'check_cmd', 'cmd': cmd})
+    verdict(r.get('success') and r.get('found'), f'{label} is found: {r}')
+r = ask({'action': 'check_cmd', 'cmd': os.path.join(work, 'nope') + ' x'})
+verdict(r.get('success') and r.get('found') is False, 'a path that is not there is reported')
 r = ask({'action': 'check_cmd', 'cmd': 'cat\nls'})
 verdict(not r.get('success'), 'a check over two lines is refused')
 

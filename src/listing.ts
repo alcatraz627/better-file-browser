@@ -62,7 +62,7 @@ export interface Listing { ls: ListingState; sel: Selection; applyAll(): void; a
 export function initListing(app: App, all: Entry[], init: { view: string; density: number; hidden: boolean }): Listing {
   const { fe, toast, rawPath } = app;
   // A folder kept with its own view starts from it, and its changes stay with it.
-  const here = app.fileMode ? null : folderView(app.folderPath);
+  const here = app.fileMode || location.hash === '#home' ? null : folderView(app.folderPath);
   let keptHere = !!here;
   app.keptHere = () => keptHere;
   const saveView = (v: string) => { if (keptHere) keepFolderView(app.folderPath, { view: v }); else viewPref.set(v); };
@@ -457,21 +457,27 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // this folder alone; off, the folder goes back to the default ones.
   const keepBtn = document.getElementById('fe-keep-view');
   keepBtn?.addEventListener('click', () => {
-    keptHere = !keptHere;
-    keepBtn.setAttribute('aria-pressed', String(keptHere));
-    keepBtn.title = keptHere ? KEEP_ON : KEEP_OFF;
-    if (keptHere) {
+    if (!keptHere) {
       keepFolderView(app.folderPath, { view: el<ValuedEl>('fe-view-group').value, sort: { ...ls.sort }, group: ls.group });
       toast('This folder keeps its own view');
     } else {
       dropFolderView(app.folderPath);
-      const v = getView();
-      el<ValuedEl>('fe-view-group').value = v; fe.dataset.view = v;
-      ls.sort = getSortConfig(); ls.group = getGroupMode();
-      syncSortUi(); applyAll();
       toast('This folder follows the default view');
     }
+    app.syncKept?.();
   });
+  // Settings can keep or drop this folder too; the page then shows what is stored.
+  app.syncKept = () => {
+    const now = app.fileMode || location.hash === '#home' ? null : folderView(app.folderPath);
+    keptHere = !!now;
+    keepBtn?.setAttribute('aria-pressed', String(keptHere));
+    if (keepBtn) keepBtn.title = keptHere ? KEEP_ON : KEEP_OFF;
+    const v = now?.view ?? getView();
+    el<ValuedEl>('fe-view-group').value = v; fe.dataset.view = v;
+    ls.sort = now?.sort ?? getSortConfig(); ls.group = now?.group ?? getGroupMode();
+    syncSortUi(); applyAll();
+  };
+  app.order = () => ({ sort: { ...ls.sort }, group: ls.group });
   el('fe-tree').addEventListener('click', e => {
     const toggle = (e.target as HTMLElement).closest<HTMLButtonElement>('.fe-tree-toggle');
     if (!toggle) return;

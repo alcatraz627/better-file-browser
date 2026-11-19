@@ -34,13 +34,15 @@ The owner said build to all fourteen parked add-ons. Seven came with notes that 
 ## Order of work
 
 1. Settings layout defects. Done: App icon grid, heading heights, chip wrap.
-2. Small Settings rows: follow changes, only on this Mac, Export toggles, view thumbnails, the Editable folders list.
-3. Icon rules: names, then try a name.
-4. Open with as rows, with command checks and a colour shown in the Open with menu.
-5. One Density setting, then sidebar sections.
-6. Settings search, after looking at how other apps show matches.
-7. Per-folder views, then first screen first.
+2. Small Settings rows: follow changes, only on this Mac, Export toggles, view thumbnails, the Editable folders list. Done.
+3. Icon rules: names, then try a name. Done.
+4. Open with as rows, with command checks and a colour shown in the Open with menu. Done.
+5. One Density setting, then sidebar sections. Done.
+6. Settings search, after looking at how other apps show matches. Done. It borrows from VS Code (results from every section, counts in the contents) and Chrome (matches marked in place).
+7. Per-folder views, then first screen first. Done.
 8. Switchboard, after bfb.
+
+How each built add-on works, and the walk that checks it, is in `docs/settings-addons.md`.
 
 ## What the independent check found
 
@@ -57,6 +59,21 @@ Left for later, all minor:
 - Undo for a folder removed twice in a row can land in a stale place.
 - An emptied folder row has no Undo.
 - Only on this Mac does not block a bare online model name set as the default, which Settings never offers.
+
+## What the second check found
+
+A second outside reviewer tried to break units 3 to 7. Its report is `.claude/output/20261120-addons-validation-2/validator.md`. Fixed, each with a check that fails without the fix:
+
+- Settings search showed nothing while Settings sat in the sidebar. It now works there, with counts on the tab icons.
+- In a folder that keeps its own view, the sort keys started from the default order. They now start from the folder's own.
+- Dropping the open folder from the Settings list left the page pinned, and the next view change pinned it again. The page now follows at once, and Undo pins it back.
+- The command check called `VAR=1 cmd`, `~/bin/x`, `$HOME/bin/x` and `cat; echo` not installed. It now finds them. A trailing backslash and a `#` comment are caught, and zsh's `$'...'` quote is read correctly. The check waits for a pause in typing.
+- Damaged stored data no longer stops Settings or the listing: an old commands text that is not text, a broken icon rule, and lens settings that switch every lens off.
+- A repeated command name shows once in the menu. A folder rule ending in `/` now matches the folder. The Try box tries a name as typed.
+
+Default applied, silence means agreement: Reset keeps folders kept with their own view, as it keeps Saved and your folders.
+
+Left as it was: a pattern with catastrophic backtracking, such as `^(a+)+$`, can freeze the tab. That was true before this work.
 
 ## Sources
 

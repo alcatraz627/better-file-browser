@@ -119,10 +119,11 @@ export function icoCustom(label: string, color: string, glyph?: string): string 
 export function ruleFor(name: string, isDir: boolean, rules: IconRule[]): number {
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i];
-    if (!rule.enabled || !rule.pattern) continue;
+    if (!rule || !rule.enabled || typeof rule.pattern !== 'string' || !rule.pattern) continue;
     // A rule like "claude" means files named that; a folder of the same name stays a folder.
-    if (isDir && !/\/$/.test(rule.pattern)) continue;
-    try { if (new RegExp(rule.pattern, 'i').test(name)) return i; } catch { /* a pattern still being typed */ }
+    // A folder rule ends in /, and the folder is tried with its slash, so `^node_modules/$` matches it.
+    if (isDir && !/\/\$?$/.test(rule.pattern)) continue;
+    try { if (new RegExp(rule.pattern, 'i').test(isDir ? name.replace(/\/*$/, '/') : name)) return i; } catch { /* a pattern still being typed */ }
   }
   return -1;
 }

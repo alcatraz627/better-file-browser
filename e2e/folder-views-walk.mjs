@@ -42,6 +42,13 @@ try {
   check((await h.store.get('bfb-view')) !== 'tiles' && JSON.parse((await h.store.get('bfb-sort-v1')) ?? 'null')?.col !== 'size', 'and the defaults are untouched', [await h.store.get('bfb-view'), await h.store.get('bfb-sort-v1')]);
   if (shots) await page.screenshot({ path: join(shots, `folder-keep-${THEME}.png`) });
 
+  // s r reverses this folder's own order, not the default's.
+  await page.click('#fe-scroll');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('s'); await page.keyboard.press('r');
+  await sleep(200);
+  check(JSON.stringify((await kept())[root]?.sort) === JSON.stringify({ col: 'size', dir: 'desc' }), 's r reverses the kept folder’s own sort', (await kept())[root]?.sort);
+
   // Another folder opens on the defaults; the kept one opens on its own.
   await go(join(root, 'nested'));
   check(await view() === 'details' && await page.$eval('#fe-keep-view', b => b.getAttribute('aria-pressed')) === 'false', 'another folder opens on the default view', await view());
@@ -85,6 +92,15 @@ try {
   await page.click('.fe-dd-list .fe-dd-opt[data-v="list"]');
   await sleep(200);
   check((await kept())[root]?.view === 'list' && await view() === 'list', 'a dropdown here changes the folder’s view, and this folder follows', [(await kept())[root], await view()]);
+
+  // Dropping this folder in Settings: the page follows the defaults at once,
+  // and a later view change does not keep it again.
+  await page.click(`.fe-fv-row[data-path="${root}"] .fe-fv-drop`);
+  await sleep(200);
+  check(await page.$eval('#fe-keep-view', b => b.getAttribute('aria-pressed')) === 'false' && await view() === (await h.store.get('bfb-view')), 'dropping this folder in Settings unpins the page and shows the default view', [await view(), await h.store.get('bfb-view')]);
+  await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Undo')?.click());
+  await sleep(200);
+  check(await page.$eval('#fe-keep-view', b => b.getAttribute('aria-pressed')) === 'true' && await view() === 'list', 'and Undo pins it again with its view', await view());
 
   // Follow the default again, with Undo.
   await page.click(`.fe-fv-row[data-path="${join(root, 'nested')}"] .fe-fv-drop`);
