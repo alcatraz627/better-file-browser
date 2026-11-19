@@ -339,6 +339,24 @@ button.chip:disabled{opacity:.45;cursor:default}
 ::highlight(bfb-settings-hit){background:color-mix(in srgb,var(--gold) 45%,transparent);color:inherit}
 @keyframes fe-sr-flash{from{background:color-mix(in srgb,var(--ac) 22%,transparent)}to{background:transparent}}
 .fe-sr-flash{animation:fe-sr-flash 1.2s var(--ease)}
+.fe-fv-bar{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-4) var(--sp-6) var(--sp-2)}
+.fe-fv-l{font-size:var(--fs-md);color:var(--mt);margin-right:calc(var(--sp-2) * -1)}
+.fe-fv-tree{display:inline-flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-md);color:var(--mt);cursor:pointer}
+#fe-st-fv-list{display:flex;flex-direction:column;gap:2px;padding:var(--sp-2) var(--sp-5) var(--sp-4)}
+#fe-st-fv-list>.empty{padding:var(--sp-5) var(--sp-2)}
+.fe-fv-group{display:flex;flex-direction:column;gap:2px}
+.fe-fv-group+.fe-fv-group{margin-top:var(--sp-4)}
+.fe-fv-group h4{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm);font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
+.fe-fv-group h4 span{font-weight:500;color:var(--dm)}
+.fe-fv-row{display:grid;grid-template-columns:minmax(0,1fr) 168px 28px;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-2) var(--sp-2) calc(var(--sp-2) + var(--depth,0) * 18px);border-radius:9px}
+.fe-fv-row:hover{background:var(--hover)}
+.fe-fv-row.here{background:color-mix(in srgb,var(--ac) 9%,transparent)}
+.fe-fv-path{display:flex;align-items:center;gap:var(--sp-3);min-width:0;color:var(--tx);text-decoration:none;font-size:var(--fs-lg)}
+.fe-fv-path svg{flex:none;width:15px;height:15px;color:var(--dir)}
+.fe-fv-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-md)}
+.fe-fv-path em{flex:none;font-style:normal;font-size:var(--fs-xs);color:var(--ac)}
+.fe-fv-path:hover span{text-decoration:underline}
+.fe-fv-view{width:100%}
 .fe-st-lenses{display:flex;flex-direction:column;gap:2px;max-width:420px}
 .fe-lens-row{display:grid;grid-template-columns:24px 20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);border-radius:9px;background:var(--card)}
 .fe-lens-row:hover{background:var(--hover)}

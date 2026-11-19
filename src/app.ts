@@ -39,6 +39,7 @@ export interface App {
   // removes or restores the History lens's rail button.
   showLens?(lens: string | null, hideHistory?: boolean): void;
   arrangeLenses?(s: Settings): void;
+  keptHere?(): boolean;   // this folder keeps its own view, sort and grouping
   /** Open the sidebar's Ask on a file from this folder, without leaving the page. */
   askAbout?(e: Entry): void;
   /** Open a note's colour, pin and tags menu beside `anchor`; `rel` is its path inside the notes folder. */

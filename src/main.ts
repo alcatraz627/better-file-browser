@@ -50,6 +50,7 @@ import { initHomeLens, initHomePage } from './home-lens';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { jsonPref } from './storage';
+import { folderView } from './folder-views';
 import { setLinkHome } from './renderers';
 import { errorText } from './errors';
 import { initPhoneSeed, initPhoneButtons, initAddressRouting } from './phone';
@@ -146,7 +147,7 @@ loadKv().catch(() => {}).then(function () {
   const iconRules = getIconRules();
   if (takeCompactMode(settings)) saveSettings(settings);
   const initDensity = getDensity();
-  const initView   = getView();
+  const initView   = (!fileMode && !homeMode && folderView(folderPath)?.view) || getView();
   const initTheme  = resolveTheme(themeMode());
   const initPalette = getPalette();
   const initHidden = getShowHidden();

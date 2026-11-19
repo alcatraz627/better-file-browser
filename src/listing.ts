@@ -2,6 +2,7 @@
 // deep search), how (view, detail level, hidden files, column widths) and which rows
 // are selected. Pointer and key handling live in listing-input.ts and drive
 // this module through the selection functions it returns.
+import { folderView, keepFolderView, dropFolderView, KEEP_ON, KEEP_OFF } from './folder-views';
 import { resizable } from './resize';
 import type { App } from './app';
 import type { Entry, SortConfig, FilterConfig, GroupMode } from './types';
@@ -11,7 +12,7 @@ import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
   viewPref, densityPref, hiddenPref, textPref, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
-  getSortConfig, saveSortConfig, getGroupMode, saveGroupMode, dirsFirstPref,
+  getSortConfig, saveSortConfig, getGroupMode, saveGroupMode, dirsFirstPref, getView,
 } from './storage';
 import { upsertPlace } from './places';
 import { listingShown } from './main-surface';
@@ -60,9 +61,14 @@ export interface Listing { ls: ListingState; sel: Selection; applyAll(): void; a
 
 export function initListing(app: App, all: Entry[], init: { view: string; density: number; hidden: boolean }): Listing {
   const { fe, toast, rawPath } = app;
+  // A folder kept with its own view starts from it, and its changes stay with it.
+  const here = app.fileMode ? null : folderView(app.folderPath);
+  let keptHere = !!here;
+  app.keptHere = () => keptHere;
+  const saveView = (v: string) => { if (keptHere) keepFolderView(app.folderPath, { view: v }); else viewPref.set(v); };
   const ls: ListingState = {
     all, visible: all, baseStatus: '',
-    sort: getSortConfig(), group: getGroupMode(), filter: { q: '', regex: false, type: 'all' },
+    sort: here?.sort ?? getSortConfig(), group: here?.group ?? getGroupMode(), filter: { q: '', regex: false, type: 'all' },
     deepOn: false, deepEntries: null, deepFolders: 0, deepTruncated: false, deepCap: '', deepScanning: false, deepSeq: 0,
     contentHits: null, contentText: '', findSeq: 0, pendingFindText: null,
     selSet: new Set(), selIdx: -1, anchor: -1,
@@ -187,6 +193,38 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     img.removeAttribute('data-src');
   }), { root: el('fe-scroll'), rootMargin: '300px' });
 
+  // A big folder of tiles draws its first screen at once and the rest just after,
+  // a chunk per frame, so the page shows something before every tile is built.
+  // A newer draw (a filter, a sort) stops a fill still going. The gallery reads
+  // its whole strip at once, so it is drawn in one go.
+  const TILES_FIRST = 160, TILES_CHUNK = 600;
+  let tileFill = 0;
+  function fillTiles(parts: string[], inSteps: boolean): void {
+    const tiles = el('fe-tiles');
+    const run = ++tileFill;
+    const watch = () => tiles.querySelectorAll('img[data-src]').forEach(img => pictureNear.observe(img));
+    if (!inSteps || parts.length <= TILES_FIRST * 2) {
+      tiles.innerHTML = parts.join('');
+      tiles.removeAttribute('aria-busy');
+      watch();
+      return;
+    }
+    tiles.innerHTML = parts.slice(0, TILES_FIRST).join('');
+    tiles.setAttribute('aria-busy', 'true');
+    watch();
+    let at = TILES_FIRST;
+    const more = () => {
+      if (run !== tileFill) return;
+      tiles.insertAdjacentHTML('beforeend', parts.slice(at, at + TILES_CHUNK).join(''));
+      at += TILES_CHUNK;
+      watch();
+      if (at < parts.length) requestAnimationFrame(more);
+      else { tiles.removeAttribute('aria-busy'); paintSel(); }
+    };
+    // After the first screen has painted.
+    requestAnimationFrame(() => requestAnimationFrame(more));
+  }
+
   // This Chrome tab remembers the selected row of each folder, by name.
   const leadPref = textPref('bfb-lead:' + rawPath, '', 'tab');
   let leadRestored = false;
@@ -199,7 +237,6 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     entries = applySort(entries, ls.sort, dirsFirstPref.get());
     const c = ctx();
     const tbody = el('fe-tbody');
-    const tiles = el('fe-tiles');
     ls.visible = [];
     // A different set of rows (a filter, a sort, a clear) starts at the top; the
     // same set drawn again (hidden files, detail, comment counts) stays put.
@@ -235,8 +272,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       ? { parts: kept.map(i => rowParts[i]), idxOf: kept.map(i => idxOf[i]), tops: [], total: 0, a: 0, b: 0 }
       : null;
     if (win) measureWindow(); else tbody.innerHTML = rowParts.join('');
-    tiles.innerHTML = tileParts.join('');
-    tiles.querySelectorAll('img[data-src]').forEach(img => pictureNear.observe(img));
+    fillTiles(tileParts, view !== 'gallery');
     fe.classList.toggle('fe-has-find-hits', !!ls.contentHits);
     if (fe.dataset.view === 'tree') {
       ls.visible = [];
@@ -286,7 +322,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   }
   app.applyAll = applyAll;
   void loadOpenCounts(all).then(m => { if (m.size) { openComments = m; applyAll(); } });
-  app.setView = v => { el<ValuedEl>('fe-view-group').value = v; fe.dataset.view = v; viewPref.set(v); applyAll(); };
+  app.setView = v => { el<ValuedEl>('fe-view-group').value = v; fe.dataset.view = v; saveView(v); applyAll(); };
   app.setOrder = (sort, group) => { ls.sort = { ...sort }; ls.group = group; syncSortUi(); applyAll(); };
 
   function refreshNameMatches(): void {
@@ -414,8 +450,27 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   el('fe-view-group').addEventListener('change', () => {
     const v = el<ValuedEl>('fe-view-group').value;
     fe.dataset.view = v;
-    viewPref.set(v);
+    saveView(v);
     applyAll();
+  });
+  // Keep for this folder: on, it saves the view, sort and grouping shown now for
+  // this folder alone; off, the folder goes back to the default ones.
+  const keepBtn = document.getElementById('fe-keep-view');
+  keepBtn?.addEventListener('click', () => {
+    keptHere = !keptHere;
+    keepBtn.setAttribute('aria-pressed', String(keptHere));
+    keepBtn.title = keptHere ? KEEP_ON : KEEP_OFF;
+    if (keptHere) {
+      keepFolderView(app.folderPath, { view: el<ValuedEl>('fe-view-group').value, sort: { ...ls.sort }, group: ls.group });
+      toast('This folder keeps its own view');
+    } else {
+      dropFolderView(app.folderPath);
+      const v = getView();
+      el<ValuedEl>('fe-view-group').value = v; fe.dataset.view = v;
+      ls.sort = getSortConfig(); ls.group = getGroupMode();
+      syncSortUi(); applyAll();
+      toast('This folder follows the default view');
+    }
   });
   el('fe-tree').addEventListener('click', e => {
     const toggle = (e.target as HTMLElement).closest<HTMLButtonElement>('.fe-tree-toggle');
@@ -504,8 +559,8 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       h.querySelector('.si')!.textContent = on ? (dir === 'asc' ? '↑' : '↓') : '↕';
     });
     groupSeg.value = ls.group;
-    saveSortConfig(ls.sort);
-    saveGroupMode(ls.group);
+    if (keptHere) keepFolderView(app.folderPath, { sort: { ...ls.sort }, group: ls.group });
+    else { saveSortConfig(ls.sort); saveGroupMode(ls.group); }
   }
   function setSortCol(col: SortConfig['col']): void {
     if (ls.sort.col === col) ls.sort.dir = ls.sort.dir === 'asc' ? 'desc' : 'asc';

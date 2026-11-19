@@ -14,6 +14,7 @@ import { renderSavedList, renderCrumbs, type RenderContext } from './render';
 import { segHtml, ddHtml, sliderHtml, checkHtml } from './controls';
 import { DENSITY_NAMES } from './storage';
 import { lensOrder, lensOn } from './lens-list';
+import { folderView, KEEP_ON, KEEP_OFF } from './folder-views';
 
 const SORT_ICON = line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 14);
 const PI_FOLDER = '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>';
@@ -67,6 +68,8 @@ export function renderPage(p: PageParams): string {
     gallery: 'A large preview above a strip of thumbnails',
   };
 
+  const kept = !fileMode && !!folderView(folderPath);
+  const keepBtn = `<button type="button" id="fe-keep-view" class="btn" data-icon aria-pressed="${kept}" title="${kept ? KEEP_ON : KEEP_OFF}" aria-label="Keep view for this folder">${UI_ICON.pin}</button>`;
   const viewSeg = segHtml('fe-view-group', VIEW_MODES.map(v => ({ value: v.id, icon: v.ico, hint: `${v.label} view: ${VIEW_LABELS[v.id]}` })), 'View');
 
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
@@ -199,6 +202,7 @@ export function renderPage(p: PageParams): string {
           </div>
           <span class="bar-sep" aria-hidden="true"></span>
           ${viewSeg}
+          ${keepBtn}
           <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>

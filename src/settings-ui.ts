@@ -7,10 +7,11 @@ import type { Entry, IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc, fileHref } from './utils';
 import { icoCustom, getIcon, ruleFor, RULE_GLYPHS, SWATCHES } from './icons';
-import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir, densityPref, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
+import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, saveSortConfig, saveGroupMode, homeDir, densityPref, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
 import { runOpenWith } from './open-with';
 import { initOpenWithSettings } from './settings-open-with';
 import { initLensSettings } from './settings-lenses';
+import { initFolderViewSettings } from './settings-folder-views';
 import { initSettingsSearch, resetSettingsSearch } from './settings-search';
 import { notes } from './notes';
 import { copyWithCheck } from './copy-done';
@@ -78,6 +79,7 @@ export function initSettingsUi(app: App): void {
   const refreshWeb = initWebSettings(toast);
   const refreshOpenWith = initOpenWithSettings(settings, toast);
   const refreshLenses = initLensSettings(app, settings, toast);
+  const refreshFolderViews = initFolderViewSettings(app, toast);
 
   // Icon rules.
   const badRegex = (p: string) => { try { new RegExp(p, 'i'); return ''; } catch (e) { return String((e as Error).message); } };
@@ -337,6 +339,7 @@ export function initSettingsUi(app: App): void {
     v('fe-st-density').value = String(densityPref.get());
     el<HTMLInputElement>('fe-st-tooltips').checked = settings.tooltips !== false;
     v('fe-st-defview').value = getView();
+    refreshFolderViews();
     const order = getSortConfig();
     v('fe-st-sort').value = order.col ?? '';
     v('fe-st-sort-dir').value = order.dir;
@@ -420,10 +423,13 @@ export function initSettingsUi(app: App): void {
   });
 
   // Folders.
-  v('fe-st-defview').addEventListener('change', () => { viewPref.set(v('fe-st-defview').value); app.setView(v('fe-st-defview').value); });
-  const applyOrder = () => app.setOrder(
-    { col: (v('fe-st-sort').value || null) as SortConfig['col'], dir: v('fe-st-sort-dir').value as SortConfig['dir'] },
-    v('fe-st-group').value as GroupMode);
+  // These are the defaults. A folder that keeps its own view is left as it is.
+  v('fe-st-defview').addEventListener('change', () => { viewPref.set(v('fe-st-defview').value); if (!app.keptHere?.()) app.setView(v('fe-st-defview').value); });
+  const applyOrder = () => {
+    const sort = { col: (v('fe-st-sort').value || null) as SortConfig['col'], dir: v('fe-st-sort-dir').value as SortConfig['dir'] };
+    const group = v('fe-st-group').value as GroupMode;
+    if (app.keptHere?.()) { saveSortConfig(sort); saveGroupMode(group); } else app.setOrder(sort, group);
+  };
   // A direction means nothing on the folder's own order, so choosing one sorts by name, as the toolbar does.
   el('fe-st-sort-dir').addEventListener('change', () => { if (!v('fe-st-sort').value) v('fe-st-sort').value = 'name'; });
   ['fe-st-sort', 'fe-st-sort-dir', 'fe-st-group'].forEach(id => el(id).addEventListener('change', applyOrder));
