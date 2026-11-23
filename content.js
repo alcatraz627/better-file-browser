@@ -414,7 +414,13 @@
         const at = mine?.indexOf(c.newValue) ?? -1;
         if (mine && at >= 0) {
           mine.splice(0, at + 1);
-          if (!mine.length) pending.delete(k);
+          if (!mine.length) {
+            pending.delete(k);
+            if (cache.get(k) !== c.newValue) {
+              cache.set(k, c.newValue);
+              watchers.forEach((fn) => fn(k));
+            }
+          }
           continue;
         }
         if (typeof c.newValue === "string") cache.set(k, c.newValue);
@@ -554,10 +560,34 @@
       return { ...DEFAULT_SETTINGS };
     }
   }
+  var copies = /* @__PURE__ */ new Set();
   function getSettings() {
     const s = storedSettings();
     readAs.set(s, snapshot(s));
+    copies.add(new WeakRef(s));
     return s;
+  }
+  function refreshSettings(s) {
+    const was = readAs.get(s);
+    if (!was) return;
+    const now = storedSettings(), mine = s;
+    for (const k of /* @__PURE__ */ new Set([...Object.keys(was), ...Object.keys(now), ...Object.keys(mine)])) {
+      if (JSON.stringify(mine[k]) !== was[k]) continue;
+      if (now[k] === void 0) {
+        delete mine[k];
+        delete was[k];
+      } else {
+        mine[k] = now[k];
+        was[k] = JSON.stringify(now[k]);
+      }
+    }
+  }
+  function refreshOthers(saved) {
+    for (const ref of copies) {
+      const c = ref.deref();
+      if (!c) copies.delete(ref);
+      else if (c !== saved) refreshSettings(c);
+    }
   }
   function saveSettings(s) {
     const was = readAs.get(s);
@@ -574,6 +604,7 @@
     }
     kvSet(SETTINGS_KEY, JSON.stringify(out));
     readAs.set(s, snapshot(s));
+    refreshOthers(s);
     syncHtmlGuard(out);
   }
   function filePagesEnabled(ext2, settings) {
@@ -596,7 +627,9 @@
   function keptNotesList(root2) {
     try {
       const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || "null");
-      return k?.root === root2 && Array.isArray(k.notes) ? k.notes : null;
+      if (k?.root !== root2 || !Array.isArray(k.notes)) return null;
+      const ok = (n) => !!n && typeof n === "object" && typeof n.rel === "string" && (n.tags === void 0 || Array.isArray(n.tags) && n.tags.every((t) => typeof t === "string"));
+      return k.notes.filter(ok);
     } catch {
       return null;
     }
@@ -741,10 +774,23 @@
       return [];
     }
   }
+  var VISIT_GUARD_MS = 5e3;
+  var myVisit = null;
+  var visitGuard = false;
   function pushRecent(path) {
+    myVisit = { path, ts: Date.now() };
     const list3 = getRecents().filter((r) => r.path !== path);
-    list3.unshift({ path, ts: Date.now() });
+    list3.unshift(myVisit);
     kvSet(RECENTS_KEY, JSON.stringify(list3.slice(0, 40)));
+    if (visitGuard) return;
+    visitGuard = true;
+    onKvChange((k) => {
+      const mine = myVisit;
+      if (k !== RECENTS_KEY || !mine || Date.now() - mine.ts > VISIT_GUARD_MS) return;
+      const now = getRecents();
+      if (now.some((r) => r.path === mine.path)) return;
+      kvSet(RECENTS_KEY, JSON.stringify([...now, mine].sort((a, b) => b.ts - a.ts).slice(0, 40)));
+    });
   }
   function forgetRecent(path) {
     kvSet(RECENTS_KEY, JSON.stringify(getRecents().filter((r) => r.path !== path)));
@@ -3556,7 +3602,7 @@ ${text}
     if (!box || table2.classList.contains("fe-rz-fixed") || table2.scrollWidth <= box.clientWidth + 1) return;
     const ths = cellsOf(table2);
     if (ths.length < 2) return;
-    const rows = [...table2.querySelectorAll("tbody tr")].slice(0, 200);
+    const rows2 = [...table2.querySelectorAll("tbody tr")].slice(0, 200);
     const ctx = document.createElement("canvas").getContext("2d");
     const textW = (el2) => {
       if (!el2) return 0;
@@ -3569,9 +3615,9 @@ ${text}
       return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     };
     const want = ths.map((th, i3) => {
-      const ws = rows.map((r) => textW(r.cells[i3])).sort((a, b) => a - b);
+      const ws = rows2.map((r) => textW(r.cells[i3])).sort((a, b) => a - b);
       const p90 = ws.length ? ws[Math.min(ws.length - 1, Math.floor(ws.length * 0.9))] : 0;
-      const body = p90 + pad2(rows[0]?.cells[i3]) + 4;
+      const body = p90 + pad2(rows2[0]?.cells[i3]) + 4;
       const head = textW(th) + pad2(th) + 18;
       return Math.max(56, Math.min(420, Math.ceil(Math.max(head, body))));
     });
@@ -4116,12 +4162,12 @@ ${text}
       src = src.slice(0, RENDER_CAPS.codeChars);
       truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
     }
-    const rows = splitHighlighted(highlightCode(src, ext2));
-    const gut = String(rows.length).length + 1;
+    const rows2 = splitHighlighted(highlightCode(src, ext2));
+    const gut = String(rows2.length).length + 1;
     const blocks = [];
-    for (let s = 0; s < rows.length; s += CODE_BLOCK) {
-      const part = rows.slice(s, s + CODE_BLOCK).map((r, i3) => `<div class="fe-cl"><span class="fe-cl-n">${s + i3 + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
-      blocks.push(`<div class="fe-cl-blk" style="--n:${Math.min(CODE_BLOCK, rows.length - s)}">${part}</div>`);
+    for (let s = 0; s < rows2.length; s += CODE_BLOCK) {
+      const part = rows2.slice(s, s + CODE_BLOCK).map((r, i3) => `<div class="fe-cl"><span class="fe-cl-n">${s + i3 + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
+      blocks.push(`<div class="fe-cl-blk" style="--n:${Math.min(CODE_BLOCK, rows2.length - s)}">${part}</div>`);
     }
     return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${blocks.join("")}</div></div>`;
   }
@@ -4146,11 +4192,11 @@ ${text}
     return out;
   }
   function codeLines(html) {
-    const rows = splitHighlighted(html);
-    return rows.map((r, i3) => `<span class="fe-md-l">${r}${i3 < rows.length - 1 ? "\n" : ""}</span>`).join("");
+    const rows2 = splitHighlighted(html);
+    return rows2.map((r, i3) => `<span class="fe-md-l">${r}${i3 < rows2.length - 1 ? "\n" : ""}</span>`).join("");
   }
   function parseDSV(text, delim) {
-    const rows = [];
+    const rows2 = [];
     let row2 = [];
     let cell = "";
     let inQ = false;
@@ -4172,25 +4218,25 @@ ${text}
         if (ch === "\r" && text[i3 + 1] === "\n") i3++;
         row2.push(cell);
         cell = "";
-        rows.push(row2);
+        rows2.push(row2);
         row2 = [];
       } else cell += ch;
     }
     if (cell !== "" || row2.length) {
       row2.push(cell);
-      rows.push(row2);
+      rows2.push(row2);
     }
-    if (rows.length && rows[rows.length - 1].every((c) => c === "")) rows.pop();
-    return rows;
+    if (rows2.length && rows2[rows2.length - 1].every((c) => c === "")) rows2.pop();
+    return rows2;
   }
-  function numericCols(rows) {
+  function numericCols(rows2) {
     const out = /* @__PURE__ */ new Set();
-    if (rows.length < 2) return out;
-    const width = rows[0].length;
+    if (rows2.length < 2) return out;
+    const width = rows2[0].length;
     for (let c = 0; c < width; c++) {
       let seen2 = 0, num2 = 0;
-      for (let r = 1; r < Math.min(rows.length, 200); r++) {
-        const v = (rows[r][c] ?? "").trim();
+      for (let r = 1; r < Math.min(rows2.length, 200); r++) {
+        const v = (rows2[r][c] ?? "").trim();
         if (!v) continue;
         seen2++;
         if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v.replace(/,/g, ""))) num2++;
@@ -4199,8 +4245,8 @@ ${text}
     }
     return out;
   }
-  function sortDSVRows(rows, col, dir, numeric) {
-    const sorted = [...rows].sort((a, b) => {
+  function sortDSVRows(rows2, col, dir, numeric) {
+    const sorted = [...rows2].sort((a, b) => {
       const va = (a[col] ?? "").trim(), vb = (b[col] ?? "").trim();
       const cmp = numeric ? (parseFloat(va.replace(/,/g, "")) || 0) - (parseFloat(vb.replace(/,/g, "")) || 0) : va.localeCompare(vb);
       return dir === "asc" ? cmp : -cmp;
@@ -4209,18 +4255,18 @@ ${text}
   }
   function renderDSVTable(header, dataRows, numCols, sort) {
     let truncNote = "";
-    let rows = dataRows;
-    if (rows.length > RENDER_CAPS.tableRows) {
-      rows = rows.slice(0, RENDER_CAPS.tableRows);
+    let rows2 = dataRows;
+    if (rows2.length > RENDER_CAPS.tableRows) {
+      rows2 = rows2.slice(0, RENDER_CAPS.tableRows);
       truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
     }
-    const width = rows.reduce((w, r) => Math.max(w, r.length), header.length);
+    const width = rows2.reduce((w, r) => Math.max(w, r.length), header.length);
     const cols = Array.from({ length: width }, (_, i3) => header[i3] ?? `(${i3 + 1})`);
     const ths = cols.map((h, i3) => {
       const arrow = sort?.col === i3 ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
       return `<th data-col="${i3}" class="${numCols.has(i3) ? "num" : ""}${sort?.col === i3 ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
     }).join("");
-    const trs = rows.map(
+    const trs = rows2.map(
       (r) => `<tr>${cols.map((_, i3) => `<td class="${numCols.has(i3) ? "num" : ""}">${esc(r[i3] ?? "")}</td>`).join("")}</tr>`
     ).join("");
     return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
@@ -4486,23 +4532,23 @@ ${text}
   var ALERTS = { NOTE: "Note", TIP: "Tip", IMPORTANT: "Important", WARNING: "Warning", CAUTION: "Caution" };
   var LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
   function frontMatterRows(lines) {
-    const rows = [];
+    const rows2 = [];
     const unquote2 = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
     for (const l of lines) {
       const kv = /^([\w.-]+)\s*:\s*(.*)$/.exec(l);
       const item2 = /^\s+-\s+(.*)$/.exec(l);
-      const last = rows[rows.length - 1];
+      const last = rows2[rows2.length - 1];
       if (kv) {
         const v = kv[2].trim();
         const flow = /^\[(.*)\]$/.exec(v);
-        rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote2).filter(Boolean) } : { key: kv[1], value: unquote2(v) });
+        rows2.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote2).filter(Boolean) } : { key: kv[1], value: unquote2(v) });
       } else if (item2 && last) {
         (last.items ??= []).push(unquote2(item2[1]));
       } else if (/^\s+\S/.test(l) && last && !last.items) {
         last.value = (/^[|>][-+]?$/.test(last.value) ? "" : last.value + " ") + l.trim();
       }
     }
-    return rows;
+    return rows2;
   }
   var FM_PATH = /^(~\/|\.{1,2}\/|\/)?[\w@.-]+(\/[\w@.-]+)*\/?$/;
   var fmPath = (v) => FM_PATH.test(v) && !/^\d/.test(v) && (v.includes("/") || /\.[a-z][\w]{0,5}$/i.test(v));
@@ -4542,8 +4588,8 @@ ${text}
     if (!inner && lines[0] === "---") {
       const end = lines.slice(1, 60).findIndex((l) => l === "---");
       if (end >= 0) {
-        const rows = frontMatterRows(lines.slice(1, end + 1));
-        if (rows.length) out.push(`<dl class="fe-md-fm" data-fm-base="${esc(baseUrl)}">${rows.map((r) => `<dt>${esc(r.key)}</dt><dd>${r.items ? `<span class="fe-fm-items">${r.items.map((v) => fmPath(v) ? `<span class="fe-fm-item">${fmValue(v, baseUrl)}</span>` : `<span class="fe-fm-item chip" data-size="sm" data-tone="quiet"><span>${esc(v)}</span></span>`).join("")}</span>` : fmValue(r.value, baseUrl)}</dd>`).join("")}</dl>`);
+        const rows2 = frontMatterRows(lines.slice(1, end + 1));
+        if (rows2.length) out.push(`<dl class="fe-md-fm" data-fm-base="${esc(baseUrl)}">${rows2.map((r) => `<dt>${esc(r.key)}</dt><dd>${r.items ? `<span class="fe-fm-items">${r.items.map((v) => fmPath(v) ? `<span class="fe-fm-item">${fmValue(v, baseUrl)}</span>` : `<span class="fe-fm-item chip" data-size="sm" data-tone="quiet"><span>${esc(v)}</span></span>`).join("")}</span>` : fmValue(r.value, baseUrl)}</dd>`).join("")}</dl>`);
         i3 = end + 2;
       }
     }
@@ -4705,9 +4751,9 @@ ${text}
         };
         const head = cells(line2);
         i3 += 2;
-        const rows = [];
-        while (i3 < lines.length && lines[i3].includes("|")) rows.push(cells(lines[i3++]));
-        out.push(`<div class="fe-md-tablewrap">${BLOCK_SHOT_BTN}<table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+        const rows2 = [];
+        while (i3 < lines.length && lines[i3].includes("|")) rows2.push(cells(lines[i3++]));
+        out.push(`<div class="fe-md-tablewrap">${BLOCK_SHOT_BTN}<table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows2.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         mark(from, outAt);
         continue;
       }
@@ -4818,9 +4864,9 @@ ${text}
       items.push({ key: "headings", label: "Headings", value: plural(heads, "heading") });
     }
     if (e === "csv" || e === "tsv") {
-      const rows = parseDSV(text, e === "tsv" ? "	" : ",").filter((r) => r.some((c) => c.trim()));
-      const cols = rows.reduce((w, r) => Math.max(w, r.length), 0);
-      items.push({ key: "rows", label: "Rows", value: plural(Math.max(0, rows.length - 1), "row") }, { key: "cols", label: "Columns", value: plural(cols, "column") });
+      const rows2 = parseDSV(text, e === "tsv" ? "	" : ",").filter((r) => r.some((c) => c.trim()));
+      const cols = rows2.reduce((w, r) => Math.max(w, r.length), 0);
+      items.push({ key: "rows", label: "Rows", value: plural(Math.max(0, rows2.length - 1), "row") }, { key: "cols", label: "Columns", value: plural(cols, "column") });
     }
     if (e === "json" || e === "jsonc") {
       try {
@@ -5039,10 +5085,10 @@ ${text}
     const out = text.slice(0, sel.start) + left + inner + right + text.slice(sel.end);
     return { text: out, start: sel.start + left.length, end: sel.end + left.length };
   }
-  function tableSnippet(cols = 2, rows = 2) {
+  function tableSnippet(cols = 2, rows2 = 2) {
     const head = "| " + Array.from({ length: cols }, (_, i3) => `Column ${i3 + 1}`).join(" | ") + " |";
     const sep = "|" + Array.from({ length: cols }, () => " --- |").join("");
-    const body = Array.from({ length: rows }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
+    const body = Array.from({ length: rows2 }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
     return `${head}
 ${sep}
 ${body}
@@ -5778,16 +5824,16 @@ ${body}
 
   // src/line-diff.ts
   function lineDiffHtml(disk, mine) {
-    const rows = lineDiff(disk, mine);
+    const rows2 = lineDiff(disk, mine);
     const keep = /* @__PURE__ */ new Set();
     let changed = 0;
-    rows.forEach((r, i3) => {
+    rows2.forEach((r, i3) => {
       if (r.kind === "same") return;
       changed++;
-      for (let k = Math.max(0, i3 - 2); k <= Math.min(rows.length - 1, i3 + 2); k++) keep.add(k);
+      for (let k = Math.max(0, i3 - 2); k <= Math.min(rows2.length - 1, i3 + 2); k++) keep.add(k);
     });
     let html = "", skipped = false;
-    rows.forEach((r, i3) => {
+    rows2.forEach((r, i3) => {
       if (!keep.has(i3)) {
         skipped = true;
         return;
@@ -12352,8 +12398,8 @@ ${end.comment}` : end.comment;
     const note2 = unrenderableNote(text);
     if (note2) return note2;
     if (TABLE_EXTS.has(ext2)) {
-      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
-      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote("");
+      const rows2 = parseDSV(text, ext2 === "tsv" ? "	" : ",");
+      return rows2.length ? renderDSVTable(rows2[0], rows2.slice(1), numericCols(rows2)) : unrenderableNote("");
     }
     const fmt = formatFor(ext2);
     if (fmt?.id === "html" && host === "page") return renderCode(text, ext2);
@@ -13173,11 +13219,11 @@ ${end.comment}` : end.comment;
       return;
     }
     if (TABLE_EXTS.has(ext2)) {
-      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
-      if (rows.length) {
-        dsvHeader = rows[0];
-        dsvRows = rows.slice(1);
-        dsvNum = numericCols(rows);
+      const rows2 = parseDSV(text, ext2 === "tsv" ? "	" : ",");
+      if (rows2.length) {
+        dsvHeader = rows2[0];
+        dsvRows = rows2.slice(1);
+        dsvNum = numericCols(rows2);
         body.innerHTML = renderDSVTable(dsvHeader, dsvRows, dsvNum);
         return;
       }
@@ -14775,11 +14821,11 @@ ${t}`)) say("Note title saved");
         if (!opts.md) return "";
         const { key, via } = keyOf(id);
         if (!key) return "";
-        const rows = doc.rowsFor(key), path = doc.pathFor(key);
-        if (!rows.length && !path.length) return "";
+        const rows2 = doc.rowsFor(key), path = doc.pathFor(key);
+        if (!rows2.length && !path.length) return "";
         const skip = (h) => /^(#|mark)$/i.test(h);
         const sec = ({ t, r }) => `<section><header><span>${esc2(t.section.replace(/^[\dA-Z]+\.\s*/, ""))}</span>${opts.file ? `<a href="${esc2(opts.file)}#${esc2(t.anchor)}" target="_blank" rel="noopener" title="Open this part of the doc">Open</a>` : ""}</header><dl class="dl-kv">${r.map((c, i3) => c && !skip(t.headers[i3] ?? "") ? `<dt>${esc2(t.headers[i3] ?? "")}</dt><dd>${inline(c)}</dd>` : "").join("")}</dl></section>`;
-        return `<h3>From the doc${via ? `, via ${esc2(key)}` : ""}</h3><div class="dl-src">` + (path.length ? `<section><header><span>The path</span></header><ul class="dl-steps">${path.map((x2) => `<li>${inline(x2)}</li>`).join("")}</ul></section>` : "") + rows.slice(0, cap).map(sec).join("") + "</div>" + (rows.length > cap ? `<button type="button" class="dl-more" data-more="1">Show ${rows.length - cap} more</button>` : "");
+        return `<h3>From the doc${via ? `, via ${esc2(key)}` : ""}</h3><div class="dl-src">` + (path.length ? `<section><header><span>The path</span></header><ul class="dl-steps">${path.map((x2) => `<li>${inline(x2)}</li>`).join("")}</ul></section>` : "") + rows2.slice(0, cap).map(sec).join("") + "</div>" + (rows2.length > cap ? `<button type="button" class="dl-more" data-more="1">Show ${rows2.length - cap} more</button>` : "");
       }
       panel.addEventListener("click", (e) => {
         const go2 = e.target.closest("[data-go]");
@@ -16198,10 +16244,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     { state: "archived", label: "Archived" }
   ];
   var bandOf = (r, archived = /* @__PURE__ */ new Set()) => archived.has(r.slug) || r.state === "answered" || r.state === "cleared" ? "archived" : r.state;
-  function dpBands(rows, q = "", archived = /* @__PURE__ */ new Set()) {
+  function dpBands(rows2, q = "", archived = /* @__PURE__ */ new Set()) {
     const n = q.trim().toLowerCase();
     const hit = (r) => !n || [r.title, r.slug, r.origin?.project, r.origin?.topic].some((v) => v?.toLowerCase().includes(n));
-    return BANDS.map((b) => ({ ...b, rows: rows.filter((r) => bandOf(r, archived) === b.state && hit(r)).sort((a, z) => reachRank(a) - reachRank(z) || z.mtime - a.mtime) })).filter((b) => b.rows.length);
+    return BANDS.map((b) => ({ ...b, rows: rows2.filter((r) => bandOf(r, archived) === b.state && hit(r)).sort((a, z) => reachRank(a) - reachRank(z) || z.mtime - a.mtime) })).filter((b) => b.rows.length);
   }
   var archivedPref = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
   function ago(sec, now = Date.now() / 1e3) {
@@ -16259,9 +16305,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     let seq2 = 0;
     const load = () => {
       const mine = ++seq2;
-      return notes.dpPages().then((rows) => {
+      return notes.dpPages().then((rows2) => {
         if (mine === seq2) {
-          all = rows;
+          all = rows2;
           paint();
         }
       }).catch((err) => {
@@ -16305,7 +16351,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         void load();
       }
     });
-    addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows) => dpBands(rows).flatMap((b) => b.rows).map((r) => ({
+    addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows2) => dpBands(rows2).flatMap((b) => b.rows).map((r) => ({
       title: r.title ?? r.slug,
       sub: `${BANDS.find((x2) => x2.state === bandOf(r, archived())).label} \xB7 ${ago(r.mtime)}`,
       group: "Decisions",
@@ -16354,7 +16400,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   var SHORT_ID = 4;
   function outlineHtml(items, title) {
     let group2;
-    const rows = items.map((it) => {
+    const rows2 = items.map((it) => {
       const head = it.group && it.group !== group2 ? `<li class="fe-dv-outline-grp">${esc(it.group)}</li>` : "";
       group2 = it.group;
       const shortId = it.id.length <= SHORT_ID;
@@ -16362,7 +16408,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       <i></i>${shortId ? `<span class="fe-dv-outline-id">${esc(it.id)}</span>` : ""}<span class="fe-dv-outline-lbl">${esc(it.label)}</span><span class="fe-dv-outline-val">${esc(it.value ?? "")}</span>
     </button></li>`;
     }).join("");
-    return `<nav class="fe-dv-outline" aria-label="${esc(title)}"><div class="fe-dv-outline-h">${esc(title)}</div><ol>${rows}</ol></nav>`;
+    return `<nav class="fe-dv-outline" aria-label="${esc(title)}"><div class="fe-dv-outline-h">${esc(title)}</div><ol>${rows2}</ol></nav>`;
   }
   function updateOutline(nav, id, o) {
     const row2 = nav.querySelector(`.fe-dv-outline-row[data-target="${CSS.escape(id)}"]`);
@@ -16615,8 +16661,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
   function originFacts(o, now = Date.now()) {
     if (!o) return [];
-    const rows = [["Project", o.project, ""], ["Session", o.session, ""], ["Goal", o.goal, "goal "], ["Row", o.goal && o.row ? String(o.row).replace(/^#/, "") : void 0, "#"], ["Milestone", o.milestone, ""], ["Card", o.board ? void 0 : o.card, "card "]];
-    const out = rows.filter((r) => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
+    const rows2 = [["Project", o.project, ""], ["Session", o.session, ""], ["Goal", o.goal, "goal "], ["Row", o.goal && o.row ? String(o.row).replace(/^#/, "") : void 0, "#"], ["Milestone", o.milestone, ""], ["Card", o.board ? void 0 : o.card, "card "]];
+    const out = rows2.filter((r) => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
     if (o.created) {
       const at = Date.parse(o.created);
       if (Number.isNaN(at)) out.push({ label: "Asked", value: `asked ${o.created}`, copy: o.created });
@@ -16985,7 +17031,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
   function readDirections(root2) {
     const sections = [];
-    const rows = [];
+    const rows2 = [];
     const stack2 = [];
     let lastUpdated = null;
     for (const p of root2.querySelectorAll("p, li")) {
@@ -17011,15 +17057,15 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         if (section && !section.accepted && /^(✅|accepted when|done when)/i.test(t)) section.accepted = t.replace(/^✅\s*/, "").replace(/^(accepted|done) when\s*:?\s*/i, "");
         continue;
       }
-      readTable(n, section, rows);
+      readTable(n, section, rows2);
     }
     const bare = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/^\s*\d+[.)]?\s*/, "").trim().toLowerCase();
     const titles = new Set(sections.map((s) => bare(s.title)).filter(Boolean));
-    for (const r of rows) {
+    for (const r of rows2) {
       const cells = [...r.el.cells].slice(0, 2).map((td) => bare(td.textContent ?? ""));
       r.summary = cells.some((c) => c && titles.has(c));
     }
-    return { sections, rows, lastUpdated };
+    return { sections, rows: rows2, lastUpdated };
   }
   function readTable(table2, section, out) {
     const heads = [...table2.querySelectorAll("thead th")].map((th) => clean(th.textContent).toLowerCase());
@@ -17074,12 +17120,12 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   function nextHeadHtml(m, h) {
     const at = (r) => m.rows.indexOf(r);
     const inState = (s) => m.rows.filter((r) => !r.summary && (r.el.dataset.state ?? r.state) === s).length;
-    const group2 = (key, title, rows, sub, tip, empty, more) => {
-      const n = Math.max(inState(more), rows.length);
+    const group2 = (key, title, rows2, sub, tip, empty, more) => {
+      const n = Math.max(inState(more), rows2.length);
       return `
     <div class="fe-dir-next-g" data-g="${key}">
       <div class="sect" data-level="group" role="heading" aria-level="3">${title}<span class="fe-grp-n">${n || ""}</span>${n > CAP ? `<button type="button" class="fe-dir-next-more" data-more="${more}" title="Show every row in this state">all ${n}</button>` : ""}</div>
-      ${rows.length ? `<ol>${rows.slice(0, CAP).map((r) => item(r, at(r), sub(r), tip(r))).join("")}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
+      ${rows2.length ? `<ol>${rows2.slice(0, CAP).map((r) => item(r, at(r), sub(r), tip(r))).join("")}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
     </div>`;
     };
     const youSub = (r) => r.need ? esc(r.need) : r.section && !r.asks ? esc(plain2(r.section.title)) : "";
@@ -17330,10 +17376,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     }
     return [...groups.values()].sort((a, b) => Number(b.section?.kind === "waiting") - Number(a.section?.kind === "waiting"));
   }
-  var meterOf = (rows) => {
-    const n = (s) => rows.filter((r) => r.el.dataset.state === s).length;
+  var meterOf = (rows2) => {
+    const n = (s) => rows2.filter((r) => r.el.dataset.state === s).length;
     const done = n("done");
-    return meterHtml(STATES.map((s) => ({ state: s.id, n: n(s.id), label: s.label })), `${done}/${rows.length}`, `${done} of ${rows.length} done`);
+    return meterHtml(STATES.map((s) => ({ state: s.id, n: n(s.id), label: s.label })), `${done}/${rows2.length}`, `${done} of ${rows2.length} done`);
   };
   var ringHtml = (done, total) => {
     const C = 2 * Math.PI * 18, share = total ? done / total : 0;
@@ -17360,13 +17406,13 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const shown2 = brief ? g.rows : g.rows.filter((r) => !r.el.hidden);
       if (!shown2.length) return "";
       const folded = brief ? !open.has(g.key) : open.has("-" + g.key);
-      const rows = folded ? "" : shown2.map((r) => {
+      const rows2 = folded ? "" : shown2.map((r) => {
         const st = r.el.dataset.state;
         const label = STATES.find((s) => s.id === st)?.label;
         const sub = r.need || (r.section && r.section !== g.section ? plain3(r.section.title) : "");
         return `<tr data-row="${at(r)}"${st ? ` data-state="${st}"` : ""}><td class="fe-dl-st">${st ? pillHtml(st, label) : '<span class="fe-dl-none">unmarked</span>'}</td><td class="fe-dl-id">${r.id ? esc(r.id) : ""}</td><td class="fe-dl-t"><span class="fe-dl-tx">${esc(plain3(r.text || "Row"))}</span>${sub ? `<span class="fe-dl-sub">${esc(plain3(sub))}</span>` : ""}</td>` + (linked ? `<td class="fe-dl-links">${chipsHtml2(links.get(r) ?? [])}</td>` : "") + `<td class="fe-dl-when">${r.when ?? ""}</td></tr>`;
       }).join("");
-      return `<tbody data-group="${esc(g.key)}"><tr class="fe-dl-g"><th colspan="${cols}"><span class="fe-dl-gh"><button type="button" class="fe-dl-fold" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} these rows">${esc(g.title)}</button>${meterOf(g.rows)}<span class="fe-dl-n">${shown2.length}${shown2.length !== g.rows.length ? ` of ${g.rows.length}` : ""}</span>${g.section ? `<button type="button" class="fe-dl-go" data-sec="${esc(g.section.el.id)}" title="Read this section in the doc">In doc</button>` : ""}</span></th></tr>${rows}</tbody>`;
+      return `<tbody data-group="${esc(g.key)}"><tr class="fe-dl-g"><th colspan="${cols}"><span class="fe-dl-gh"><button type="button" class="fe-dl-fold" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} these rows">${esc(g.title)}</button>${meterOf(g.rows)}<span class="fe-dl-n">${shown2.length}${shown2.length !== g.rows.length ? ` of ${g.rows.length}` : ""}</span>${g.section ? `<button type="button" class="fe-dl-go" data-sec="${esc(g.section.el.id)}" title="Read this section in the doc">In doc</button>` : ""}</span></th></tr>${rows2}</tbody>`;
     }).join("");
     return body ? `<table class="fe-dl">${body}</table>` : '<p class="fe-dl-empty">No row matches the filter.</p>';
   }
@@ -17482,21 +17528,21 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const model = readDirections(root2);
     const allRows = [...root2.querySelectorAll("tbody tr")];
     const keyRows = allRows.filter((r) => isKeyRow(r.textContent ?? ""));
-    const rows = allRows.filter((r) => !keyRows.includes(r));
+    const rows2 = allRows.filter((r) => !keyRows.includes(r));
     const headingOf = (r) => {
       let n = r.closest("table")?.closest(".fe-md-tablewrap") ?? r.closest("table");
       while (n && !/^H[1-6]$/.test(n.tagName)) n = n.previousElementSibling;
       return n?.textContent ?? "";
     };
     const worded = new Map(model.rows.map((r) => [r.el, r.state]));
-    const states = rows.map((r) => rowState(r.textContent ?? "") ?? (asksOwner(headingOf(r)) ? "needs" : null) ?? worded.get(r) ?? null);
+    const states = rows2.map((r) => rowState(r.textContent ?? "") ?? (asksOwner(headingOf(r)) ? "needs" : null) ?? worded.get(r) ?? null);
     if (!states.some(Boolean)) return;
     root2.dataset.directions = "on";
     const summaries = new Set(model.rows.filter((r) => r.summary).map((r) => r.el));
-    rows.forEach((r, i3) => {
+    rows2.forEach((r, i3) => {
       if (states[i3] && !summaries.has(r)) r.dataset.state = states[i3];
     });
-    for (const td of rows.flatMap((r) => [...r.cells])) {
+    for (const td of rows2.flatMap((r) => [...r.cells])) {
       const text = td.textContent?.trim() ?? "";
       const s = DIR_STATES.find((x2) => text.startsWith(x2.mark));
       if (!s) continue;
@@ -17538,7 +17584,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         td.innerHTML = `<a href="#${esc(h.id)}">${esc(name2)}</a>${m}`;
       }
     }
-    const all = tally(rows.map((r, i3) => summaries.has(r) ? null : states[i3]));
+    const all = tally(rows2.map((r, i3) => summaries.has(r) ? null : states[i3]));
     const tasks = model.rows.filter((r) => !r.summary).map((r) => r.el);
     const next = nextHead(model);
     const bar = document.createElement("div");
@@ -21547,13 +21593,13 @@ button.chip:disabled{opacity:.45;cursor:default}
     const blockCache = /* @__PURE__ */ new Map();
     const blockRows = (b) => {
       const text = lines.slice(b * BLOCK, (b + 1) * BLOCK).join("\n");
-      let rows = blockCache.get(text);
-      if (!rows) {
-        rows = splitHighlighted(highlightCode(text, host.ext));
+      let rows2 = blockCache.get(text);
+      if (!rows2) {
+        rows2 = splitHighlighted(highlightCode(text, host.ext));
         if (blockCache.size > 64) blockCache.delete(blockCache.keys().next().value);
-        blockCache.set(text, rows);
+        blockCache.set(text, rows2);
       }
-      return rows;
+      return rows2;
     };
     const rowEl = (i3) => big ? i3 >= winFirst && i3 <= winLast ? win.children[i3 - winFirst] : void 0 : paintEl.children[i3];
     const lineAtY = (clientY) => Math.floor((clientY - paintEl.getBoundingClientRect().top) / lh);
@@ -21566,9 +21612,9 @@ button.chip:disabled{opacity:.45;cursor:default}
       if (!force && first >= winFirst && last <= winLast && (winFirst === 0 || first - winFirst < WIN_PAD) && (winLast === lines.length - 1 || winLast - last < WIN_PAD)) return;
       let html = "";
       for (let b = Math.floor(first / BLOCK); b <= Math.floor(last / BLOCK); b++) {
-        const rows = blockRows(b);
-        const from = Math.max(first, b * BLOCK), to = Math.min(last, b * BLOCK + rows.length - 1);
-        for (let i3 = from; i3 <= to; i3++) html += rowHtml(rows[i3 - b * BLOCK], i3);
+        const rows2 = blockRows(b);
+        const from = Math.max(first, b * BLOCK), to = Math.min(last, b * BLOCK + rows2.length - 1);
+        for (let i3 = from; i3 <= to; i3++) html += rowHtml(rows2[i3 - b * BLOCK], i3);
       }
       win.style.transform = `translateY(${first * lh}px)`;
       win.innerHTML = html;
@@ -21633,21 +21679,21 @@ button.chip:disabled{opacity:.45;cursor:default}
         markLine();
         return;
       }
-      const rows = splitHighlighted(highlightCode(tw.text(), host.ext));
+      const rows2 = splitHighlighted(highlightCode(tw.text(), host.ext));
       let a = 0;
-      while (a < rows.length && a < painted.length && rows[a] === painted[a]) a++;
-      let b = painted.length, c = rows.length;
-      while (b > a && c > a && rows[c - 1] === painted[b - 1]) {
+      while (a < rows2.length && a < painted.length && rows2[a] === painted[a]) a++;
+      let b = painted.length, c = rows2.length;
+      while (b > a && c > a && rows2[c - 1] === painted[b - 1]) {
         b--;
         c--;
       }
       for (let i3 = b - 1; i3 >= a; i3--) paintEl.children[i3].remove();
-      const html = rows.slice(a, c).map((r, k) => rowHtml(r, a + k)).join("");
+      const html = rows2.slice(a, c).map((r, k) => rowHtml(r, a + k)).join("");
       const next = paintEl.children[a];
       if (next) next.insertAdjacentHTML("beforebegin", html);
       else paintEl.insertAdjacentHTML("beforeend", html);
-      if (rows.length !== painted.length) for (let i3 = c; i3 < rows.length; i3++) paintEl.children[i3].firstChild.textContent = String(i3 + 1);
-      painted = rows;
+      if (rows2.length !== painted.length) for (let i3 = c; i3 < rows2.length; i3++) paintEl.children[i3].firstChild.textContent = String(i3 + 1);
+      painted = rows2;
       ta.style.height = paintEl.offsetHeight + "px";
       paintEl.querySelector(".cur")?.classList.remove("cur");
       curRow = -1;
@@ -22359,9 +22405,9 @@ and ${diags.length - 12} more` : "");
         const vp = viewport(), dir = e.key === "PageDown" ? 1 : -1;
         const y = rowEl(curRow)?.getBoundingClientRect().top ?? vp.getBoundingClientRect().top;
         vp.scrollTop += dir * vp.clientHeight * 0.9;
-        const rows = [...paintEl.children];
-        let line2 = rows.findIndex((r) => r.getBoundingClientRect().bottom > y);
-        if (line2 < 0) line2 = rows.length - 1;
+        const rows2 = [...paintEl.children];
+        let line2 = rows2.findIndex((r) => r.getBoundingClientRect().bottom > y);
+        if (line2 < 0) line2 = rows2.length - 1;
         const at = lineStart(ta.value, line2);
         ta.setSelectionRange(e.shiftKey ? ta.selectionStart : at, at);
         markLine();
@@ -24106,8 +24152,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     }
     code(pre) {
       const lines = pre.querySelectorAll(":scope > .fe-md-l");
-      const rows = lines.length ? [...lines] : [pre];
-      for (const row2 of rows) {
+      const rows2 = lines.length ? [...lines] : [pre];
+      for (const row2 of rows2) {
         const clone = row2.cloneNode(true);
         const last = clone.lastChild;
         if (last?.nodeType === Node.TEXT_NODE) last.textContent = last.textContent.replace(/\n$/, "");
@@ -24115,13 +24161,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
     }
     table(t) {
-      const rows = [...t.rows].filter((r) => !r.hidden);
-      const cols = Math.max(1, ...rows.map((r) => r.cells.length));
-      const need = Array.from({ length: cols }, (_x, k) => Math.min(60, Math.max(4, ...rows.map((r) => (r.cells[k]?.textContent ?? "").trim().length))));
+      const rows2 = [...t.rows].filter((r) => !r.hidden);
+      const cols = Math.max(1, ...rows2.map((r) => r.cells.length));
+      const need = Array.from({ length: cols }, (_x, k) => Math.min(60, Math.max(4, ...rows2.map((r) => (r.cells[k]?.textContent ?? "").trim().length))));
       const sum = need.reduce((a, b) => a + b, 0);
       const widths = need.map((n) => Math.floor(TEXT_W * n / sum));
       const out = [`<w:tbl><w:tblPr><w:tblStyle w:val="Grid"/><w:tblW w:w="${TEXT_W}" w:type="dxa"/>${BORDERS}<w:tblLayout w:type="fixed"/><w:tblLook w:val="04A0" w:firstRow="1"/></w:tblPr><w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`];
-      rows.forEach((r) => {
+      rows2.forEach((r) => {
         const head = r.parentElement?.tagName === "THEAD";
         out.push(`<w:tr>${head ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}`);
         for (const [k, c] of [...r.cells].entries()) {
@@ -24593,11 +24639,11 @@ ${body}
           return inner;
       }
     };
-    const rows = [...table2.rows].map((r) => [...r.cells].map((c) => [...c.childNodes].map(inline).join("").trim().replace(/\|/g, "\\|")));
-    if (!rows.length) return "";
-    const cols = Math.max(...rows.map((r) => r.length));
+    const rows2 = [...table2.rows].map((r) => [...r.cells].map((c) => [...c.childNodes].map(inline).join("").trim().replace(/\|/g, "\\|")));
+    if (!rows2.length) return "";
+    const cols = Math.max(...rows2.map((r) => r.length));
     const line2 = (cells) => `| ${Array.from({ length: cols }, (_, i3) => cells[i3] ?? "").join(" | ")} |`;
-    return [line2(rows[0]), `|${" --- |".repeat(cols)}`, ...rows.slice(1).map(line2)].join("\n") + "\n";
+    return [line2(rows2[0]), `|${" --- |".repeat(cols)}`, ...rows2.slice(1).map(line2)].join("\n") + "\n";
   }
   function backdrop(el2) {
     for (let n = el2; n; n = n.parentElement) {
@@ -24678,13 +24724,13 @@ ${body}
     const errors = diags.filter((d) => d.severity === "error").length;
     const warns = diags.length - errors;
     const head = [errors && `${errors} error${errors > 1 ? "s" : ""}`, warns && `${warns} warning${warns > 1 ? "s" : ""}`].filter(Boolean).join(", ");
-    const rows = diags.slice(0, 8).map(diagRow).join("");
+    const rows2 = diags.slice(0, 8).map(diagRow).join("");
     const more = diags.length > 8 ? `<span class="fe-diag-more">and ${diags.length - 8} more</span>` : "";
-    return `<details class="fe-diag card ${errors ? "error" : "warn"}"${errors ? " open" : ""}><summary>${head}</summary>${rows}${more}</details>`;
+    return `<details class="fe-diag card ${errors ? "error" : "warn"}"${errors ? " open" : ""}><summary>${head}</summary>${rows2}${more}</details>`;
   }
-  function markRows(rows, diags) {
+  function markRows(rows2, diags) {
     for (const d of diags) {
-      const row2 = rows[d.line - 1];
+      const row2 = rows2[d.line - 1];
       if (!row2) continue;
       if (!row2.classList.contains("err")) row2.classList.add(d.severity === "error" ? "err" : "warn");
       if (d.severity === "error") row2.classList.replace("warn", "err");
@@ -25832,13 +25878,13 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       const labels = displayLabels(state.list);
       const keeps = distinctKeeps(labels);
       paintHome();
-      const rows = state.list.map((t, i3) => tabHtml(t, i3, t.id === here?.id, labels[i3], keeps[i3]));
+      const rows2 = state.list.map((t, i3) => tabHtml(t, i3, t.id === here?.id, labels[i3], keeps[i3]));
       if (!here && !homeMode) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
-        rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
+        rows2.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
 Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="" title="Close (w)">${UI_ICON.close}</button></a>`);
       }
-      el2.innerHTML = rows.join("");
+      el2.innerHTML = rows2.join("");
       pinLeft();
       watchPins();
       fitHeads();
@@ -26127,13 +26173,13 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const km = root2.querySelector(".fe-km");
     if (!km) return;
     const caps = [...km.querySelectorAll(".fe-km-cap")];
-    const rows = [...km.querySelectorAll(".fe-km-i")];
+    const rows2 = [...km.querySelectorAll(".fe-km-i")];
     const q = km.querySelector(".fe-km-q");
     let pinned = null;
     const light = (ids) => caps.forEach((c) => c.classList.toggle("hl", ids.includes(c.dataset.cap)));
     const filter = () => {
       const s = q.value.trim().toLowerCase();
-      rows.forEach((r) => {
+      rows2.forEach((r) => {
         const hit = (!s || r.dataset.q.includes(s)) && (!pinned || r.dataset.caps.split(" ").includes(pinned));
         r.hidden = !hit;
       });
@@ -26147,15 +26193,15 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       const cap = e.target.closest(".fe-km-cap");
       if (row2) {
         light(row2.dataset.caps.split(" "));
-        rows.forEach((r) => r.classList.toggle("on", r === row2));
+        rows2.forEach((r) => r.classList.toggle("on", r === row2));
       } else if (cap) {
         light([cap.dataset.cap]);
-        rows.forEach((r) => r.classList.toggle("on", r.dataset.caps.split(" ").includes(cap.dataset.cap)));
+        rows2.forEach((r) => r.classList.toggle("on", r.dataset.caps.split(" ").includes(cap.dataset.cap)));
       }
     });
     km.addEventListener("mouseleave", () => {
       light([]);
-      rows.forEach((r) => r.classList.remove("on"));
+      rows2.forEach((r) => r.classList.remove("on"));
     });
     km.addEventListener("click", (e) => {
       const cap = e.target.closest(".fe-km-cap.used");
@@ -26173,6 +26219,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       }
     });
   }
+
+  // src/site-marks-store.ts
+  var MARKS_PREFIX = "bfb-marks-v1:";
+  var MARKS_INDEX = "bfb-marks-index-v1";
 
   // src/site-lights-settings.ts
   var LIGHTS_MODES = ["off", "auto", "native", "smart", "invert"];
@@ -26204,8 +26254,6 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
 
   // src/settings-web.ts
-  var MARKS_PREFIX = "bfb-marks-v1:";
-  var MARKS_INDEX = "bfb-marks-index-v1";
   var MODE_OPTS = LIGHTS_MODES.map((m) => ({ value: m, label: MODE_LABEL[m], hint: MODE_TIP[m] }));
   var read = async () => readSettings((await chrome.storage.local.get(LIGHTS_KEY))[LIGHTS_KEY]);
   var write = (s) => chrome.storage.local.set({ [LIGHTS_KEY]: s });
@@ -26340,8 +26388,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var webKey = (k) => k === "bfb-lights-v1" || k.startsWith("bfb-marks-");
   var isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   function webValueOk(key, value) {
-    if (key === "bfb-marks-index-v1") return isObject(value);
-    if (key.startsWith("bfb-marks-v1:")) return Array.isArray(value) && value.every(isObject);
+    if (key === MARKS_INDEX) return isObject(value);
+    if (key.startsWith(MARKS_PREFIX)) return Array.isArray(value) && value.every(isObject);
     if (key === "bfb-lights-v1") return isObject(value);
     return false;
   }
@@ -26377,7 +26425,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var WEB_ICON = line('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/>');
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
-  var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
+  var card2 = (title, rows2, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows2}</div></section>`;
   var sw = (id, title) => switchHtml({ id, title });
   var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="lg" title="${title}" aria-label="${title}">${icon2}</button>`;
   var pick = (label, body) => `<div class="fe-set-pick"><span class="fe-set-l">${label}</span>${body}</div>`;
@@ -26847,11 +26895,12 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var KEEP_ON = "Kept for this folder; click for the default";
   var KEEP_OFF = "Keep this view and sort for this folder";
   var isObject2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-  var store2 = jsonPref("bfb-folder-views-v1", {}, (v) => isObject2(v) && Object.values(v).every(isObject2));
+  var store2 = jsonPref("bfb-folder-views-v1", {}, isObject2);
+  var rows = () => Object.fromEntries(Object.entries(store2.get()).filter(([, v]) => isObject2(v)));
   var folderKey = (path) => path.replace(/\/+$/, "") || "/";
-  var allFolderViews = () => store2.get();
+  var allFolderViews = () => rows();
   function folderView(path) {
-    const v = store2.get()[folderKey(path)];
+    const v = rows()[folderKey(path)];
     if (!v) return null;
     const out = {};
     if (VIEWS.includes(v.view)) out.view = v.view;
@@ -26860,13 +26909,13 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     return out;
   }
   function keepFolderView(path, patch) {
-    const all = store2.get();
+    const all = rows();
     const key = folderKey(path);
     all[key] = { ...all[key], ...patch };
     store2.set(all);
   }
   function dropFolderView(path) {
-    const all = store2.get();
+    const all = rows();
     delete all[folderKey(path)];
     store2.set(all);
   }
@@ -27566,36 +27615,36 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     ls.baseStatus = countText();
     function renderTree(entries, parent) {
-      const rows = [];
+      const rows2 = [];
       const add = (en, depth) => {
         const idx = ls.visible.length;
         ls.visible.push(en);
         const name2 = en.isParent ? "Parent Directory" : en.name.split("/").pop();
         const expanded = treeExpanded.has(en.href);
         const hit = ls.contentHits?.get(en.href);
-        rows.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="--depth:${depth}">
+        rows2.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="--depth:${depth}">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name2)}" aria-expanded="${expanded}">${DISCLOSE}</button>` : '<span class="fe-tree-spacer"></span>'}
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name2)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name2)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
       </div>`);
         if (!en.isDir || !expanded) return;
         if (treeLoading.has(en.href)) {
-          rows.push(emptyHtml("loading", "Loading\u2026", { inline: true, indent: depth + 1 }));
+          rows2.push(emptyHtml("loading", "Loading\u2026", { inline: true, indent: depth + 1 }));
           return;
         }
         if (treeErrors.has(en.href)) {
-          rows.push(emptyHtml("failed", "This folder could not be read", { inline: true, hint: "Collapse and expand it to try again", indent: depth + 1 }));
+          rows2.push(emptyHtml("failed", "This folder could not be read", { inline: true, hint: "Collapse and expand it to try again", indent: depth + 1 }));
           return;
         }
         const children = treeChildren.get(en.href);
         if (!children) return;
-        if (!children.length) rows.push(emptyHtml("empty", "Empty folder", { inline: true, indent: depth + 1 }));
+        if (!children.length) rows2.push(emptyHtml("empty", "Empty folder", { inline: true, indent: depth + 1 }));
         for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort, dirsFirstPref.get())) {
           if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
         }
       };
       parent.forEach((en) => add(en, 0));
       entries.forEach((en) => add(en, 0));
-      el("fe-tree").innerHTML = rows.join("");
+      el("fe-tree").innerHTML = rows2.join("");
     }
     const WINDOW_MIN = 300, OVERSCAN = 40;
     let win = null;
@@ -29309,9 +29358,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("side-rename", () => sideRow().querySelector(LABEL).dispatchEvent(new MouseEvent("dblclick", { bubbles: true })), () => !!sideRow()?.querySelector(LABEL));
     bind("side-remove", () => {
       const row2 = sideRow(), lens = row2.closest(".fe-lens");
-      const rows = [...lens.querySelectorAll(LENS_ROWS)].filter(visible);
-      const at = rows.indexOf(ae());
-      const next = rows[at + 1] ?? rows[at - 1];
+      const rows2 = [...lens.querySelectorAll(LENS_ROWS)].filter(visible);
+      const at = rows2.indexOf(ae());
+      const next = rows2[at + 1] ?? rows2[at - 1];
       const nextKey = next?.closest("[data-rel]")?.dataset.rel ?? next?.getAttribute("href") ?? "";
       row2.querySelector(".fe-rm-btn").click();
       const refocus = () => {
@@ -29736,12 +29785,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
   }
   function placesFromFiles(files) {
-    const rows = [];
+    const rows2 = [];
     for (const f of files) {
       const place = textPlace(f.text, f.key);
-      if (place) rows.push({ id: f.key, pos: place.pos ?? null, created: place.created ?? null, place });
+      if (place) rows2.push({ id: f.key, pos: place.pos ?? null, created: place.created ?? null, place });
     }
-    return sortNotes(rows).map((r) => r.place);
+    return sortNotes(rows2).map((r) => r.place);
   }
   function sameSave(a, b, key) {
     const x2 = parseNote(a, key), y = parseNote(b, key);
@@ -29882,8 +29931,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return "pulled";
   }
   async function firstMove(r, got) {
-    const rows = getSaved();
-    if (!rows.length) {
+    const rows2 = getSaved();
+    if (!rows2.length) {
       markMoved(r);
       adopt(r, got);
       return "pulled";
@@ -30844,8 +30893,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!allNotes.length) {
         const kept = keptNotes(root2);
         if (kept) {
-          allNotes = kept;
-          renderNotes(root2);
+          try {
+            allNotes = kept;
+            renderNotes(root2);
+          } catch {
+            allNotes = [];
+          }
         }
       }
       notes.list(root2).then((unsorted) => {
@@ -31978,9 +32031,9 @@ ${body}
       if (viewed) return { ctx: await fetchFileText(fileHref(app.folderPath.replace(/\/?$/, "/") + viewed)), name: viewed };
       if (app.fileMode) return { ctx: await fetchFileText(location.href.split("#")[0]), name: app.fileName };
       const url = fileHref(app.folderPath.replace(/\/?$/, "/"));
-      const rows = (await listDir(url)).filter((e) => !e.isParent).map((e) => `${e.name}${e.isDir ? "/" : ""}	${e.isDir ? "" : e.rawBytes + " bytes"}`);
+      const rows2 = (await listDir(url)).filter((e) => !e.isParent).map((e) => `${e.name}${e.isDir ? "/" : ""}	${e.isDir ? "" : e.rawBytes + " bytes"}`);
       return { ctx: `Folder ${app.folderPath}
-${rows.join("\n")}`, name: subject };
+${rows2.join("\n")}`, name: subject };
     }
     const answers = /* @__PURE__ */ new WeakMap();
     const turnData = /* @__PURE__ */ new WeakMap();
@@ -32405,10 +32458,10 @@ ${rows.join("\n")}`, name: subject };
         return [];
       }
     };
-    const menuOf = (anchor, head, rows, onPick, keepOpen = false) => {
+    const menuOf = (anchor, head, rows2, onPick, keepOpen = false) => {
       const menu = document.createElement("div");
       menu.className = "fe-ctx fe-ask-qmenu";
-      menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i3) => `${r.group && r.group !== rows[i3 - 1]?.group ? `<div class="fe-dd-g">${esc(r.group)}</div>` : ""}<div class="row fe-ctx-item" data-i="${i3}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ""}</span></div>`).join("");
+      menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows2.map((r, i3) => `${r.group && r.group !== rows2[i3 - 1]?.group ? `<div class="fe-dd-g">${esc(r.group)}</div>` : ""}<div class="row fe-ctx-item" data-i="${i3}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ""}</span></div>`).join("");
       let layer = null;
       menu.addEventListener("click", (e) => {
         const row2 = e.target.closest(".fe-ctx-item");
@@ -32726,10 +32779,10 @@ ${rows.join("\n")}`, name: subject };
   var ballHtml = (c) => c ? `<i class="fe-ow-ball" style="--c:${safeColor(c)}"></i>` : `<i class="fe-ow-ball none"></i>`;
   function initOpenWithSettings(settings, toast) {
     const list3 = el("fe-st-ow-list");
-    let rows = [];
+    let rows2 = [];
     const waits = /* @__PURE__ */ new Map();
     const save = () => {
-      settings.openWith = rows.map((r) => ({ ...r }));
+      settings.openWith = rows2.map((r) => ({ ...r }));
       saveSettings(settings);
     };
     function rowHtml(c, i3) {
@@ -32745,13 +32798,13 @@ ${rows.join("\n")}`, name: subject };
     }
     function check(i3) {
       const row2 = list3.querySelector(`.fe-ow-row[data-idx="${i3}"]`);
-      const c = rows[i3];
+      const c = rows2[i3];
       if (!row2 || !c) return;
       const st = row2.querySelector(".fe-ow-st");
       const cmdBox = row2.querySelector(".fe-ow-cmd");
       const nameBox = row2.querySelector(".fe-ow-name");
       const blank = !c.name.trim() && !c.cmd.trim();
-      const problem = blank ? "" : commandProblem(c, rows.filter((_, j) => j !== i3));
+      const problem = blank ? "" : commandProblem(c, rows2.filter((_, j) => j !== i3));
       const paint = (text, tone) => {
         st.textContent = text;
         st.dataset.tone = tone;
@@ -32765,7 +32818,7 @@ ${rows.join("\n")}`, name: subject };
       const cmd = c.cmd;
       clearTimeout(waits.get(i3));
       waits.set(i3, window.setTimeout(() => void lookUp(cmd).then((f) => {
-        if (rows[i3]?.cmd !== cmd || !f) return;
+        if (rows2[i3]?.cmd !== cmd || !f) return;
         if (f.problem) paint(f.problem, "bad");
         else if (f.found) paint(`Found ${f.where}`, "ok");
         else {
@@ -32775,33 +32828,33 @@ ${rows.join("\n")}`, name: subject };
       }), 350));
     }
     function render2() {
-      list3.innerHTML = rows.length ? `<div class="fe-ow-head" aria-hidden="true"><span></span><span>Name</span><span>Command</span><span>Files only</span><span>Window</span><span></span></div>` + rows.map(rowHtml).join("") : emptyHtml("empty", "No commands yet", { inline: true, hint: "Add one to see it in Open with" });
-      rows.forEach((_, i3) => check(i3));
+      list3.innerHTML = rows2.length ? `<div class="fe-ow-head" aria-hidden="true"><span></span><span>Name</span><span>Command</span><span>Files only</span><span>Window</span><span></span></div>` + rows2.map(rowHtml).join("") : emptyHtml("empty", "No commands yet", { inline: true, hint: "Add one to see it in Open with" });
+      rows2.forEach((_, i3) => check(i3));
     }
     const rowAt = (e) => {
       const row2 = e.target.closest(".fe-ow-row");
       const i3 = row2 ? Number(row2.dataset.idx) : -1;
-      return i3 >= 0 && i3 < rows.length ? i3 : -1;
+      return i3 >= 0 && i3 < rows2.length ? i3 : -1;
     };
     list3.addEventListener("input", (e) => {
       const i3 = rowAt(e);
       if (i3 < 0) return;
       const t = e.target;
-      if (t.classList.contains("fe-ow-name")) rows[i3].name = t.value;
-      else if (t.classList.contains("fe-ow-cmd")) rows[i3].cmd = t.value;
+      if (t.classList.contains("fe-ow-name")) rows2[i3].name = t.value;
+      else if (t.classList.contains("fe-ow-cmd")) rows2[i3].cmd = t.value;
       else return;
       save();
-      rows.forEach((_, j) => check(j));
+      rows2.forEach((_, j) => check(j));
     });
     list3.addEventListener("change", (e) => {
       const i3 = rowAt(e);
       if (i3 < 0) return;
       const t = e.target;
       if (t.classList.contains("fe-ow-files")) {
-        rows[i3].filesOnly = t.checked || void 0;
+        rows2[i3].filesOnly = t.checked || void 0;
         t.title = t.checked ? "Files only" : "Files and folders";
       } else if (t.classList.contains("fe-ow-win")) {
-        rows[i3].terminal = t.checked;
+        rows2[i3].terminal = t.checked;
         t.title = t.checked ? "Opens a Ghostty window" : "Runs in the background";
       } else return;
       save();
@@ -32811,23 +32864,23 @@ ${rows.join("\n")}`, name: subject };
       if (i3 < 0) return;
       const t = e.target;
       if (t.closest(".fe-ow-del")) {
-        const before = rows.map((r) => ({ ...r }));
-        const gone = rows[i3].name || "Command";
-        rows.splice(i3, 1);
+        const before = rows2.map((r) => ({ ...r }));
+        const gone = rows2[i3].name || "Command";
+        rows2.splice(i3, 1);
         save();
         render2();
         toast(`${gone} deleted`, 8e3, { label: "Undo", run: () => {
-          rows = before;
+          rows2 = before;
           save();
           render2();
         } });
       } else if (t.closest(".fe-ow-color")) openColour(i3, t.closest(".fe-ow-color"));
     });
     el("fe-st-ow-add").addEventListener("click", () => {
-      rows.push({ name: "", cmd: "", terminal: true });
+      rows2.push({ name: "", cmd: "", terminal: true });
       save();
       render2();
-      list3.querySelector(`.fe-ow-row[data-idx="${rows.length - 1}"] .fe-ow-name`)?.focus();
+      list3.querySelector(`.fe-ow-row[data-idx="${rows2.length - 1}"] .fe-ow-name`)?.focus();
     });
     let pop = null;
     function openColour(i3, anchor) {
@@ -32836,7 +32889,7 @@ ${rows.join("\n")}`, name: subject };
       box.className = "fe-rule-pop fe-ow-pop";
       box.setAttribute("role", "dialog");
       box.setAttribute("aria-label", "Colour in the menu");
-      const cur = rows[i3].color;
+      const cur = rows2[i3].color;
       box.innerHTML = `<div class="fe-rp-sec"><span class="fe-rp-l">Colour in the menu</span>
       <div class="fe-rp-sw">
         <button type="button" class="fe-rp-c none${cur ? "" : " on"}" data-c="" title="No colour" aria-label="No colour"></button>
@@ -32844,9 +32897,9 @@ ${rows.join("\n")}`, name: subject };
         <input type="color" class="fe-ow-pick" value="${cur && /^#[0-9a-f]{6}$/i.test(cur) ? cur : "#4a9eff"}" title="Any colour" aria-label="Any colour">
       </div></div>`;
       const set2 = (c) => {
-        rows[i3].color = c || void 0;
+        rows2[i3].color = c || void 0;
         save();
-        anchor.innerHTML = ballHtml(rows[i3].color);
+        anchor.innerHTML = ballHtml(rows2[i3].color);
         box.querySelectorAll(".fe-rp-c").forEach((b) => b.classList.toggle("on", b.dataset.c === (c ?? "")));
       };
       box.addEventListener("click", (e) => {
@@ -32861,7 +32914,7 @@ ${rows.join("\n")}`, name: subject };
     }
     return () => {
       const saved = Array.isArray(settings.openWith) ? settings.openWith.filter((r) => !!r && typeof r === "object") : null;
-      rows = (saved ?? parseCommands(settings.openWithCmds)).map((r) => ({ name: String(r.name ?? ""), cmd: String(r.cmd ?? ""), terminal: r.terminal !== false, ...r.filesOnly ? { filesOnly: true } : {}, ...typeof r.color === "string" ? { color: r.color } : {} }));
+      rows2 = (saved ?? parseCommands(settings.openWithCmds)).map((r) => ({ name: String(r.name ?? ""), cmd: String(r.cmd ?? ""), terminal: r.terminal !== false, ...r.filesOnly ? { filesOnly: true } : {}, ...typeof r.color === "string" ? { color: r.color } : {} }));
       render2();
     };
   }
@@ -32974,8 +33027,8 @@ ${rows.join("\n")}`, name: subject };
       const viewOf = (p) => folderView(p)?.view ?? "details";
       if (shape.value === "view") {
         list3.innerHTML = VIEW_ICONS.map((v) => {
-          const rows = laid.filter((r) => viewOf(r.path) === v.id);
-          return rows.length ? `<div class="fe-fv-group"><h4>${v.ico}${esc(v.label)}<span>${rows.length}</span></h4>${rows.map((r) => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join("")}</div>` : "";
+          const rows2 = laid.filter((r) => viewOf(r.path) === v.id);
+          return rows2.length ? `<div class="fe-fv-group"><h4>${v.ico}${esc(v.label)}<span>${rows2.length}</span></h4>${rows2.map((r) => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join("")}</div>` : "";
         }).join("");
       } else {
         list3.innerHTML = laid.map((r) => rowHtml(r.path, viewOf(r.path), r.depth, r.tail, inTree)).join("");
@@ -33253,8 +33306,8 @@ ${rows.join("\n")}`, name: subject };
         } catch {
         }
       }
-      const rows = tagRows(list3.map((n) => n.tags ?? []), getSaved(), getTags());
-      host.innerHTML = rows.length ? rows.map((r) => `
+      const rows2 = tagRows(list3.map((n) => n.tags ?? []), getSaved(), getTags());
+      host.innerHTML = rows2.length ? rows2.map((r) => `
       <div class="fe-tc-row" data-tag="${esc(r.tag)}">
         <button class="fe-tc-sw" data-tc="colour" title="Choose this tag's colour" aria-label="Colour of ${esc(r.tag)}"><i style="--dot:${esc(r.color ?? "var(--dm)")}"></i></button>
         <input class="tb" data-size="sm" data-tc="name" data-own-esc value="${esc(r.tag)}" maxlength="32" spellcheck="false" aria-label="Name of ${esc(r.tag)}">
@@ -34175,8 +34228,8 @@ ${rows.join("\n")}`, name: subject };
   }
   function cardFacts(text) {
     const fm = /^---\n([\s\S]*?)\n---/.exec(text);
-    const rows = fm ? frontMatterRows(fm[1].split("\n")) : [];
-    const get = (k) => rows.find((r) => r.key === k);
+    const rows2 = fm ? frontMatterRows(fm[1].split("\n")) : [];
+    const get = (k) => rows2.find((r) => r.key === k);
     const body = fm ? text.slice(fm[0].length) : text;
     const heading = /^#\s+(.+)$/m.exec(body)?.[1];
     const para = body.split(/\n\s*\n/).map((p) => p.trim()).find((p) => p && !p.startsWith("#") && !p.startsWith(">") && !p.startsWith("|"));
@@ -34407,9 +34460,9 @@ ${rows.join("\n")}`, name: subject };
   // src/docs-lens.ts
   var browsedPath = (p) => p.replace(/^\/private\/(var|tmp|etc)(?=\/|$)/, "/$1");
   var forMe = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
-  function docRows(rows, f = { q: "", me: false, due: false }) {
+  function docRows(rows2, f = { q: "", me: false, due: false }) {
     const q = f.q.trim().toLowerCase();
-    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag)) && (!f.here || !f.folder || isWithin(r.doc, f.folder))).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
+    return rows2.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag)) && (!f.here || !f.folder || isWithin(r.doc, f.folder))).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   }
   function initDocsLens(box, home, folder, go2) {
     let loaded = false, all = [];
@@ -34455,8 +34508,8 @@ ${rows.join("\n")}`, name: subject };
         <span class="badge fe-doc-n" data-tone="${r.open ? "solid" : "quiet"}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
       </button>`).join("");
     };
-    const load = () => notes.docsIndex().then((rows) => {
-      all = rows.map((r) => ({ ...r, doc: browsedPath(r.doc) }));
+    const load = () => notes.docsIndex().then((rows2) => {
+      all = rows2.map((r) => ({ ...r, doc: browsedPath(r.doc) }));
       paint();
     }).catch((err) => {
       top.hidden = true;
@@ -34510,7 +34563,7 @@ ${rows.join("\n")}`, name: subject };
         void load();
       }
     });
-    addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows) => docRows(rows).map((r) => ({
+    addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows2) => docRows(rows2).map((r) => ({
       title: r.name,
       sub: `${short(r.doc)} \xB7 ${r.open ? `${r.open} open` : "all done"}`,
       group: "Comments",
@@ -34587,11 +34640,11 @@ ${rows.join("\n")}`, name: subject };
       { id: "notes", label: "notes", value: n(o.notes.length), sub: `${n(changed)} changed this week` }
     ];
   }
-  function splitByAge(rows, days = 14, now = Date.now()) {
+  function splitByAge(rows2, days = 14, now = Date.now()) {
     const cut = now / 1e3 - days * 86400;
-    return { recent: rows.filter((r) => r.mtime >= cut), older: rows.filter((r) => r.mtime < cut) };
+    return { recent: rows2.filter((r) => r.mtime >= cut), older: rows2.filter((r) => r.mtime < cut) };
   }
-  var openPages = (rows, archived = /* @__PURE__ */ new Set()) => dpBands(rows, "", archived).filter((b) => b.state !== "archived").flatMap((b) => b.rows);
+  var openPages = (rows2, archived = /* @__PURE__ */ new Set()) => dpBands(rows2, "", archived).filter((b) => b.state !== "archived").flatMap((b) => b.rows);
 
   // src/home-lens.ts
   var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
@@ -34758,7 +34811,7 @@ ${rows.join("\n")}`, name: subject };
       const mine = ++seq2;
       const root2 = notesRoot();
       const [pages, docs, noteList, tools, sync, docRows2] = await Promise.all([
-        notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
+        notes.dpPages().then((rows2) => ({ rows: rows2, failed: false }), () => ({ rows: [], failed: true })),
         notes.directionsDocs().catch(() => []),
         layout2 === "page" && root2 ? notes.list(root2).catch(() => keptNotesList(root2) ?? []) : Promise.resolve([]),
         layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([]),
@@ -35246,7 +35299,7 @@ ${rows.join("\n")}`, name: subject };
     };
     applyLook();
     onKvChange((k) => {
-      if (k === SETTINGS_KEY) Object.assign(settings, getSettings());
+      if (k === SETTINGS_KEY) refreshSettings(settings);
       if (k === SETTINGS_KEY || k === PALETTE_KEY || k === THEME_KEY || k.startsWith("bfb-font-")) applyLook();
     });
     const app = {

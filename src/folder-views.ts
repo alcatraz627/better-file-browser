@@ -18,16 +18,19 @@ export const KEEP_OFF = 'Keep this view and sort for this folder';
 export interface FolderView { view?: string; sort?: SortConfig; group?: GroupMode }
 
 const isObject = (v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v);
-const store = jsonPref<Record<string, FolderView>>('bfb-folder-views-v1', {}, v => isObject(v) && Object.values(v as object).every(isObject));
+const store = jsonPref<Record<string, FolderView>>('bfb-folder-views-v1', {}, isObject);
+// A damaged row is left out on its own; turning the whole store away would
+// let the next keep write over every other folder.
+const rows = (): Record<string, FolderView> => Object.fromEntries(Object.entries(store.get()).filter(([, v]) => isObject(v)));
 
 /** A folder's key: its path without a trailing slash, so /a/ and /a are one folder. */
 export const folderKey = (path: string) => path.replace(/\/+$/, '') || '/';
 
-export const allFolderViews = (): Record<string, FolderView> => store.get();
+export const allFolderViews = (): Record<string, FolderView> => rows();
 
 /** A folder's kept view, with any damaged part left out so the defaults fill it. */
 export function folderView(path: string): FolderView | null {
-  const v = store.get()[folderKey(path)];
+  const v = rows()[folderKey(path)];
   if (!v) return null;
   const out: FolderView = {};
   if (VIEWS.includes(v.view as string)) out.view = v.view;
@@ -38,7 +41,7 @@ export function folderView(path: string): FolderView | null {
 
 /** Keep this folder's view, or change part of what it keeps. */
 export function keepFolderView(path: string, patch: FolderView): void {
-  const all = store.get();
+  const all = rows();
   const key = folderKey(path);
   all[key] = { ...all[key], ...patch };
   store.set(all);
@@ -46,7 +49,7 @@ export function keepFolderView(path: string, patch: FolderView): void {
 
 /** Let a folder follow the default view again. */
 export function dropFolderView(path: string): void {
-  const all = store.get();
+  const all = rows();
   delete all[folderKey(path)];
   store.set(all);
 }

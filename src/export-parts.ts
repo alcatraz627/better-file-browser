@@ -4,6 +4,7 @@
 // read and written separately (`webKey`).
 
 import { BM_KEY, PLACES_KEY, RECENTS_KEY, SAVED_KEY, TAGS_KEY } from './storage';
+import { MARKS_INDEX, MARKS_PREFIX } from './site-marks-store';
 
 export interface ExportPart { id: string; label: string; title: string; on: boolean; has: (key: string) => boolean }
 
@@ -14,8 +15,8 @@ const isObject = (v: unknown) => !!v && typeof v === 'object' && !Array.isArray(
 
 /** Whether an imported dark mode or marks value has the shape its reader needs. */
 export function webValueOk(key: string, value: unknown): boolean {
-  if (key === 'bfb-marks-index-v1') return isObject(value);
-  if (key.startsWith('bfb-marks-v1:')) return Array.isArray(value) && value.every(isObject);
+  if (key === MARKS_INDEX) return isObject(value);
+  if (key.startsWith(MARKS_PREFIX)) return Array.isArray(value) && value.every(isObject);
   if (key === 'bfb-lights-v1') return isObject(value);
   return false;
 }

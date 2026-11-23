@@ -8,6 +8,7 @@
 // which keeps React and similar frameworks from tripping over them.
 
 import { collapseSpace, collapsedIndex, findQuote, makeQuote, pageKey, type Mapped, type Quote } from './site-marks-anchor';
+import { MARKS_INDEX, MARKS_PREFIX, markRows, mergeMarks } from './site-marks-store';
 import { ICON, esc, hint, inOverlay, offerUndo, overlay, pageLayer, when } from './site-tools-overlay';
 
 export interface PinSpot {
@@ -31,11 +32,11 @@ export interface Mark {
 
 interface IndexEntry { title: string; count: number; updated: number }
 
-export const MARKS_PREFIX = 'bfb-marks-v1:';
-export const MARKS_INDEX = 'bfb-marks-index-v1';
-
 let key = pageKey(location.href);
 let marks: Mark[] = [];
+/** The ids last seen in storage, and the ids deleted here since, for merging with another tab. */
+let known = new Set<string>();
+const gone = new Set<string>();
 /** Where each comment's words are on the page now; absent when they are gone. */
 const ranges = new Map<string, Range>();
 const changeListeners = new Set<() => void>();
@@ -48,16 +49,30 @@ export const isFound = (m: Mark) => m.kind === 'pin' || ranges.has(m.id);
 async function load() {
   const k = MARKS_PREFIX + key;
   try {
-    const got = (await chrome.storage.local.get(k))[k];
-    marks = Array.isArray(got) ? got : [];
+    marks = markRows<Mark>((await chrome.storage.local.get(k))[k]);
   } catch {
     marks = [];
   }
+  known = new Set(marks.map(m => m.id));
+  gone.clear();
 }
 
-async function save() {
+// Saves run one after another, so a delete and an add made together cannot
+// land in the wrong order. Each save starts from what is stored now, so a mark
+// another tab added to this page is kept.
+let saving: Promise<void> = Promise.resolve();
+function save(): Promise<void> {
+  saving = saving.then(saveNow, saveNow);
+  return saving;
+}
+async function saveNow() {
   const k = MARKS_PREFIX + key;
-  const index = ((await chrome.storage.local.get(MARKS_INDEX))[MARKS_INDEX] ?? {}) as Record<string, IndexEntry>;
+  const got = await chrome.storage.local.get([k, MARKS_INDEX]);
+  const index = (got[MARKS_INDEX] && typeof got[MARKS_INDEX] === 'object' ? got[MARKS_INDEX] : {}) as Record<string, IndexEntry>;
+  const before = marks.length;
+  marks = mergeMarks(markRows<Mark>(got[k]), marks, known, gone);
+  known = new Set(marks.map(m => m.id));
+  gone.clear();
   if (marks.length) {
     index[key] = { title: document.title.slice(0, 200) || key, count: marks.length, updated: Date.now() };
     await chrome.storage.local.set({ [k]: marks, [MARKS_INDEX]: index });
@@ -66,6 +81,27 @@ async function save() {
     await chrome.storage.local.remove(k);
     await chrome.storage.local.set({ [MARKS_INDEX]: index });
   }
+  if (marks.length !== before) shown();
+}
+
+/** Redraws this page's marks and tells the panel, after the list changed. */
+function shown() {
+  anchorAll();
+  draw();
+  for (const fn of changeListeners) fn();
+}
+
+// The same page open in another tab: its saves arrive here as they land.
+function hearOtherTabs() {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    const c = area === 'local' ? changes[MARKS_PREFIX + key] : undefined;
+    if (!c) return;
+    const stored = markRows<Mark>(c.newValue);
+    if (JSON.stringify(stored) === JSON.stringify(marks)) return;   // this tab's own save
+    marks = mergeMarks(stored, marks, known, gone);
+    known = new Set(stored.map(m => m.id));
+    shown();
+  });
 }
 
 /** Every page with marks, newest first, for the panel's All pages list. */
@@ -401,7 +437,7 @@ export function openCard(m: Mark, isNew = false) {
     removeEventListener('pointerdown', outside, true);
     if (keep && text !== m.note) { m.note = text; m.updated = Date.now(); }
     // A brand-new mark closed without a note was a slip, so it goes.
-    if (isNew && !m.note) { marks = marks.filter(x => x !== m); ranges.delete(m.id); }
+    if (isNew && !m.note) { marks = marks.filter(x => x !== m); ranges.delete(m.id); gone.add(m.id); }
     changed();
     paintHighlights();
   };
@@ -467,9 +503,12 @@ export function deleteMark(m: Mark) {
   const at = marks.indexOf(m);
   marks = marks.filter(x => x !== m);
   ranges.delete(m.id);
+  gone.add(m.id);
   changed();
   paintHighlights();
   offerUndo(`${m.kind === 'pin' ? 'Pin' : 'Comment'} deleted`, () => {
+    gone.delete(m.id);
+    known.delete(m.id);
     marks.splice(Math.min(at, marks.length), 0, m);
     anchorAll();
     changed();
@@ -501,6 +540,7 @@ export async function startMarks() {
   addEventListener('resize', queueDraw);
   addEventListener('scroll', queueDraw, { capture: true, passive: true });
   await load();
+  hearOtherTabs();
   anchorAll();
   draw();
   for (const fn of changeListeners) fn();

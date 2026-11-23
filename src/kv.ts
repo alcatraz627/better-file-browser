@@ -69,7 +69,12 @@ export async function loadKv(): Promise<void> {
       const at = mine?.indexOf(c.newValue as string) ?? -1;
       if (mine && at >= 0) {   // this tab's own write
         mine.splice(0, at + 1);
-        if (!mine.length) pending.delete(k);
+        if (!mine.length) {
+          pending.delete(k);
+          // Another tab's write that landed before this one was heard first and
+          // took the cache; storage ends with this tab's value, so the cache must too.
+          if (cache.get(k) !== c.newValue) { cache.set(k, c.newValue as string); watchers.forEach(fn => fn(k)); }
+        }
         continue;
       }
       if (typeof c.newValue === 'string') cache.set(k, c.newValue);

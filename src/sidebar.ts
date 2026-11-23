@@ -849,7 +849,8 @@ export function initSidebar(app: App): void {
     // never blanks it; the host's answer replaces it only if something changed.
     if (!allNotes.length) {
       const kept = keptNotes(root);
-      if (kept) { allNotes = kept; renderNotes(root); }
+      // A kept list that cannot be drawn must not stop the real one being asked for.
+      if (kept) { try { allNotes = kept; renderNotes(root); } catch { allNotes = []; } }
     }
     notes.list(root).then(unsorted => {
       if (arranging) return;

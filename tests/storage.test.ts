@@ -159,6 +159,31 @@ describe('settings saved from an older copy', () => {
     expect(now.tooltips).toBe(false);
   });
 
+  // The reader allows a folder through its own copy; Settings then edits the
+  // list through the page's copy, which must already hold that folder.
+  it('a list saved through one copy is in the page\'s other copy before it edits the list', () => {
+    const page = getSettings();
+    const reader = getSettings();
+    reader.editableFolders = ['/Users/me/Notes'];
+    saveSettings(reader);
+    expect(page.editableFolders).toEqual(['/Users/me/Notes']);
+    page.editableFolders = [...(page.editableFolders ?? []), '/Users/me/Code'];
+    saveSettings(page);
+    expect(getSettings().editableFolders).toEqual(['/Users/me/Notes', '/Users/me/Code']);
+  });
+
+  it('a copy keeps its own unsaved change when another copy saves', () => {
+    const page = getSettings();
+    const other = getSettings();
+    page.readerSize = 19;
+    other.tooltips = false;
+    saveSettings(other);
+    expect(page.readerSize).toBe(19);
+    expect(page.tooltips).toBe(false);
+    saveSettings(page);
+    expect(getSettings().readerSize).toBe(19);
+  });
+
   it('still clears a key the copy cleared', () => {
     const s = getSettings();
     s.aiModel = 'm'; saveSettings(s);

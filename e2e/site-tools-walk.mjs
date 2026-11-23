@@ -388,6 +388,23 @@ try {
   await sleep(100);
   check('Esc closes the panel', await shadow(page, `return !root.querySelector('.panel')`), null);
 
+  // ---- The same page open in another tab ----
+  // Another tab's save lands in storage with a pin this tab has never seen.
+  // This tab shows it, and this tab's next save keeps it.
+  stored = await sw.evaluate(k => chrome.storage.local.get(k).then(r => r[k]), key);
+  const twin = { ...stored.find(m => m.kind === 'pin'), id: 'other-tab-pin', note: 'From another tab', created: Date.now(), updated: Date.now() };
+  await sw.evaluate((k, list) => chrome.storage.local.set({ [k]: list }), key, [...stored, twin]);
+  const sawTwin = await page.waitForFunction(() => document.getElementById('bfb-site-tools')?.shadowRoot?.querySelectorAll('.pin').length === 2, { timeout: 3000 }).then(() => true, () => false);
+  check('a pin saved from another tab shows here without a reload', sawTwin, await shadow(page, `return root.querySelectorAll('.pin').length`));
+  await send('panel');
+  await page.waitForFunction(() => document.getElementById('bfb-site-tools')?.shadowRoot?.querySelector('.panel'));
+  await shadow(page, `root.querySelector('.panel [data-del]').click()`);
+  await sleep(250);
+  stored = await sw.evaluate(k => chrome.storage.local.get(k).then(r => r[k]), key);
+  check('this tab\'s next save keeps the other tab\'s pin', stored.length === 3 && stored.some(m => m.id === 'other-tab-pin'), stored.map(m => m.id));
+  await page.keyboard.press('Escape');
+  await sleep(100);
+
   // ---- Settings, Web pages ----
   await send('panel');
   await page.waitForFunction(() => document.getElementById('bfb-site-tools')?.shadowRoot?.querySelector('.panel'));

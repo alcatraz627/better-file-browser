@@ -66,10 +66,32 @@ function storedSettings(): Settings {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(kvGet(SETTINGS_KEY) ?? '{}') }; }
   catch { return { ...DEFAULT_SETTINGS }; }
 }
+const copies = new Set<WeakRef<Settings>>();
 export function getSettings(): Settings {
   const s = storedSettings();
   readAs.set(s, snapshot(s));
+  copies.add(new WeakRef(s));
   return s;
+}
+/** Bring a settings copy up to date with what is stored, keeping the changes it has not saved yet. */
+export function refreshSettings(s: Settings): void {
+  const was = readAs.get(s);
+  if (!was) return;
+  const now = storedSettings() as unknown as Record<string, unknown>, mine = s as unknown as Record<string, unknown>;
+  for (const k of new Set([...Object.keys(was), ...Object.keys(now), ...Object.keys(mine)])) {
+    if (JSON.stringify(mine[k]) !== was[k]) continue;   // changed here, not saved yet
+    if (now[k] === undefined) { delete mine[k]; delete was[k]; }
+    else { mine[k] = now[k]; was[k] = JSON.stringify(now[k]); }
+  }
+}
+// A list held in one copy must not write back over what another copy on the
+// same page just saved, so every save brings the page's other copies up to date.
+function refreshOthers(saved: Settings): void {
+  for (const ref of copies) {
+    const c = ref.deref();
+    if (!c) copies.delete(ref);
+    else if (c !== saved) refreshSettings(c);
+  }
 }
 export function saveSettings(s: Settings): void {
   const was = readAs.get(s);
@@ -85,6 +107,7 @@ export function saveSettings(s: Settings): void {
   }
   kvSet(SETTINGS_KEY, JSON.stringify(out));
   readAs.set(s, snapshot(s));
+  refreshOthers(s);
   syncHtmlGuard(out);
 }
 
@@ -122,7 +145,15 @@ export function keepPageBg(color: string, theme: string, mode: string, shapes: C
 // by the host's answer, so a stale or tampered copy only shows for a moment.
 const NOTES_KEPT = 'bfbNotesKept';
 export function keptNotesList<T>(root: string): T[] | null {
-  try { const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || 'null'); return k?.root === root && Array.isArray(k.notes) ? k.notes : null; }
+  try {
+    const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || 'null');
+    if (k?.root !== root || !Array.isArray(k.notes)) return null;
+    // Any HTML file opened from disk can write this store, so a row is only
+    // drawn when it has the shape the list reads.
+    const ok = (n: unknown) => !!n && typeof n === 'object' && typeof (n as { rel?: unknown }).rel === 'string'
+      && ((n as { tags?: unknown }).tags === undefined || (Array.isArray((n as { tags: unknown[] }).tags) && (n as { tags: unknown[] }).tags.every(t => typeof t === 'string')));
+    return k.notes.filter(ok);
+  }
   catch { return null; }
 }
 export function keepNotesList<T>(root: string, notes: T[]): void {
@@ -253,10 +284,26 @@ export function getRecents(): RecentDir[] {
     return Array.isArray(list) ? list.filter(r => typeof r?.path === 'string') : [];
   } catch { return []; }
 }
+// Two pages that load together each add their visit to the list they loaded, and
+// the later write would drop the earlier visit. For a few seconds after its own
+// visit, a page that hears a list without it puts it back in date order.
+const VISIT_GUARD_MS = 5000;
+let myVisit: RecentDir | null = null;
+let visitGuard = false;
 export function pushRecent(path: string): void {
+  myVisit = { path, ts: Date.now() };
   const list = getRecents().filter(r => r.path !== path);
-  list.unshift({ path, ts: Date.now() });
+  list.unshift(myVisit);
   kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 40)));
+  if (visitGuard) return;
+  visitGuard = true;
+  onKvChange(k => {
+    const mine = myVisit;
+    if (k !== RECENTS_KEY || !mine || Date.now() - mine.ts > VISIT_GUARD_MS) return;
+    const now = getRecents();
+    if (now.some(r => r.path === mine.path)) return;
+    kvSet(RECENTS_KEY, JSON.stringify([...now, mine].sort((a, b) => b.ts - a.ts).slice(0, 40)));
+  });
 }
 /** Drop one place from the recent list, as if it had never been opened. */
 export function forgetRecent(path: string): void {

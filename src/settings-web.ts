@@ -8,12 +8,11 @@ import { esc } from './utils';
 import { UI_ICON } from './control-icons';
 import { ddHtml, upgradeControls, type Opt, type ValuedEl } from './controls';
 import { emptyHtml } from './empty-state';
+import { MARKS_INDEX, MARKS_PREFIX } from './site-marks-store';
 import { LIGHTS_KEY, LIGHTS_MODES, MODE_LABEL, MODE_TIP, hostFrom, readSettings, type LightsMode, type LightsSettings } from './site-lights-settings';
 
 type Toast = (msg: string, ms?: number, action?: { label: string; run: () => void }) => void;
 
-const MARKS_PREFIX = 'bfb-marks-v1:';
-const MARKS_INDEX = 'bfb-marks-index-v1';
 
 export const MODE_OPTS: Opt[] = LIGHTS_MODES.map(m => ({ value: m, label: MODE_LABEL[m], hint: MODE_TIP[m] }));
 

@@ -4,7 +4,7 @@
 import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
-  getView, getPalette, getDensity, takeCompactMode, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
+  getView, getPalette, getDensity, takeCompactMode, getShowHidden, getIconRules, getSettings, refreshSettings, saveSettings, getRecents, pushRecent, getSaved,
   homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, keepPageBg, textPref, type CoverShape, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
 } from './storage';
 import { notes } from './notes';
@@ -252,7 +252,7 @@ loadKv().catch(() => {}).then(function () {
   };
   applyLook();
   onKvChange(k => {
-    if (k === SETTINGS_KEY) Object.assign(settings, getSettings());
+    if (k === SETTINGS_KEY) refreshSettings(settings);
     if (k === SETTINGS_KEY || k === PALETTE_KEY || k === THEME_KEY || k.startsWith('bfb-font-')) applyLook();
   });
 
