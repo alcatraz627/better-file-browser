@@ -320,12 +320,12 @@
     });
   }
   function filterSaved(list3, text) {
-    const words = text.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list3;
+    const words2 = text.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words2.length) return list3;
     return list3.filter((p) => {
       const tags = (p.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${p.label} ${p.path} ${tags.join(" ")}`.toLowerCase();
-      return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
+      return words2.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
     });
   }
   function groupByTag(list3, tags) {
@@ -515,12 +515,11 @@
   var GROUP_KEY = "bfb-group-v1";
   var PREVIEW_LAYOUT_KEY = "bfb-preview-layout-v1";
   var DEFAULT_ICON_RULES = [
-    { id: "r1", pattern: "\\.claude$|^Claude", label: "Cld", color: "#d97757", enabled: true },
-    { id: "r2", pattern: "\\.md$", label: "MD\u2193", color: "#4a9eff", enabled: true },
-    { id: "r3", pattern: "^\\.DS_Store$", label: "DS", color: "#8b949e", enabled: true }
+    { id: "r1", name: "Claude", pattern: "\\.claude$|^Claude", label: "Cld", color: "#d97757", enabled: true },
+    { id: "r2", name: "Markdown", pattern: "\\.md$", label: "MD\u2193", color: "#4a9eff", enabled: true },
+    { id: "r3", name: "Finder files", pattern: "^\\.DS_Store$", label: "DS", color: "#8b949e", enabled: true }
   ];
   var DEFAULT_SETTINGS = {
-    compactMode: false,
     showSidebar: true,
     dateFormat: "short",
     terminalApp: "ghostty",
@@ -537,7 +536,8 @@
   function getIconRules() {
     try {
       const r = JSON.parse(kvGet(ICON_RULES_KEY) ?? "null");
-      return Array.isArray(r) ? r : DEFAULT_ICON_RULES.map((r2) => ({ ...r2 }));
+      if (Array.isArray(r)) return r.filter((x2) => !!x2 && typeof x2 === "object" && typeof x2.pattern === "string");
+      return DEFAULT_ICON_RULES.map((r2) => ({ ...r2 }));
     } catch {
       return DEFAULT_ICON_RULES.map((r) => ({ ...r }));
     }
@@ -907,6 +907,12 @@
   var viewPref = textPref(VIEW_KEY, "details");
   var palettePref = choicePref(PALETTE_KEY, PALETTES, "slate");
   var densityPref = numberPref(DENSITY_KEY, 3, (n) => n >= 1 && n <= 5);
+  function takeCompactMode(s) {
+    if (!("compactMode" in s)) return false;
+    if (s.compactMode) densityPref.set(Math.max(4, densityPref.get()));
+    delete s.compactMode;
+    return true;
+  }
   var hiddenPref = flagPref(HIDDEN_KEY, false, "true", "false");
   var dirsFirstPref = flagPref("bfb-dirs-first-v1", false);
   var setPref = (id) => makePref(id, (r) => {
@@ -951,9 +957,11 @@
     "bfb-saved-folder-off-v1",
     "bfb-tag-colours-v1",
     "bfb-trash-hidden-v1",
-    "bfb-waiting-seen-v1"
+    "bfb-waiting-seen-v1",
+    // Folders kept with their own view: chosen one folder at a time, like Saved.
+    "bfb-folder-views-v1"
   ];
-  var KEEP_IN_SETTINGS = ["notesRoot", "editableFolders", "openWithCmds", "terminalApp", "terminalCmd", "excludedFileExtensions"];
+  var KEEP_IN_SETTINGS = ["notesRoot", "editableFolders", "openWithCmds", "openWith", "terminalApp", "terminalCmd", "excludedFileExtensions"];
   function exportAll() {
     const out = {};
     for (const k of kvKeys().sort()) {
@@ -1528,12 +1536,12 @@ ${body}`;
     });
   }
   function filterNotes(list3, query) {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list3;
+    const words2 = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words2.length) return list3;
     return list3.filter((n) => {
       const tags = (n.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
-      return words.every((w) => w.startsWith("colour:") ? w.slice(7) === (colorName(n.color) ?? "") : w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
+      return words2.every((w) => w.startsWith("colour:") ? w.slice(7) === (colorName(n.color) ?? "") : w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
     });
   }
   function keyBetween(a, b) {
@@ -1876,6 +1884,209 @@ ${text}
     return ok;
   }
 
+  // src/icons.ts
+  var EXT_COLORS = {
+    js: "#f0db4f",
+    mjs: "#f0db4f",
+    cjs: "#f0db4f",
+    ts: "#3178c6",
+    tsx: "#61dafb",
+    jsx: "#61dafb",
+    html: "#e34c26",
+    htm: "#e34c26",
+    xml: "#e06c75",
+    vue: "#42b883",
+    svelte: "#ff3e00",
+    css: "#264de4",
+    scss: "#cc6699",
+    less: "#1d365d",
+    json: "#00b894",
+    yaml: "#cc2936",
+    yml: "#cc2936",
+    toml: "#9c4221",
+    md: "#a8b4c1",
+    mdx: "#a8b4c1",
+    txt: "#c0c8d0",
+    rst: "#c0c8d0",
+    py: "#3776ab",
+    rb: "#cc342d",
+    go: "#00add8",
+    rs: "#dea584",
+    java: "#ed8b00",
+    kt: "#7f52ff",
+    swift: "#f05138",
+    dart: "#0175c2",
+    sh: "#4eaa25",
+    bash: "#4eaa25",
+    zsh: "#4eaa25",
+    fish: "#4eaa25",
+    c: "#a8b9cc",
+    cpp: "#00599c",
+    h: "#a8b9cc",
+    cs: "#239120",
+    php: "#777bb4",
+    r: "#276dc2",
+    sql: "#e38d13",
+    db: "#e38d13",
+    sqlite: "#e38d13",
+    pdf: "#e44c38",
+    png: "#9b59b6",
+    jpg: "#9b59b6",
+    jpeg: "#9b59b6",
+    gif: "#9b59b6",
+    svg: "#ff9900",
+    webp: "#9b59b6",
+    ico: "#9b59b6",
+    avif: "#9b59b6",
+    mp4: "#e74c3c",
+    mov: "#e74c3c",
+    avi: "#e74c3c",
+    mkv: "#e74c3c",
+    webm: "#e74c3c",
+    mp3: "#e67e22",
+    wav: "#e67e22",
+    flac: "#e67e22",
+    ogg: "#e67e22",
+    m4a: "#e67e22",
+    zip: "#795548",
+    tar: "#795548",
+    gz: "#795548",
+    rar: "#795548",
+    "7z": "#795548",
+    env: "#ffd700",
+    dockerfile: "#2496ed",
+    lock: "#8b949e"
+  };
+  var IMG_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "avif", "bmp"]);
+  var CHEVRON_RIGHT = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m4.5 2.5 3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var DISCLOSE = '<svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var CHEVRON_DOWN = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var SPECIAL_FOLDERS = /* @__PURE__ */ new Set([
+    "Desktop",
+    "Documents",
+    "Downloads",
+    "Projects",
+    "Library",
+    "Movies",
+    "Music",
+    "Pictures",
+    "Applications",
+    "Code",
+    "Public",
+    "Sites"
+  ]);
+  function icoFile(ext2) {
+    const c = EXT_COLORS[ext2.toLowerCase()] ?? "#6e7681";
+    const lbl = ext2.length <= 3 ? ext2.toUpperCase() : ext2.slice(0, 3).toUpperCase();
+    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}1a" stroke="${c}" stroke-width="1.1"/>
+    <path d="M10 0.5v5.5h5.5" fill="none" stroke="${c}" stroke-width="1.1"/>
+    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${lbl}</text>
+  </svg>`;
+  }
+  function icoFolder(name2 = "") {
+    const special = SPECIAL_FOLDERS.has(name2);
+    const c = special ? "#e8a838" : "#4a9eff";
+    const d = special ? "#c4882a" : "#2980d9";
+    return `<svg width="18" height="15" viewBox="0 0 18 15" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0.5 3.8A.8.8 0 0 1 1.3 3h3.9l1.7 2H17.2a.8.8 0 0 1 .8.8V13.2a.8.8 0 0 1-.8.8H1.3a.8.8 0 0 1-.8-.8z" fill="${c}"/>
+    <path d="M0.5 3.8A.8.8 0 0 1 1.3 3h3.9l1.7 2H17.2a.8.8 0 0 1 .8.8V13.2a.8.8 0 0 1-.8.8H1.3a.8.8 0 0 1-.8-.8z" fill="none" stroke="${d}" stroke-width=".6"/>
+  </svg>`;
+  }
+  function icoParent() {
+    return `<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M9 3.5L5 8l4 4.5M5 8h9" fill="none" stroke="#6e7681" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+  }
+  function safeColor(color) {
+    return /^#[0-9a-fA-F]{3,8}$/.test(color) || /^[a-zA-Z]{1,20}$/.test(color) ? color : "#6e7681";
+  }
+  var RULE_GLYPHS = {
+    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3-3a2 2 0 0 0-3 0L6 21"/>',
+    archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    test: '<path d="M9 2v6L4 18a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3L15 8V2M8 2h8M7 14h10"/>',
+    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+    cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9"/>',
+    db: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>',
+    code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+    terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+    star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+    bolt: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+    bug: '<rect width="8" height="14" x="8" y="6" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 4l1 2M14 4l-1 2"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    video: '<rect width="14" height="12" x="2" y="6" rx="2"/><path d="m22 8-6 4 6 4z"/>',
+    chart: '<path d="M3 3v18h18M7 16v-4M12 16V8M17 16v-7"/>',
+    shield: '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>',
+    branch: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="8" r="3"/><path d="M6 9v6M18 11a6 6 0 0 1-6 6H9"/>',
+    bot: '<rect width="16" height="12" x="4" y="8" rx="2"/><path d="M12 8V4H8M2 14h2M20 14h2M15 13v2M9 13v2"/>',
+    sparkle: '<path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/>',
+    heart: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>'
+  };
+  var SWATCHES = [
+    "#ff6b6b",
+    "#f783ac",
+    "#d97757",
+    "#ffa94d",
+    "#e8b923",
+    "#94d82d",
+    "#40c057",
+    "#38d9a9",
+    "#3bc9db",
+    "#4dabf7",
+    "#4a9eff",
+    "#748ffc",
+    "#b197fc",
+    "#da77f2",
+    "#a1887f",
+    "#8b949e"
+  ];
+  function icoCustom(label, color, glyph) {
+    const c = safeColor(color);
+    const sheet = `<path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.1"/>
+    <path d="M10 0.5L15.5 6H10z" fill="${c}" fill-opacity="0.75"/>`;
+    if (glyph && RULE_GLYPHS[glyph]) {
+      return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">${sheet}
+    <svg x="3" y="7" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${RULE_GLYPHS[glyph]}</svg></svg>`;
+    }
+    const lbl = String(label || "?").slice(0, 4);
+    const safe = lbl.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">${sheet}
+    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${safe}</text>
+  </svg>`;
+  }
+  function ruleFor(name2, isDir, rules) {
+    for (let i3 = 0; i3 < rules.length; i3++) {
+      const rule = rules[i3];
+      if (!rule || !rule.enabled || typeof rule.pattern !== "string" || !rule.pattern) continue;
+      if (isDir && !/\/\$?$/.test(rule.pattern)) continue;
+      try {
+        if (new RegExp(rule.pattern, "i").test(isDir ? name2.replace(/\/*$/, "/") : name2)) return i3;
+      } catch {
+      }
+    }
+    return -1;
+  }
+  function getIcon(e, iconRules) {
+    if (e.isParent) return icoParent();
+    const won = iconRules ? ruleFor(e.name, !!e.isDir, iconRules) : -1;
+    if (won >= 0) {
+      const r = iconRules[won];
+      return icoCustom(r.label, r.color, r.glyph);
+    }
+    if (e.isDir) return icoFolder(e.name);
+    const ext2 = e.name.includes(".") ? e.name.split(".").pop() : "";
+    return icoFile(ext2 || "\u2014");
+  }
+  var PI = {
+    ...Object.fromEntries(Object.entries(LINE_ICON).map(([k, body]) => [k, line(body)])),
+    drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
+  };
+
   // src/layer.ts
   var CLOSES = {
     popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
@@ -2192,7 +2403,7 @@ ${text}
   var DEFAULT_COMMANDS = "Show contents (files): cat\nRun with bash (files): bash\nAdd to VS Code: & code --add";
   var OLD_DEFAULT = "Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add";
   function parseCommands(text) {
-    return (text === void 0 || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
+    return (typeof text !== "string" || text === OLD_DEFAULT ? DEFAULT_COMMANDS : text).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
       const at = l.indexOf(":");
       if (at < 1) return [];
       const label = l.slice(0, at).trim();
@@ -2204,8 +2415,47 @@ ${text}
       return name2 && cmd ? [{ name: name2, cmd, terminal, ...filesOnly ? { filesOnly } : {} }] : [];
     });
   }
+  function ownCommands(s) {
+    if (!Array.isArray(s.openWith)) return parseCommands(s.openWithCmds);
+    const seen = /* @__PURE__ */ new Set();
+    return s.openWith.filter((c) => !!c && typeof c.name === "string" && typeof c.cmd === "string" && !commandProblem(c)).filter((c) => {
+      const k = c.name.trim().toLowerCase();
+      return !seen.has(k) && !!seen.add(k);
+    }).map((c) => ({ name: c.name, cmd: c.cmd, terminal: c.terminal !== false, ...c.filesOnly ? { filesOnly: true } : {}, ...typeof c.color === "string" ? { color: c.color } : {} }));
+  }
+  function commandProblem(c, others = []) {
+    const name2 = c.name.trim(), cmd = c.cmd.trim();
+    if (!name2) return "Needs a name";
+    if (!cmd) return "Needs a command";
+    if (/[\n\r]/.test(c.cmd)) return "Keep it to one line";
+    if (cmd.startsWith("&")) return "Use the Window switch instead of &";
+    if (others.some((o) => o.name.trim().toLowerCase() === name2.toLowerCase())) return "Another command has this name";
+    let quote = "", comment = false;
+    for (let i3 = 0; i3 < cmd.length; i3++) {
+      const ch = cmd[i3];
+      if (quote) {
+        if (ch === quote[0]) quote = "";
+        else if (ch === "\\" && (quote === '"' || quote === "'$")) i3++;
+      } else if (ch === "\\") {
+        if (i3 === cmd.length - 1) return "Ends in a backslash";
+        i3++;
+      } else if (ch === "$" && cmd[i3 + 1] === "'") {
+        quote = "'$";
+        i3++;
+      } else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === "#" && (i3 === 0 || /\s/.test(cmd[i3 - 1]))) {
+        comment = true;
+        break;
+      }
+    }
+    if (quote) return "A quote is left open";
+    if (comment) return "A # comment would hide the path";
+    if (/[;|&]\s*$/.test(cmd)) return "Ends in ; | or &, so the path is lost";
+    return "";
+  }
+  var dot = (c) => `<i class="fe-ow-dot" style="--c:${safeColor(c)}" aria-hidden="true"></i>`;
   function openWithItems(commands, isDir = false) {
-    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => isDir && c.filesOnly ? "" : `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
+    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => isDir && c.filesOnly ? "" : `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${c.color ? dot(c.color) : UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
   }
   function runOpenWith(act, path, commands, toast) {
     const pick2 = act.replace(/^ow:/, "");
@@ -2490,184 +2740,6 @@ ${text}
     }
     return [...out];
   }
-
-  // src/icons.ts
-  var EXT_COLORS = {
-    js: "#f0db4f",
-    mjs: "#f0db4f",
-    cjs: "#f0db4f",
-    ts: "#3178c6",
-    tsx: "#61dafb",
-    jsx: "#61dafb",
-    html: "#e34c26",
-    htm: "#e34c26",
-    xml: "#e06c75",
-    vue: "#42b883",
-    svelte: "#ff3e00",
-    css: "#264de4",
-    scss: "#cc6699",
-    less: "#1d365d",
-    json: "#00b894",
-    yaml: "#cc2936",
-    yml: "#cc2936",
-    toml: "#9c4221",
-    md: "#a8b4c1",
-    mdx: "#a8b4c1",
-    txt: "#c0c8d0",
-    rst: "#c0c8d0",
-    py: "#3776ab",
-    rb: "#cc342d",
-    go: "#00add8",
-    rs: "#dea584",
-    java: "#ed8b00",
-    kt: "#7f52ff",
-    swift: "#f05138",
-    dart: "#0175c2",
-    sh: "#4eaa25",
-    bash: "#4eaa25",
-    zsh: "#4eaa25",
-    fish: "#4eaa25",
-    c: "#a8b9cc",
-    cpp: "#00599c",
-    h: "#a8b9cc",
-    cs: "#239120",
-    php: "#777bb4",
-    r: "#276dc2",
-    sql: "#e38d13",
-    db: "#e38d13",
-    sqlite: "#e38d13",
-    pdf: "#e44c38",
-    png: "#9b59b6",
-    jpg: "#9b59b6",
-    jpeg: "#9b59b6",
-    gif: "#9b59b6",
-    svg: "#ff9900",
-    webp: "#9b59b6",
-    ico: "#9b59b6",
-    avif: "#9b59b6",
-    mp4: "#e74c3c",
-    mov: "#e74c3c",
-    avi: "#e74c3c",
-    mkv: "#e74c3c",
-    webm: "#e74c3c",
-    mp3: "#e67e22",
-    wav: "#e67e22",
-    flac: "#e67e22",
-    ogg: "#e67e22",
-    m4a: "#e67e22",
-    zip: "#795548",
-    tar: "#795548",
-    gz: "#795548",
-    rar: "#795548",
-    "7z": "#795548",
-    env: "#ffd700",
-    dockerfile: "#2496ed",
-    lock: "#8b949e"
-  };
-  var IMG_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "avif", "bmp"]);
-  var CHEVRON_RIGHT = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m4.5 2.5 3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var DISCLOSE = '<svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var CHEVRON_DOWN = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var SPECIAL_FOLDERS = /* @__PURE__ */ new Set([
-    "Desktop",
-    "Documents",
-    "Downloads",
-    "Projects",
-    "Library",
-    "Movies",
-    "Music",
-    "Pictures",
-    "Applications",
-    "Code",
-    "Public",
-    "Sites"
-  ]);
-  function icoFile(ext2) {
-    const c = EXT_COLORS[ext2.toLowerCase()] ?? "#6e7681";
-    const lbl = ext2.length <= 3 ? ext2.toUpperCase() : ext2.slice(0, 3).toUpperCase();
-    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}1a" stroke="${c}" stroke-width="1.1"/>
-    <path d="M10 0.5v5.5h5.5" fill="none" stroke="${c}" stroke-width="1.1"/>
-    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${lbl}</text>
-  </svg>`;
-  }
-  function icoFolder(name2 = "") {
-    const special = SPECIAL_FOLDERS.has(name2);
-    const c = special ? "#e8a838" : "#4a9eff";
-    const d = special ? "#c4882a" : "#2980d9";
-    return `<svg width="18" height="15" viewBox="0 0 18 15" xmlns="http://www.w3.org/2000/svg">
-    <path d="M0.5 3.8A.8.8 0 0 1 1.3 3h3.9l1.7 2H17.2a.8.8 0 0 1 .8.8V13.2a.8.8 0 0 1-.8.8H1.3a.8.8 0 0 1-.8-.8z" fill="${c}"/>
-    <path d="M0.5 3.8A.8.8 0 0 1 1.3 3h3.9l1.7 2H17.2a.8.8 0 0 1 .8.8V13.2a.8.8 0 0 1-.8.8H1.3a.8.8 0 0 1-.8-.8z" fill="none" stroke="${d}" stroke-width=".6"/>
-  </svg>`;
-  }
-  function icoParent() {
-    return `<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-    <path d="M9 3.5L5 8l4 4.5M5 8h9" fill="none" stroke="#6e7681" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-  }
-  function safeColor(color) {
-    return /^#[0-9a-fA-F]{3,8}$/.test(color) || /^[a-zA-Z]{1,20}$/.test(color) ? color : "#6e7681";
-  }
-  var RULE_GLYPHS = {
-    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3-3a2 2 0 0 0-3 0L6 21"/>',
-    archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
-    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-    key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
-    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
-    test: '<path d="M9 2v6L4 18a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3L15 8V2M8 2h8M7 14h10"/>',
-    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
-    cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9"/>',
-    db: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>',
-    code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
-    terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
-    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
-    star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
-    bolt: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
-    bug: '<rect width="8" height="14" x="8" y="6" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 4l1 2M14 4l-1 2"/>',
-    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
-    video: '<rect width="14" height="12" x="2" y="6" rx="2"/><path d="m22 8-6 4 6 4z"/>',
-    chart: '<path d="M3 3v18h18M7 16v-4M12 16V8M17 16v-7"/>',
-    shield: '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/>',
-    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>',
-    branch: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="8" r="3"/><path d="M6 9v6M18 11a6 6 0 0 1-6 6H9"/>',
-    bot: '<rect width="16" height="12" x="4" y="8" rx="2"/><path d="M12 8V4H8M2 14h2M20 14h2M15 13v2M9 13v2"/>',
-    sparkle: '<path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/>',
-    heart: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>'
-  };
-  function icoCustom(label, color, glyph) {
-    const c = safeColor(color);
-    const sheet = `<path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.1"/>
-    <path d="M10 0.5L15.5 6H10z" fill="${c}" fill-opacity="0.75"/>`;
-    if (glyph && RULE_GLYPHS[glyph]) {
-      return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">${sheet}
-    <svg x="3" y="7" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${RULE_GLYPHS[glyph]}</svg></svg>`;
-    }
-    const lbl = String(label || "?").slice(0, 4);
-    const safe = lbl.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">${sheet}
-    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${safe}</text>
-  </svg>`;
-  }
-  function getIcon(e, iconRules) {
-    if (e.isParent) return icoParent();
-    if (iconRules) {
-      for (const rule of iconRules) {
-        if (!rule.enabled) continue;
-        if (e.isDir && !/\/$/.test(rule.pattern)) continue;
-        try {
-          if (new RegExp(rule.pattern, "i").test(e.name)) return icoCustom(rule.label, rule.color, rule.glyph);
-        } catch {
-        }
-      }
-    }
-    if (e.isDir) return icoFolder(e.name);
-    const ext2 = e.name.includes(".") ? e.name.split(".").pop() : "";
-    return icoFile(ext2 || "\u2014");
-  }
-  var PI = {
-    ...Object.fromEntries(Object.entries(LINE_ICON).map(([k, body]) => [k, line(body)])),
-    drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
-  };
 
   // src/empty-state.ts
   function emptyHtml(state, text, o = {}) {
@@ -4638,12 +4710,12 @@ ${text}
   function fileMeta(text, ext2, path, bytes = new Blob([text]).size) {
     const e = ext2.toLowerCase();
     const lines = text ? text.split("\n").length - (text.endsWith("\n") ? 1 : 0) : 0;
-    const words = (text.match(/\S+/g) || []).length;
+    const words2 = (text.match(/\S+/g) || []).length;
     const items = [
       { key: "size", label: "Size", value: fmtSize(bytes) },
       { key: "lines", label: "Lines", value: plural(lines, "line") }
     ];
-    if (e === "md" || e === "mdx" || e === "txt") items.push({ key: "words", label: "Words", value: plural(words, "word") });
+    if (e === "md" || e === "mdx" || e === "txt") items.push({ key: "words", label: "Words", value: plural(words2, "word") });
     if (e === "md" || e === "mdx") {
       let fenced = false, heads = 0;
       for (const l of text.split("\n")) {
@@ -7825,9 +7897,9 @@ ${indent}${end}`;
     test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
     resolve(str) {
       const node = new Scalar(parseFloat(str));
-      const dot = str.indexOf(".");
-      if (dot !== -1 && str[str.length - 1] === "0")
-        node.minFractionDigits = str.length - dot - 1;
+      const dot2 = str.indexOf(".");
+      if (dot2 !== -1 && str[str.length - 1] === "0")
+        node.minFractionDigits = str.length - dot2 - 1;
       return node;
     },
     stringify: stringifyNumber
@@ -8182,9 +8254,9 @@ ${cn.comment}` : item2.comment;
     test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
     resolve(str) {
       const node = new Scalar(parseFloat(str.replace(/_/g, "")));
-      const dot = str.indexOf(".");
-      if (dot !== -1) {
-        const f = str.substring(dot + 1).replace(/_/g, "");
+      const dot2 = str.indexOf(".");
+      if (dot2 !== -1) {
+        const f = str.substring(dot2 + 1).replace(/_/g, "");
         if (f[f.length - 1] === "0")
           node.minFractionDigits = f.length;
       }
@@ -12328,7 +12400,7 @@ ${end.comment}` : end.comment;
     });
     document.getElementById("fe-ql-app-more").addEventListener("click", (e) => {
       const p = previewedPath();
-      if (p) openWithMenu(e.currentTarget, p, false, parseCommands(getSettings().openWithCmds), (m) => deps.toast?.(m));
+      if (p) openWithMenu(e.currentTarget, p, false, ownCommands(getSettings()), (m) => deps.toast?.(m));
     });
     document.getElementById("fe-ql-save").addEventListener("click", () => {
       const p = previewedPath();
@@ -12958,7 +13030,7 @@ ${end.comment}` : end.comment;
           name: e.name,
           path: decodeURIComponent(new URL(e.href, location.href).pathname),
           notify: (m) => deps.toast?.(m),
-          openMore: (anchor) => openWithMenu(anchor, currentImage, false, parseCommands(getSettings().openWithCmds), (m) => deps.toast?.(m)),
+          openMore: (anchor) => openWithMenu(anchor, currentImage, false, ownCommands(getSettings()), (m) => deps.toast?.(m)),
           openNative
         });
       } else if (PDF_EXTS.has(ext2)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
@@ -13637,8 +13709,8 @@ ${t}`)) say("Note title saved");
       }
       btn.classList.add("open");
       const name2 = field("name");
-      const dot = name2.value.lastIndexOf(".");
-      name2.setSelectionRange(0, dot > 0 ? dot : name2.value.length);
+      const dot2 = name2.value.lastIndexOf(".");
+      name2.setSelectionRange(0, dot2 > 0 ? dot2 : name2.value.length);
     };
     btn.addEventListener("click", () => {
       if (layer) layer.close("api");
@@ -13654,8 +13726,8 @@ ${t}`)) say("Note title saved");
     const input = box.querySelector("input");
     const layer = openLayer(box, { kind: "popover", anchor, align: "start", offset: 4, role: "dialog", label: "Rename", focus: input });
     if (!layer.open) return;
-    const dot = input.value.lastIndexOf(".");
-    input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+    const dot2 = input.value.lastIndexOf(".");
+    input.setSelectionRange(0, dot2 > 0 ? dot2 : input.value.length);
     box.addEventListener("submit", async (e) => {
       e.preventDefault();
       const to = await renameOnDisk(app, path, input.value);
@@ -13940,7 +14012,7 @@ ${t}`)) say("Note title saved");
     };
     function mount(root2, opts) {
       const me = ++instances, KEY = "dl-" + (opts.key ?? "lab") + "-", compact = !!opts.compact;
-      const store2 = opts.store ?? {
+      const store3 = opts.store ?? {
         get(k, d) {
           try {
             const v = localStorage.getItem(KEY + k);
@@ -13972,7 +14044,7 @@ ${t}`)) say("Note title saved");
       };
       const srcHash = hashOf2(opts.src);
       const ownDir = (opts.src.match(/^\s*(?:flowchart|graph)\s+(TB|TD|BT|RL|LR)\b/m)?.[1] ?? "TD").replace("TB", "TD");
-      const view = { layout: store2.get("layout", "elk"), dir: store2.get("dir", ownDir), look: store2.get("look", "classic"), style: store2.get("style", "soft"), edges: store2.get("edges", "curved"), mode: compact ? "navigate" : store2.get("mode", "navigate") };
+      const view = { layout: store3.get("layout", "elk"), dir: store3.get("dir", ownDir), look: store3.get("look", "classic"), style: store3.get("style", "soft"), edges: store3.get("edges", "curved"), mode: compact ? "navigate" : store3.get("mode", "navigate") };
       const doc = readDoc(opts.md);
       const seg = (opt, label2, items) => `<div class="dl-seg" data-opt="${opt}" role="group" aria-label="${label2}">${items.map(([v, icon2, title]) => `<button type="button" data-v="${v}" title="${esc2(label2 + ": " + title)}" aria-label="${esc2(title)}">${icon2}</button>`).join("")}</div>`;
       const actBtn2 = (a, icon2, title, text = "", extra = "") => `<button type="button" class="dl-act${text ? "" : " dl-icon"}" data-act="${a}" title="${esc2(title)}" aria-label="${esc2(title)}"${extra}>${icon2}${text}</button>`;
@@ -14229,7 +14301,7 @@ ${t}`)) say("Note title saved");
           const r = g.getBoundingClientRect();
           els2.boxes0.set(id, { x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height });
         }
-        offsets = store2.get(posKey(), {});
+        offsets = store3.get(posKey(), {});
         placeAll();
         buildLegend();
         return true;
@@ -14417,7 +14489,7 @@ ${t}`)) say("Note title saved");
         stage.classList.remove("dl-panning", "dl-dragging");
         if (d.moved && d.node) {
           guide([]);
-          store2.set(posKey(), offsets);
+          store3.set(posKey(), offsets);
           placeAll();
           modes[view.mode].refresh();
           return;
@@ -14662,7 +14734,7 @@ ${t}`)) say("Note title saved");
           this.panel();
         }
       };
-      const foc = { sel: null, scope: store2.get("scope", "after") };
+      const foc = { sel: null, scope: store3.get("scope", "after") };
       const SCOPES = [["near", "Next to it"], ["after", "After"], ["before", "Before"], ["both", "Both ways"]];
       function focusSet() {
         const id = foc.sel;
@@ -14728,7 +14800,7 @@ ${t}`)) say("Note title saved");
         const s = e.target.closest("[data-scope]");
         if (!s) return;
         foc.scope = s.dataset.scope;
-        store2.set("scope", foc.scope);
+        store3.set("scope", foc.scope);
         modes.focus.go(foc.sel);
       });
       const walk = { at: null, hist: [] };
@@ -14934,7 +15006,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
         }
         if (kind === "reset") {
           offsets = {};
-          store2.set(posKey(), offsets);
+          store3.set(posKey(), offsets);
           placeAll();
           modes[view.mode].refresh();
           toast("Boxes back where the layout put them");
@@ -14988,13 +15060,13 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       function showPanel(on) {
         root2.classList.toggle("dl-panel-off", !on);
         $('[data-act="panel"]')?.setAttribute("aria-pressed", String(on));
-        store2.set("panel", on);
+        store3.set("panel", on);
       }
       const panelW = (w) => {
         root2.style.setProperty("--dl-panel", Math.round(w) + "px");
       };
-      if (store2.get("panelW", 0)) panelW(store2.get("panelW", 320));
-      if (!compact && store2.get("panel", true) === false) showPanel(false);
+      if (store3.get("panelW", 0)) panelW(store3.get("panelW", 320));
+      if (!compact && store3.get("panel", true) === false) showPanel(false);
       $(".dl-resize").addEventListener("pointerdown", (e) => {
         e.preventDefault();
         const r = $(".dl-main").getBoundingClientRect(), bar = e.currentTarget;
@@ -15005,7 +15077,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           bar.removeEventListener("pointermove", move);
           bar.removeEventListener("pointerup", up);
           root2.classList.remove("dl-resizing");
-          store2.set("panelW", parseInt(root2.style.getPropertyValue("--dl-panel"), 10));
+          store3.set("panelW", parseInt(root2.style.getPropertyValue("--dl-panel"), 10));
         };
         bar.addEventListener("pointermove", move);
         bar.addEventListener("pointerup", up);
@@ -15044,7 +15116,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       function setMode(m) {
         if (!modes[m]) m = "navigate";
         view.mode = m;
-        store2.set("mode", m);
+        store3.set("mode", m);
         root2.querySelectorAll(".dl-modes [data-mode]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === m)));
         legendPick = null;
         buildLegend();
@@ -15057,7 +15129,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       }
       async function setOpt(opt, v) {
         view[opt] = v;
-        store2.set(opt, v);
+        store3.set(opt, v);
         paintOpts();
         if (opt === "style") return;
         if (opt === "edges") {
@@ -15748,7 +15820,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
           notify,
           start: left,
           // Outside the extension (the web build of a page) there is no other app to list.
-          openMore: typeof chrome === "undefined" || !chrome.runtime?.id ? void 0 : (anchor) => openWithMenu(anchor, decodeURIComponent(new URL(m.src, location.href).pathname), false, parseCommands(getSettings().openWithCmds), notify),
+          openMore: typeof chrome === "undefined" || !chrome.runtime?.id ? void 0 : (anchor) => openWithMenu(anchor, decodeURIComponent(new URL(m.src, location.href).pathname), false, ownCommands(getSettings()), notify),
           // Outside the extension (the web build of a page) there is no app to open it in.
           openNative: (p) => typeof chrome === "undefined" || !chrome.runtime?.id ? Promise.resolve(false) : new Promise((res) => chrome.runtime.sendMessage(
             { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
@@ -18355,8 +18427,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dm)}
-#fe.compact tbody td{padding:var(--sp-1) var(--sp-5)}
-#fe.compact .fe-tile{padding:var(--sp-3) var(--sp-3) var(--sp-2);gap:var(--sp-2)}
 /* Dialog: Settings and Help. A Panel over a Scrim with the title and the
    tabs down the left and one scrolling pane on the right. Every rule for it
    is here, and in the 700px block at the end (docs/system/dialog.md). */
@@ -19135,7 +19205,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody tr:hover td{background:var(--hover)}
 #fe-table tbody tr.selected td{background:var(--on)}
 #fe-table tbody td{height:36px}
-#fe.compact #fe-table tbody td{height:var(--ctl-md)}
 /* Row height per detail level; it wins over Compact, which only sets level 3. */
 #fe[data-density="1"] #fe-table tbody td{height:52px}
 #fe[data-density="2"] #fe-table tbody td{height:44px}
@@ -19319,7 +19388,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c .fe-st-input{width:260px;max-width:100%}
 .fe-set-note{padding:var(--sp-1) var(--sp-6) var(--sp-4);font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
-.fe-set-card #fe-st-rules-list{margin:0 var(--sp-6)}
+.fe-set-card #fe-st-rules-list,.fe-set-card .fe-rule-try{margin:0 var(--sp-6)}
 .fe-set-danger{color:var(--nc-red)}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
@@ -19901,9 +19970,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set[hidden],#fe-st-saved-move[hidden]{display:none}
 #fe-st-notes-root{width:420px}
 #fe-st-home-url{background:none;border-color:transparent;color:var(--mt);text-align:right;text-overflow:ellipsis}
-.fe-st-rows{display:inline-flex;flex-direction:column;justify-content:center;gap:5px;width:56px;height:var(--ctl-lg)}
-.fe-st-rows i{display:block;height:3px;border-radius:2px;background:var(--dm);opacity:.6}
-.fe-st-rows[data-d="compact"]{gap:2px}
 .fe-st-fontsample{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-5) var(--sp-6);background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-st-fontsample b{font:600 calc(var(--fs-xl) * 1.1) var(--font-head)}
 .fe-st-fontsample span{font:var(--fs-md) var(--font-text);color:var(--mt)}
@@ -20068,9 +20134,15 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-sugg-l{position:absolute;left:var(--sp-6);top:calc(var(--sp-5) + 4px);font-size:var(--fs-sm);color:var(--dm)}
 .chip.fe-rule-add > svg{width:13px;height:15px}
 #fe-st-rules-list{padding:var(--sp-3) 0 var(--sp-4)}
-.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
+.fe-rule{display:grid;grid-template-columns:auto auto minmax(80px,.55fr) minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
 .fe-rule:hover{background:var(--hover)}
-.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
+.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern,.fe-rule.off .fe-st-rule-name{opacity:.45}
+.fe-rule.win{background:color-mix(in srgb,var(--ac) 12%,transparent);box-shadow:inset 3px 0 0 var(--ac)}
+.fe-rule-try{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-3) 0 0}
+.fe-rule-try>input{flex:0 1 260px;min-width:0}
+#fe-st-rule-try-out{display:flex;align-items:center;gap:var(--sp-3);color:var(--mt);font-size:var(--fs-sm)}
+#fe-st-rule-try-out svg{width:16px;height:18px;flex:none}
+#fe-st-rule-try-out b{color:var(--tx);font-weight:600}
 /* Settings, Web pages: a site with its mode, and a marked page with its count. */
 .fe-rule.fe-web-site{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
 .fe-rule.fe-web-page{grid-template-columns:minmax(0,1fr) auto auto;padding:var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-6)}
@@ -20121,6 +20193,81 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:var(--sp-3);align-items:center}
 .fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(var(--ink) / .15);transition:transform var(--t-fast) var(--ease)}
 .fe-rp-c:hover{transform:scale(1.1)}
+.fe-rp-c.none{background:linear-gradient(135deg,transparent 46%,var(--nc-red) 46% 54%,transparent 54%);box-shadow:inset 0 0 0 1px var(--bd2)}
+.fe-rp-c.none.on{box-shadow:inset 0 0 0 1px var(--bd2),0 0 0 2px var(--card),0 0 0 4px var(--dm)}
+.fe-dlg-title:has(.fe-dlg-search){flex-wrap:wrap;row-gap:var(--sp-5)}
+.fe-dlg-search{display:flex;flex-basis:100%}
+.fe-dlg-search>input{width:100%}
+.fe-dlg-box.searching .fe-dlg-tab.on:not(:hover){background:none;color:var(--mt)}
+.fe-dlg-results{display:none}
+.fe-dlg-box.searching>.fe-dlg-pane:not(.fe-dlg-results){display:none}
+.fe-dlg-box.searching .fe-dlg-results{display:flex;flex-direction:column;gap:var(--sp-7);padding-top:var(--sp-5)}
+.fe-dlg-results>.fe-dlg-pane{display:flex;flex-direction:column;gap:var(--sp-6);padding:0;overflow:visible;min-height:auto}
+.fe-dlg-results .fe-dlg-ph{position:static}
+.fe-sr-miss{display:none!important}
+.fe-dlg-tab.fe-sr-none{opacity:.45}
+.fe-dlg-n{margin-left:auto;min-width:20px;padding:0 6px;border-radius:10px;background:color-mix(in srgb,var(--ac) 22%,transparent);color:var(--tx);font:600 var(--fs-xs)/18px var(--font-text);text-align:center}
+.fe-dlg-hits{display:flex;flex-direction:column;gap:1px;margin:calc(var(--sp-1) * -1) 0 var(--sp-2);padding-left:calc(var(--sp-4) + 22px + var(--row-gap))}
+.fe-dlg-hit{padding:3px var(--sp-3);border:0;border-radius:6px;background:none;color:var(--mt);font-size:var(--fs-sm);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-dlg-hit:hover,.fe-dlg-hit:focus-visible{background:var(--hover);color:var(--tx)}
+/* A narrow dialog has its tabs as a row of icons: counts stay, the named matches go. */
+@container dlg (max-width:420px){.fe-dlg-hits{display:none}.fe-dlg-n{margin-left:2px;min-width:16px;padding:0 4px}}
+.fe-dlg-more{padding:2px var(--sp-3);font-size:var(--fs-xs);color:var(--dm)}
+.fe-sr-empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-9) var(--sp-6);color:var(--dm);text-align:center}
+.fe-sr-empty b{color:var(--tx);font-weight:600}
+::highlight(bfb-settings-hit){background:color-mix(in srgb,var(--gold) 45%,transparent);color:inherit}
+@keyframes fe-sr-flash{from{background:color-mix(in srgb,var(--ac) 22%,transparent)}to{background:transparent}}
+.fe-sr-flash{animation:fe-sr-flash 1.2s var(--ease)}
+.fe-fv-bar{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-4) var(--sp-6) var(--sp-2)}
+.fe-fv-l{font-size:var(--fs-md);color:var(--mt);margin-right:calc(var(--sp-2) * -1)}
+.fe-fv-tree{display:inline-flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-md);color:var(--mt);cursor:pointer}
+#fe-st-fv-list{display:flex;flex-direction:column;gap:2px;padding:var(--sp-2) var(--sp-5) var(--sp-4)}
+#fe-st-fv-list>.empty{padding:var(--sp-5) var(--sp-2)}
+.fe-fv-group{display:flex;flex-direction:column;gap:2px}
+.fe-fv-group+.fe-fv-group{margin-top:var(--sp-4)}
+.fe-fv-group h4{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm);font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
+.fe-fv-group h4 span{font-weight:500;color:var(--dm)}
+.fe-fv-row{display:grid;grid-template-columns:minmax(0,1fr) 168px 28px;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-2) var(--sp-2) calc(var(--sp-2) + var(--depth,0) * 18px);border-radius:9px}
+.fe-fv-row:hover{background:var(--hover)}
+.fe-fv-row.here{background:color-mix(in srgb,var(--ac) 9%,transparent)}
+.fe-fv-path{display:flex;align-items:center;gap:var(--sp-3);min-width:0;color:var(--tx);text-decoration:none;font-size:var(--fs-lg)}
+.fe-fv-path svg{flex:none;width:15px;height:15px;color:var(--dir)}
+.fe-fv-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-md)}
+.fe-fv-path em{flex:none;font-style:normal;font-size:var(--fs-xs);color:var(--ac)}
+.fe-fv-path:hover span{text-decoration:underline}
+.fe-fv-view{width:100%}
+.fe-st-lenses{display:flex;flex-direction:column;gap:2px;max-width:420px}
+.fe-lens-row{display:grid;grid-template-columns:24px 20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);border-radius:9px;background:var(--card)}
+.fe-lens-row:hover{background:var(--hover)}
+.fe-lens-row.dragging{opacity:.4}
+.fe-lens-row.off .fe-lens-ico,.fe-lens-row.off .fe-lens-nm{opacity:.45}
+.fe-lens-grip{display:grid;place-items:center;width:24px;height:28px;padding:0;border:0;border-radius:6px;background:none;color:var(--dm);cursor:grab}
+.fe-lens-grip:hover{color:var(--tx);background:var(--hover)}
+.fe-lens-grip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-lens-ico{display:grid;place-items:center;color:var(--mt)}
+.fe-lens-ico svg{width:16px;height:16px}
+.fe-lens-nm{font-size:var(--fs-lg);color:var(--tx)}
+.fe-set-c:has(>#fe-st-ow-list){flex-direction:column;align-items:stretch;gap:var(--sp-3)}
+#fe-st-ow-add{align-self:flex-start}
+.fe-ow-list{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fe-ow-head,.fe-ow-row{display:grid;grid-template-columns:34px minmax(96px,.45fr) minmax(0,1fr) 64px 56px 28px;align-items:center;column-gap:var(--sp-4)}
+.fe-ow-row{padding:var(--sp-2) 0;border-radius:9px}
+.fe-ow-head{padding-bottom:var(--sp-1)}
+.fe-ow-head span{font-size:var(--fs-sm);color:var(--dm);text-align:center}
+.fe-ow-head span:nth-child(2),.fe-ow-head span:nth-child(3){text-align:left}
+.fe-ow-row>.fe-switch{justify-self:center}
+.fe-ow-row>input.tb{width:100%;min-width:0}
+.fe-ow-color{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
+.fe-ow-color:hover{border-color:var(--ac)}
+.fe-ow-ball{width:14px;height:14px;border-radius:50%;background:var(--c)}
+.fe-ow-ball.none{background:none;border:1.5px dashed var(--dm)}
+.fe-ow-st{grid-column:2/-1;padding-top:var(--sp-1);font-size:var(--fs-sm);color:var(--dm);overflow-wrap:anywhere}
+.fe-ow-st:empty{display:none}
+.fe-ow-st[data-tone="bad"]{color:var(--nc-red)}
+.fe-ow-pick{width:26px;height:26px;padding:3px;border:0;border-radius:50%;background:conic-gradient(#ff6b6b,#ffd43b,#51cf66,#3bc9db,#748ffc,#da77f2,#ff6b6b);cursor:pointer}
+.fe-ow-pick::-webkit-color-swatch-wrapper{padding:0}
+.fe-ow-pick::-webkit-color-swatch{border:2px solid var(--card);border-radius:50%}
+.fe-ow-dot{flex:none;width:16px;height:16px;background:radial-gradient(circle,var(--c) 0 4.5px,transparent 5px)}
 .fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
 .fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-rp-hex{grid-column:span 4}
@@ -21889,11 +22036,11 @@ and ${diags.length - 12} more` : "");
     };
     const pill2 = box.querySelector("#fe-fe-pill");
     const clearPill = () => {
-      const words = rowEl(curRow)?.querySelector(".fe-fe-code");
+      const words2 = rowEl(curRow)?.querySelector(".fe-fe-code");
       let under = false;
-      if (words && mode !== "rich") {
+      if (words2 && mode !== "rich") {
         const r = document.createRange();
-        r.selectNodeContents(words);
+        r.selectNodeContents(words2);
         const a = r.getBoundingClientRect(), b = pill2.getBoundingClientRect();
         under = a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
       }
@@ -22523,8 +22670,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       try {
         const r = await notes.commentsWrite(root2, o.rel(), ops);
         take(r);
-        const said = r.notes.filter((n) => !notesLine.includes(n));
-        if (said.length) o.status(said.join("; "));
+        const said2 = r.notes.filter((n) => !notesLine.includes(n));
+        if (said2.length) o.status(said2.join("; "));
         lastCompanion = await readCompanion();
         lastText = o.text();
         return r;
@@ -22614,8 +22761,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const tools = on ? `<div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? "" : " disabled"} title="${can ? "Replace the words in the file (a backup is kept)" : "The words are no longer in the file, so this cannot be applied"}">${UI_ICON.check}Accept</button></div>` : "";
-      const said = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : "";
-      return `<div class="fe-cm-sug pending">${diff}${tools}${said}</div>`;
+      const said2 = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : "";
+      return `<div class="fe-cm-sug pending">${diff}${tools}${said2}</div>`;
     };
     const threadHtml = (t) => {
       const on = t.id === active;
@@ -22976,7 +23123,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         paint();
       }
     };
-    const copy = (text, said, btn) => copyWithCheck(btn, text).then((ok) => o.status(ok ? said : "copy failed"));
+    const copy = (text, said2, btn) => copyWithCheck(btn, text).then((ok) => o.status(ok ? said2 : "copy failed"));
     const threadLink = (id) => location.href.split("#")[0] + "#c=" + encodeURIComponent(id);
     const copyBrief = (btn) => {
       const ts = visible2();
@@ -24134,7 +24281,7 @@ li.fe-task{list-style:none;margin-left:-1.3em}
     h1?.remove();
     root2.querySelectorAll("h1[id], h2[id], h3[id], h4[id]").forEach((h) => h.insertAdjacentHTML("beforeend", `<a class="anchor" href="#${esc(h.id)}" aria-label="Link to this section">#</a>`));
     const sections = [...root2.querySelectorAll("h2[id]")];
-    const words = (root2.textContent ?? "").trim().split(/\s+/).filter(Boolean).length;
+    const words2 = (root2.textContent ?? "").trim().split(/\s+/).filter(Boolean).length;
     const path = decodeURIComponent(new URL(href, location.href).pathname);
     const folder = path.replace(/\/[^/]*$/, "").split("/").slice(-2).join("/");
     const firstPara = (root2.querySelector(":scope > p")?.textContent ?? "").replace(/\s+/g, " ").trim();
@@ -24142,8 +24289,8 @@ li.fe-task{list-style:none;margin-left:-1.3em}
     const when2 = /* @__PURE__ */ new Date();
     const facts2 = [
       `<li>${when2.toLocaleDateString(void 0, { day: "numeric", month: "short", year: "numeric" })}</li>`,
-      `<li>${words.toLocaleString()} words</li>`,
-      `<li>${Math.max(1, Math.round(words / 230))} min read</li>`,
+      `<li>${words2.toLocaleString()} words</li>`,
+      `<li>${Math.max(1, Math.round(words2 / 230))} min read</li>`,
       sections.length ? `<li>${sections.length} sections</li>` : ""
     ].join("");
     const chips = doc.meta.filter(([k, v]) => k && v && !/^title$/i.test(k)).slice(0, 8).map(([k, v]) => `<li><b>${esc(k)}</b>${esc(v.length > 60 ? v.slice(0, 59) + "\u2026" : v)}</li>`).join("");
@@ -24541,10 +24688,10 @@ ${d.message}` : d.message;
     for (let i3 = 0; i3 < blocks.length && i3 < 2e4; i3++) {
       const r = blocks[i3].getBoundingClientRect();
       if (r.bottom <= top) continue;
-      const words = (blocks[i3].textContent ?? "").replace(/^\d+(?=\D)/, "").trim().split(/\s+/);
+      const words2 = (blocks[i3].textContent ?? "").replace(/^\d+(?=\D)/, "").trim().split(/\s+/);
       for (const n of [6, 3, 1]) {
-        const at = text.indexOf(words.slice(0, n).join(" "));
-        if (words[0] && at >= 0) return at;
+        const at = text.indexOf(words2.slice(0, n).join(" "));
+        if (words2[0] && at >= 0) return at;
       }
       return 0;
     }
@@ -26214,10 +26361,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           `<div class="fe-st-fontsample" id="fe-st-fontsample" aria-hidden="true"><b>A heading looks like this</b><span>Text reads like this, in lists and pages.</span><code>code_looks("like this")</code></div>` + row("Headings", "", ddHtml("fe-st-font-head", fontOpts(HEAD_FONTS), "Font for titles in pages and notes", "lg")) + row("Text", "", ddHtml("fe-st-font-text", fontOpts(TEXT_FONTS), "Font for everything else", "lg")) + row("Code", "", ddHtml("fe-st-font-code", fontOpts(CODE_FONTS), "Font for code, raw files and paths", "lg"))
         ) + card2(
           "Size",
-          row("Interface", "Everything", sliderHtml("fe-st-uiscale", [80, 90, 100, 110, 125, 150], "%", "Interface size")) + row("Text", "Page text; lists and the sidebar scale with it", sliderHtml("fe-st-rd-size", [12, 13, 14, 15, 16, 17, 18], " px", "Text size")) + row("Code", "Code blocks and raw files", sliderHtml("fe-st-rd-code", [11, 12, 13, 14, 15, 16], " px", "Code size")) + row("Row spacing", "", `<span class="fe-st-rows" id="fe-st-rows" aria-hidden="true"><i></i><i></i><i></i></span>` + segHtml("fe-st-density", [
-            { value: "roomy", label: "Roomy", icon: i2('<path d="M3 5h18M3 12h18M3 19h18"/>') },
-            { value: "compact", label: "Compact", icon: i2('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }
-          ], "Row spacing", "lg")) + row("Tooltips", "", sw("fe-st-tooltips", "Labels on hover, on every control"))
+          row("Interface", "Everything", sliderHtml("fe-st-uiscale", [80, 90, 100, 110, 125, 150], "%", "Interface size")) + row("Text", "Page text; lists and the sidebar scale with it", sliderHtml("fe-st-rd-size", [12, 13, 14, 15, 16, 17, 18], " px", "Text size")) + row("Code", "Code blocks and raw files", sliderHtml("fe-st-rd-code", [11, 12, 13, 14, 15, 16], " px", "Code size")) + row("Detail", "Bigger items, or more facts; the toolbar slider", sliderHtml("fe-st-density", [1, 2, 3, 4, 5], "", "Detail", DENSITY_NAMES)) + row("Tooltips", "", sw("fe-st-tooltips", "Labels on hover, on every control"))
         ) + card2(
           "App icon",
           wide("", "", `<div class="fe-appicons" role="radiogroup" aria-label="App icon" title="Shows in the tab and app window">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
@@ -26225,6 +26369,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         { key: "folders", label: "Browse", hint: "View, order, clicks", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How a folder opens, and what a click does.", body: card2(
           "Opening a folder",
           wide("View", "Each drawn as it looks", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, label: v.label, icon: `<span class="fe-st-mini" aria-hidden="true">${VIEW_MINI[v.id]}</span>`, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Folders on top", "Whatever the sort", sw("fe-st-dirs-first", "Keep folders above files")) + row("Hidden files", "Dotfiles and comment files", sw("fe-st-hidden", "Show hidden files")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
+        ) + card2(
+          "Folders with their own view",
+          `<div class="fe-fv-bar"><span class="fe-fv-l">Show</span>${segHtml("fe-st-fv-shape", [{ value: "list", label: "List" }, { value: "view", label: "By view" }], "Show as a list, or grouped by view")}<label class="fe-fv-tree" title="Indent folders inside other kept folders">${switchHtml({ id: "fe-st-fv-tree", title: "Indent nested folders", small: true })}<span>Tree</span></label></div>
+          <div id="fe-st-fv-list"></div>` + note("Pin a folder with the keep button beside the view switch.")
         ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
@@ -26257,7 +26405,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) },
         { key: "sidebar", label: "Sidebar and Home", hint: "Sidebar, new tabs", icon: i2('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), tone: "var(--nc-yellow)", desc: "The sidebar, and what a new tab shows.", body: card2(
           "Sidebar",
-          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Fold for a docked preview", "", sw("fe-st-dock-fold", "Fold the sidebar while a docked preview is open")) + row("Peek closes", "", ddHtml("fe-st-peek-close", PEEK_OPTS, "How long after the pointer leaves it closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
+          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Fold for a docked preview", "", sw("fe-st-dock-fold", "Fold the sidebar while a docked preview is open")) + row("Peek closes", "", ddHtml("fe-st-peek-close", PEEK_OPTS, "How long after the pointer leaves it closes", "lg")) + wide("Sections", "Switch one off to take it off the sidebar. Drag to reorder.", '<div id="fe-st-lenses" class="fe-st-lenses"></div>')
         ) + card2(
           "Home",
           row("New tabs open Home", "", sw("fe-st-newtab-home", "Every new Chrome tab shows Home instead of Chrome\u2019s own page")) + row("Home address", "", `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="For Chrome\u2019s start-up page or Home button">${iconBtn("fe-st-home-copy", UI_ICON.copy, "Copy the Home address")}`)
@@ -26266,13 +26414,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           "Terminal",
           row("Terminal app", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command to copy", "A custom command is copied, not run. ${p} is the folder.", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='The terminal button copies this. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') + note("", "fe-st-term-hint") + wide(
             "Open with",
-            "One per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window. End a name with (files) to keep it off folders.",
-            `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="5" spellcheck="false" title="One per line, Name: command"></textarea>`
+            "Your own commands, in the Open with menu. The path goes last, quoted.",
+            `<div id="fe-st-ow-list" class="fe-ow-list"></div><button type="button" id="fe-st-ow-add" class="btn" data-size="sm" data-variant="outline" title="Add a command">${UI_ICON.add}Command</button>`
           )
         ) + card2(
           "Icon rules",
           `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
+          <div class="fe-rule-try"><input type="text" id="fe-st-rule-try" class="tb" data-size="lg" placeholder="Try a file name, e.g. notes.md" spellcheck="false" title="Which rule wins; end with / for folders"><span id="fe-st-rule-try-out" aria-live="polite"></span></div>
           <div id="fe-st-rules-list"></div>`,
           `<span class="sect-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="btn" data-size="sm" data-variant="outline" title="Add a rule">${UI_ICON.add}Rule</button></span>`
         ) + card2(
@@ -26565,6 +26714,81 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     }).join("");
   }
 
+  // src/lens-list.ts
+  var LENSES = [
+    { id: "home", label: "Home", icon: UI_ICON.dashboard, hint: "Home: every chat, the decisions still open, and what each repo asks of you" },
+    { id: "places", label: "Places", icon: PI.home, hint: "Places: Home, your folders, Applications and Root" },
+    { id: "saved", label: "Saved", icon: PI.bm, hint: "Saved: places and views you kept" },
+    { id: "notes", label: "Notes", icon: PI.docs, hint: "Notes: your notes folder" },
+    { id: "history", label: "History", icon: PI.recent, hint: "History: folders and files you opened lately, and closed tabs" },
+    { id: "search", label: "Search", icon: PI.search, hint: "Search: find text in the files of this folder" },
+    { id: "ask", label: "Ask", icon: PI.ask, hint: "Ask: put a question about this file or folder to the local model" },
+    { id: "comments", label: "Comments", icon: UI_ICON.comment, hint: "Comments: every document with comments" },
+    { id: "decisions", label: "Decisions", icon: UI_ICON.opinion, hint: "Decisions: pages an agent asked you to answer" }
+  ];
+  function lensOrder(s) {
+    const known = new Map(LENSES.map((l) => [l.id, l]));
+    const out = [...new Set(Array.isArray(s.lensOrder) ? s.lensOrder : [])].filter((id) => known.has(id)).map((id) => known.get(id));
+    LENSES.forEach((l, i3) => {
+      if (out.includes(l)) return;
+      const before = LENSES.slice(0, i3).reverse().find((p) => out.includes(p));
+      out.splice(before ? out.indexOf(before) + 1 : 0, 0, l);
+    });
+    return out;
+  }
+  var offList = (s) => Array.isArray(s.lensOff) ? s.lensOff : [];
+  var lensOn = (s, id) => id === "history" ? !s.hideRecent : !offList(s).includes(id);
+  var lensShown = (s, id) => lensOn(s, id) || !LENSES.some((l) => lensOn(s, l.id));
+  function setLensOn(s, id, on) {
+    if (!on && LENSES.filter((l) => l.id !== id && lensOn(s, l.id)).length === 0) return false;
+    if (id === "history") s.hideRecent = !on;
+    else s.lensOff = on ? offList(s).filter((x2) => x2 !== id) : [.../* @__PURE__ */ new Set([...offList(s), id])];
+    return true;
+  }
+
+  // src/folder-views.ts
+  var VIEWS = VIEW_ICONS.map((v) => v.id);
+  var COLS = [null, "name", "size", "date", "type", "ext"];
+  var GROUPS2 = ["none", "folders-first", "files-first", "ext", "type"];
+  var KEEP_ON = "Kept for this folder; click for the default";
+  var KEEP_OFF = "Keep this view and sort for this folder";
+  var isObject2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  var store2 = jsonPref("bfb-folder-views-v1", {}, (v) => isObject2(v) && Object.values(v).every(isObject2));
+  var folderKey = (path) => path.replace(/\/+$/, "") || "/";
+  var allFolderViews = () => store2.get();
+  function folderView(path) {
+    const v = store2.get()[folderKey(path)];
+    if (!v) return null;
+    const out = {};
+    if (VIEWS.includes(v.view)) out.view = v.view;
+    if (v.sort && typeof v.sort === "object" && (v.sort.dir === "asc" || v.sort.dir === "desc") && COLS.includes(v.sort.col)) out.sort = { col: v.sort.col, dir: v.sort.dir };
+    if (GROUPS2.includes(v.group)) out.group = v.group;
+    return out;
+  }
+  function keepFolderView(path, patch) {
+    const all = store2.get();
+    const key = folderKey(path);
+    all[key] = { ...all[key], ...patch };
+    store2.set(all);
+  }
+  function dropFolderView(path) {
+    const all = store2.get();
+    delete all[folderKey(path)];
+    store2.set(all);
+  }
+  function folderTree(paths) {
+    const sorted = [...paths].sort((a, b) => a.localeCompare(b));
+    const out = [];
+    const stack2 = [];
+    for (const p of sorted) {
+      while (stack2.length && !(p.startsWith(stack2[stack2.length - 1] + "/") || stack2[stack2.length - 1] === "/")) stack2.pop();
+      const parent = stack2[stack2.length - 1];
+      out.push({ path: p, depth: stack2.length, tail: parent ? p.slice(parent === "/" ? 1 : parent.length + 1) : p });
+      stack2.push(p);
+    }
+    return out;
+  }
+
   // src/page.ts
   var SORT_ICON = line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 14);
   var PI_FOLDER = '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>';
@@ -26604,6 +26828,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       icons: "Large icon grid",
       gallery: "A large preview above a strip of thumbnails"
     };
+    const kept = !fileMode && location.hash !== "#home" && !!folderView(folderPath);
+    const keepBtn = `<button type="button" id="fe-keep-view" class="btn" data-icon aria-pressed="${kept}" title="${kept ? KEEP_ON : KEEP_OFF}" aria-label="Keep view for this folder">${UI_ICON.pin}</button>`;
     const viewSeg = segHtml("fe-view-group", VIEW_MODES.map((v) => ({ value: v.id, icon: v.ico, hint: `${v.label} view: ${VIEW_LABELS[v.id]}` })), "View");
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const SETTINGS_DIALOG = settingsDialog();
@@ -26640,15 +26866,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   <div id="fe-body">
     <nav id="fe-side">
       <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="horizontal">
-        ${railBtn("home", "Home", UI_ICON.dashboard, "Home: every chat, the decisions still open, and what each repo asks of you")}
-        ${railBtn("places", "Places", PI.home, "Places: Home, your folders, Applications and Root")}
-        ${railBtn("saved", "Saved", PI.bm, "Saved: places and views you kept")}
-        ${railBtn("notes", "Notes", PI.docs, "Notes: your notes folder")}
-        ${railBtn("history", "History", PI.recent, "History: folders and files you opened lately, and closed tabs", !!settings.hideRecent)}
-        ${railBtn("search", "Search", PI.search, "Search: find text in the files of this folder")}
-        ${railBtn("ask", "Ask", PI.ask, "Ask: put a question about this file or folder to the local model")}
-        ${railBtn("comments", "Comments", UI_ICON.comment, "Comments: every document with comments")}
-        ${railBtn("decisions", "Decisions", UI_ICON.opinion, "Decisions: pages an agent asked you to answer")}
+        ${lensOrder(settings).map((l) => railBtn(l.id, l.label, l.icon, l.hint, !lensShown(settings, l.id))).join("")}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-home" data-lens="home" role="tabpanel" aria-labelledby="fe-rail-home" hidden>
@@ -26742,6 +26960,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           </div>
           <span class="bar-sep" aria-hidden="true"></span>
           ${viewSeg}
+          ${keepBtn}
           <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>
@@ -27187,12 +27406,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   // src/listing.ts
   function initListing(app, all, init) {
     const { fe, toast, rawPath } = app;
+    const here = app.fileMode || location.hash === "#home" ? null : folderView(app.folderPath);
+    let keptHere = !!here;
+    app.keptHere = () => keptHere;
+    const saveView = (v) => {
+      if (keptHere) keepFolderView(app.folderPath, { view: v });
+      else viewPref.set(v);
+    };
     const ls = {
       all,
       visible: all,
       baseStatus: "",
-      sort: getSortConfig(),
-      group: getGroupMode(),
+      sort: here?.sort ?? getSortConfig(),
+      group: here?.group ?? getGroupMode(),
       filter: { q: "", regex: false, type: "all" },
       deepOn: false,
       deepEntries: null,
@@ -27336,6 +27562,35 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       img.src = img.dataset.src;
       img.removeAttribute("data-src");
     }), { root: el("fe-scroll"), rootMargin: "300px" });
+    const TILES_FIRST = 160, TILES_CHUNK = 600;
+    let tileFill = 0;
+    function fillTiles(parts2, inSteps) {
+      const tiles = el("fe-tiles");
+      const run = ++tileFill;
+      const watch2 = () => tiles.querySelectorAll("img[data-src]").forEach((img) => pictureNear.observe(img));
+      if (!inSteps || parts2.length <= TILES_FIRST * 2) {
+        tiles.innerHTML = parts2.join("");
+        tiles.removeAttribute("aria-busy");
+        watch2();
+        return;
+      }
+      tiles.innerHTML = parts2.slice(0, TILES_FIRST).join("");
+      tiles.setAttribute("aria-busy", "true");
+      watch2();
+      let at = TILES_FIRST;
+      const more = () => {
+        if (run !== tileFill) return;
+        tiles.insertAdjacentHTML("beforeend", parts2.slice(at, at + TILES_CHUNK).join(""));
+        at += TILES_CHUNK;
+        watch2();
+        if (at < parts2.length) requestAnimationFrame(more);
+        else {
+          tiles.removeAttribute("aria-busy");
+          paintSel();
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(more));
+    }
     const leadPref = textPref("bfb-lead:" + rawPath, "", "tab");
     let leadRestored = false;
     let lastSetKey = "";
@@ -27347,7 +27602,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       entries = applySort(entries, ls.sort, dirsFirstPref.get());
       const c = ctx();
       const tbody = el("fe-tbody");
-      const tiles = el("fe-tiles");
       ls.visible = [];
       const setKey = rowSetKey(entries.map((e) => e.href), `${ls.group}|${ls.deepOn}`);
       if (lastSetKey && setKey !== lastSetKey) el("fe-scroll").scrollTop = 0;
@@ -27385,8 +27639,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       win = rowParts.length > WINDOW_MIN ? { parts: kept.map((i3) => rowParts[i3]), idxOf: kept.map((i3) => idxOf[i3]), tops: [], total: 0, a: 0, b: 0 } : null;
       if (win) measureWindow();
       else tbody.innerHTML = rowParts.join("");
-      tiles.innerHTML = tileParts.join("");
-      tiles.querySelectorAll("img[data-src]").forEach((img) => pictureNear.observe(img));
+      fillTiles(tileParts, view !== "gallery");
       fe.classList.toggle("fe-has-find-hits", !!ls.contentHits);
       if (fe.dataset.view === "tree") {
         ls.visible = [];
@@ -27434,7 +27687,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     app.setView = (v) => {
       el("fe-view-group").value = v;
       fe.dataset.view = v;
-      viewPref.set(v);
+      saveView(v);
       applyAll();
     };
     app.setOrder = (sort, group2) => {
@@ -27575,9 +27828,34 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     el("fe-view-group").addEventListener("change", () => {
       const v = el("fe-view-group").value;
       fe.dataset.view = v;
-      viewPref.set(v);
+      saveView(v);
       applyAll();
     });
+    const keepBtn = document.getElementById("fe-keep-view");
+    keepBtn?.addEventListener("click", () => {
+      if (!keptHere) {
+        keepFolderView(app.folderPath, { view: el("fe-view-group").value, sort: { ...ls.sort }, group: ls.group });
+        toast("This folder keeps its own view");
+      } else {
+        dropFolderView(app.folderPath);
+        toast("This folder follows the default view");
+      }
+      app.syncKept?.();
+    });
+    app.syncKept = () => {
+      const now = app.fileMode || location.hash === "#home" ? null : folderView(app.folderPath);
+      keptHere = !!now;
+      keepBtn?.setAttribute("aria-pressed", String(keptHere));
+      if (keepBtn) keepBtn.title = keptHere ? KEEP_ON : KEEP_OFF;
+      const v = now?.view ?? getView();
+      el("fe-view-group").value = v;
+      fe.dataset.view = v;
+      ls.sort = now?.sort ?? getSortConfig();
+      ls.group = now?.group ?? getGroupMode();
+      syncSortUi();
+      applyAll();
+    };
+    app.order = () => ({ sort: { ...ls.sort }, group: ls.group });
     el("fe-tree").addEventListener("click", (e) => {
       const toggle = e.target.closest(".fe-tree-toggle");
       if (!toggle) return;
@@ -27667,8 +27945,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         h.querySelector(".si").textContent = on ? dir === "asc" ? "\u2191" : "\u2193" : "\u2195";
       });
       groupSeg.value = ls.group;
-      saveSortConfig(ls.sort);
-      saveGroupMode(ls.group);
+      if (keptHere) keepFolderView(app.folderPath, { sort: { ...ls.sort }, group: ls.group });
+      else {
+        saveSortConfig(ls.sort);
+        saveGroupMode(ls.group);
+      }
     }
     function setSortCol(col) {
       if (ls.sort.col === col) ls.sort.dir = ls.sort.dir === "asc" ? "desc" : "asc";
@@ -28309,7 +28590,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
         `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        openWithItems(parseCommands(app.settings.openWithCmds), en.isDir)
+        openWithItems(ownCommands(app.settings), en.isDir)
       ].join("");
       ctxMenu.dataset.idx = String(idx);
       ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
@@ -28332,7 +28613,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else if (item2.dataset.act === "ask") askAbout(en);
       else if (item2.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
       else if (item2.dataset.act === "rename") renameRow(en);
-      else if (item2.dataset.act?.startsWith("ow:")) runOpenWith(item2.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
+      else if (item2.dataset.act?.startsWith("ow:")) runOpenWith(item2.dataset.act, fp, ownCommands(app.settings), toast);
       else if (item2.dataset.act === "save") toggleSavedWithUndo(fp, en.name, toast, () => app.refreshSaved());
       else if (item2.dataset.act === "cp-paths") sel.copySelection();
       else if (item2.dataset.act === "cp-names") {
@@ -28438,22 +28719,24 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     for (const v of ["details", "list", "tree", "tiles", "icons", "gallery"]) {
       bind("view-" + v, () => document.querySelector(`#fe-view-group [data-v="${v}"]`)?.click(), onListing);
     }
+    const cur = () => app.order?.() ?? { sort: getSortConfig(), group: getGroupMode() };
     const sortBy = (col) => {
-      const s = getSortConfig();
-      app.setOrder({ col, dir: s.col === col && s.dir === "asc" ? "desc" : "asc" }, getGroupMode());
+      const { sort: s, group: group2 } = cur();
+      app.setOrder({ col, dir: s.col === col && s.dir === "asc" ? "desc" : "asc" }, group2);
     };
     bind("sort-name", () => sortBy("name"), onListing);
     bind("sort-date", () => sortBy("date"), onListing);
     bind("sort-size", () => sortBy("size"), onListing);
     bind("sort-type", () => sortBy("type"), onListing);
     bind("sort-rev", () => {
-      const s = getSortConfig();
-      app.setOrder({ col: s.col ?? "name", dir: s.dir === "asc" ? "desc" : "asc" }, getGroupMode());
+      const { sort: s, group: group2 } = cur();
+      app.setOrder({ col: s.col ?? "name", dir: s.dir === "asc" ? "desc" : "asc" }, group2);
     }, onListing);
-    const GROUPS2 = ["none", "folders-first", "files-first", "ext", "type"];
+    const GROUPS3 = ["none", "folders-first", "files-first", "ext", "type"];
     bind("group", () => {
-      const next = GROUPS2[(GROUPS2.indexOf(getGroupMode()) + 1) % GROUPS2.length];
-      app.setOrder(getSortConfig(), next);
+      const { sort, group: group2 } = cur();
+      const next = GROUPS3[(GROUPS3.indexOf(group2) + 1) % GROUPS3.length];
+      app.setOrder(sort, next);
       toast(`Grouping: ${next.replace("-", " ")}`);
     }, onListing);
     const detail = (to) => {
@@ -28466,7 +28749,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("zoom-reset", () => detail(() => 3), onListing);
     addPaletteSource(() => {
       const path = app.fileMode ? app.rawPath : app.folderPath;
-      const cmds = parseCommands(app.settings.openWithCmds);
+      const cmds = ownCommands(app.settings);
       return [
         ...APPS.map((a) => ({ title: a.label, sub: "this page", group: "Open with", icon: UI_ICON.external, run: () => runOpenWith("ow:" + a.id, path, cmds, toast) })),
         ...cmds.flatMap((c, i3) => !app.fileMode && c.filesOnly ? [] : [{ title: c.name, sub: `${c.cmd} on this page`, group: "Open with", icon: UI_ICON.terminal, run: () => runOpenWith("ow:#" + i3, path, cmds, toast) }])
@@ -28676,8 +28959,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const nl = t.indexOf("\n");
     if (nl >= 0) return { title: t.slice(0, nl).trim(), sub: t.slice(nl + 1).trim(), keys: keys2 };
-    const dot = t.indexOf(" \xB7 ");
-    if (dot >= 0) return { title: t.slice(0, dot).trim(), sub: t.slice(dot + 3).trim(), keys: keys2 };
+    const dot2 = t.indexOf(" \xB7 ");
+    if (dot2 >= 0) return { title: t.slice(0, dot2).trim(), sub: t.slice(dot2 + 3).trim(), keys: keys2 };
     const comma = t.indexOf(", ");
     if (comma > 0 && t.slice(0, comma).split(" ").length <= 3) return { title: t.slice(0, comma).trim(), sub: t.slice(comma + 2).trim(), keys: keys2 };
     return { title: t.trim(), sub: "", keys: keys2 };
@@ -29054,8 +29337,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-right", () => moveHere(1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
     bind("tab-list", click("fe-tab-list"), () => !document.getElementById("fe-tab-list")?.hidden);
     bind("home", () => app.strip.goHome(), () => !!homeDir(app.rawPath));
-    const LENSES = [["lens-home", "home"], ["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
-    for (const [id, lens] of LENSES) bind(id, () => {
+    const LENSES2 = [["lens-home", "home"], ["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
+    for (const [id, lens] of LENSES2) bind(id, () => {
       if (!sidebarShown()) runCommand("sidebar");
       const railBtn = document.getElementById(`fe-rail-${lens}`);
       if (railBtn) railBtn.click();
@@ -29629,9 +29912,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
     const lenses = els("#fe-lenses .fe-lens");
-    const show = (lens, paint = (f) => f(), quiet = false) => {
+    const show = (lens, paint = (f) => f(), quiet = false, named = false) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
-      const pick3 = usable.includes(lens) ? lens : "notes";
+      const pick3 = usable.includes(lens) || named && btns.some((b) => b.dataset.lens === lens) ? lens : usable.includes("notes") ? "notes" : usable[0] ?? "notes";
       for (const b of btns) {
         const on = b.dataset.lens === pick3;
         b.setAttribute("aria-selected", String(on));
@@ -29677,7 +29960,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     app.showLens = (lens, hideHistory) => {
       if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
-      show(lens ?? lensPref.get());
+      show(lens ?? lensPref.get(), void 0, false, !!lens);
+    };
+    app.arrangeLenses = (s) => {
+      for (const l of lensOrder(s)) {
+        const b = btns.find((x2) => x2.dataset.lens === l.id);
+        if (!b) continue;
+        b.hidden = !lensShown(s, l.id);
+        rail.append(b);
+      }
+      const open = btns.find((b) => b.classList.contains("on"));
+      show(open && !open.hidden ? open.dataset.lens : lensPref.get(), void 0, true);
     };
     const side = el("fe-side");
     const narrow = () => matchMedia("(max-width: 520px)").matches;
@@ -29871,7 +30164,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (cr) {
         cr.hidden = !inNotes;
         const cur = /^colour:(\w+)$/.exec(on)?.[1] ?? "";
-        cr.innerHTML = inNotes ? [["", "All", "var(--dm)"], ...NOTE_COLORS.map((c) => [c, c[0].toUpperCase() + c.slice(1), `var(--nc-${c})`])].map(([c, label, dot]) => `<button type="button" class="chip fe-lens-tag fe-lens-colour${cur === c ? " on" : ""}" aria-pressed="${cur === c}" data-colour="${c}" style="--chip:${dot}" title="${c ? `Show only ${c} notes` : "Show every colour"}"><i style="--dot:${dot}"></i>${label}</button>`).join("") : "";
+        cr.innerHTML = inNotes ? [["", "All", "var(--dm)"], ...NOTE_COLORS.map((c) => [c, c[0].toUpperCase() + c.slice(1), `var(--nc-${c})`])].map(([c, label, dot2]) => `<button type="button" class="chip fe-lens-tag fe-lens-colour${cur === c ? " on" : ""}" aria-pressed="${cur === c}" data-colour="${c}" style="--chip:${dot2}" title="${c ? `Show only ${c} notes` : "Show every colour"}"><i style="--dot:${dot2}"></i>${label}</button>`).join("") : "";
       }
       row2.innerHTML = names.map((n) => `<button type="button" class="chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" aria-pressed="${on === "#" + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="--dot:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
     }
@@ -29997,11 +30290,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           layer = openLayer(menu, { kind: "popover", anchor: btn, role: "menu", group: "menu" });
         });
       });
-      els(".fe-sv-dot", svList).forEach((dot) => {
-        dot.addEventListener("click", (e) => {
+      els(".fe-sv-dot", svList).forEach((dot2) => {
+        dot2.addEventListener("click", (e) => {
           e.stopPropagation();
           e.preventDefault();
-          saveTags(cycleTagColor(getTags(), dot.dataset.tag));
+          saveTags(cycleTagColor(getTags(), dot2.dataset.tag));
           refreshSaved();
         });
       });
@@ -30370,11 +30663,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (insideTimer) clearTimeout(insideTimer);
       const q = svFilter.value.trim().toLowerCase();
       if (!q || q.startsWith("#") || !deep()) return;
-      const words = q.split(/\s+/);
+      const words2 = q.split(/\s+/);
       insideTimer = setTimeout(async () => {
         const found = /* @__PURE__ */ new Map();
         await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path) && !isWebPath(p.path)).map(async (p) => {
-          const name2 = (await namesIn2(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
+          const name2 = (await namesIn2(p.path)).find((n) => words2.every((w) => n.toLowerCase().includes(w)));
           if (name2) found.set(p.path, name2);
         }));
         if (svFilter.value.trim().toLowerCase() !== q || !deep()) return;
@@ -31258,8 +31551,8 @@ ${answer2}`;
     return (read2()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
   }
   function addTurn(subject, chatId, turn) {
-    const store2 = read2();
-    const list3 = store2[subject] ?? [];
+    const store3 = read2();
+    const list3 = store3[subject] ?? [];
     let chat = list3.find((c) => c.id === chatId);
     if (!chat) {
       chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
@@ -31268,22 +31561,22 @@ ${answer2}`;
     if (chat.turns.some((t) => t.at === turn.at && t.q === turn.q)) return chat;
     chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
     chat.at = turn.at;
-    store2[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
-    const subjects = Object.keys(store2);
+    store3[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    const subjects = Object.keys(store3);
     if (subjects.length > SUBJECTS) {
-      const last = (k) => Math.max(...store2[k].map((c) => c.at));
+      const last = (k) => Math.max(...store3[k].map((c) => c.at));
       subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
-        delete store2[k];
+        delete store3[k];
       });
     }
-    historyPref.set(store2);
+    historyPref.set(store3);
     return chat;
   }
   function deleteChat(subject, chatId) {
-    const store2 = read2();
-    store2[subject] = (store2[subject] ?? []).filter((c) => c.id !== chatId);
-    if (!store2[subject].length) delete store2[subject];
-    historyPref.set(store2);
+    const store3 = read2();
+    store3[subject] = (store3[subject] ?? []).filter((c) => c.id !== chatId);
+    if (!store3[subject].length) delete store3[subject];
+    historyPref.set(store3);
   }
   function withHistory(turns, question, maxChars = 4e3) {
     if (!turns.length) return question;
@@ -31589,8 +31882,8 @@ ${rows.join("\n")}`, name: subject };
     }
     const answers = /* @__PURE__ */ new WeakMap();
     const turnData = /* @__PURE__ */ new WeakMap();
-    const nameOf3 = (p) => p.split("/").filter(Boolean).pop() ?? p;
-    const fileChip = (p, remove = false) => `<span class="chip fe-ask-file" data-size="sm" title="${esc(p)}">${isImageName(p) ? UI_ICON.image : UI_ICON.file}<span>${esc(nameOf3(p))}</span>${remove ? `<button type="button" class="btn" data-icon data-size="xs" data-unattach="${esc(p)}" title="Remove" aria-label="Remove ${esc(nameOf3(p))}">${UI_ICON.close}</button>` : ""}</span>`;
+    const nameOf4 = (p) => p.split("/").filter(Boolean).pop() ?? p;
+    const fileChip = (p, remove = false) => `<span class="chip fe-ask-file" data-size="sm" title="${esc(p)}">${isImageName(p) ? UI_ICON.image : UI_ICON.file}<span>${esc(nameOf4(p))}</span>${remove ? `<button type="button" class="btn" data-icon data-size="xs" data-unattach="${esc(p)}" title="Remove" aria-label="Remove ${esc(nameOf4(p))}">${UI_ICON.close}</button>` : ""}</span>`;
     const turnEl = (question, files = [], via = "") => {
       const turn = document.createElement("div");
       turn.className = "fe-ask-turn";
@@ -31608,8 +31901,8 @@ ${rows.join("\n")}`, name: subject };
       const out = turn.querySelector(".fe-ask-a");
       const { thinking, answer: answer2, open } = splitThinking(text);
       answers.set(turn, answer2);
-      const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
-      const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? "Thinking" : "Thought it through"}</span><span class="fe-ask-think-n">${words} word${words === 1 ? "" : "s"}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : "";
+      const words2 = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
+      const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? "Thinking" : "Thought it through"}</span><span class="fe-ask-think-n">${words2} word${words2 === 1 ? "" : "s"}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : "";
       const was = out.querySelector(".fe-ask-think")?.open;
       let sc = thread;
       while (sc.parentElement && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
@@ -32311,6 +32604,505 @@ ${rows.join("\n")}`, name: subject };
     fe.insertBefore(bar, body);
   }
 
+  // src/settings-open-with.ts
+  var looked = /* @__PURE__ */ new Map();
+  function lookUp(cmd) {
+    const key = cmd.trim();
+    let p = looked.get(key);
+    if (!p) {
+      p = new Promise((resolve) => {
+        if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return resolve(null);
+        chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "check_cmd", cmd: key } }, (res) => {
+          if (chrome.runtime.lastError || !res?.ok || res.response?.success !== true) return resolve(null);
+          resolve(res.response);
+        });
+      });
+      looked.set(key, p);
+    }
+    return p;
+  }
+  var ballHtml = (c) => c ? `<i class="fe-ow-ball" style="--c:${safeColor(c)}"></i>` : `<i class="fe-ow-ball none"></i>`;
+  function initOpenWithSettings(settings, toast) {
+    const list3 = el("fe-st-ow-list");
+    let rows = [];
+    const waits = /* @__PURE__ */ new Map();
+    const save = () => {
+      settings.openWith = rows.map((r) => ({ ...r }));
+      saveSettings(settings);
+    };
+    function rowHtml(c, i3) {
+      return `<div class="fe-ow-row" data-idx="${i3}">
+      <button type="button" class="fe-ow-color" title="Colour in the menu" aria-label="Colour in the menu">${ballHtml(c.color)}</button>
+      <input type="text" class="tb fe-ow-name" data-size="lg" value="${esc(c.name)}" placeholder="Name" spellcheck="false" title="Shown in the Open with menu" aria-label="Name">
+      <input type="text" class="tb fe-ow-cmd" data-size="lg" data-mono value="${esc(c.cmd)}" placeholder="e.g. code --add" spellcheck="false" title="The path is added last, quoted" aria-label="Command">
+      ${switchHtml({ title: c.filesOnly ? "Files only" : "Files and folders", label: "Files only", checked: !!c.filesOnly, small: true, cls: "fe-ow-files" })}
+      ${switchHtml({ title: c.terminal ? "Opens a Ghostty window" : "Runs in the background", label: "Opens a window", checked: c.terminal, small: true, cls: "fe-ow-win" })}
+      <button type="button" class="btn fe-ibtn fe-ow-del" data-icon data-size="sm" data-tone="danger" title="Delete command" aria-label="Delete command">${UI_ICON.trash}</button>
+      <span class="fe-ow-st" aria-live="polite"></span>
+    </div>`;
+    }
+    function check(i3) {
+      const row2 = list3.querySelector(`.fe-ow-row[data-idx="${i3}"]`);
+      const c = rows[i3];
+      if (!row2 || !c) return;
+      const st = row2.querySelector(".fe-ow-st");
+      const cmdBox = row2.querySelector(".fe-ow-cmd");
+      const nameBox = row2.querySelector(".fe-ow-name");
+      const blank = !c.name.trim() && !c.cmd.trim();
+      const problem = blank ? "" : commandProblem(c, rows.filter((_, j) => j !== i3));
+      const paint = (text, tone) => {
+        st.textContent = text;
+        st.dataset.tone = tone;
+        row2.classList.toggle("bad", tone === "bad");
+      };
+      nameBox.toggleAttribute("aria-invalid", /name/i.test(problem));
+      cmdBox.toggleAttribute("aria-invalid", !!problem && !/name/i.test(problem));
+      if (blank) return paint("", "");
+      if (problem) return paint(problem, "bad");
+      paint("", "");
+      const cmd = c.cmd;
+      clearTimeout(waits.get(i3));
+      waits.set(i3, window.setTimeout(() => void lookUp(cmd).then((f) => {
+        if (rows[i3]?.cmd !== cmd || !f) return;
+        if (f.problem) paint(f.problem, "bad");
+        else if (f.found) paint(`Found ${f.where}`, "ok");
+        else {
+          paint(`${f.program} is not installed, or not on the PATH`, "bad");
+          cmdBox.setAttribute("aria-invalid", "true");
+        }
+      }), 350));
+    }
+    function render2() {
+      list3.innerHTML = rows.length ? `<div class="fe-ow-head" aria-hidden="true"><span></span><span>Name</span><span>Command</span><span>Files only</span><span>Window</span><span></span></div>` + rows.map(rowHtml).join("") : emptyHtml("empty", "No commands yet", { inline: true, hint: "Add one to see it in Open with" });
+      rows.forEach((_, i3) => check(i3));
+    }
+    const rowAt = (e) => {
+      const row2 = e.target.closest(".fe-ow-row");
+      const i3 = row2 ? Number(row2.dataset.idx) : -1;
+      return i3 >= 0 && i3 < rows.length ? i3 : -1;
+    };
+    list3.addEventListener("input", (e) => {
+      const i3 = rowAt(e);
+      if (i3 < 0) return;
+      const t = e.target;
+      if (t.classList.contains("fe-ow-name")) rows[i3].name = t.value;
+      else if (t.classList.contains("fe-ow-cmd")) rows[i3].cmd = t.value;
+      else return;
+      save();
+      rows.forEach((_, j) => check(j));
+    });
+    list3.addEventListener("change", (e) => {
+      const i3 = rowAt(e);
+      if (i3 < 0) return;
+      const t = e.target;
+      if (t.classList.contains("fe-ow-files")) {
+        rows[i3].filesOnly = t.checked || void 0;
+        t.title = t.checked ? "Files only" : "Files and folders";
+      } else if (t.classList.contains("fe-ow-win")) {
+        rows[i3].terminal = t.checked;
+        t.title = t.checked ? "Opens a Ghostty window" : "Runs in the background";
+      } else return;
+      save();
+    });
+    list3.addEventListener("click", (e) => {
+      const i3 = rowAt(e);
+      if (i3 < 0) return;
+      const t = e.target;
+      if (t.closest(".fe-ow-del")) {
+        const before = rows.map((r) => ({ ...r }));
+        const gone = rows[i3].name || "Command";
+        rows.splice(i3, 1);
+        save();
+        render2();
+        toast(`${gone} deleted`, 8e3, { label: "Undo", run: () => {
+          rows = before;
+          save();
+          render2();
+        } });
+      } else if (t.closest(".fe-ow-color")) openColour(i3, t.closest(".fe-ow-color"));
+    });
+    el("fe-st-ow-add").addEventListener("click", () => {
+      rows.push({ name: "", cmd: "", terminal: true });
+      save();
+      render2();
+      list3.querySelector(`.fe-ow-row[data-idx="${rows.length - 1}"] .fe-ow-name`)?.focus();
+    });
+    let pop = null;
+    function openColour(i3, anchor) {
+      pop?.close("api");
+      const box = document.createElement("div");
+      box.className = "fe-rule-pop fe-ow-pop";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Colour in the menu");
+      const cur = rows[i3].color;
+      box.innerHTML = `<div class="fe-rp-sec"><span class="fe-rp-l">Colour in the menu</span>
+      <div class="fe-rp-sw">
+        <button type="button" class="fe-rp-c none${cur ? "" : " on"}" data-c="" title="No colour" aria-label="No colour"></button>
+        ${SWATCHES.map((c) => `<button type="button" class="fe-rp-c${c === cur ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("")}
+        <input type="color" class="fe-ow-pick" value="${cur && /^#[0-9a-f]{6}$/i.test(cur) ? cur : "#4a9eff"}" title="Any colour" aria-label="Any colour">
+      </div></div>`;
+      const set2 = (c) => {
+        rows[i3].color = c || void 0;
+        save();
+        anchor.innerHTML = ballHtml(rows[i3].color);
+        box.querySelectorAll(".fe-rp-c").forEach((b) => b.classList.toggle("on", b.dataset.c === (c ?? "")));
+      };
+      box.addEventListener("click", (e) => {
+        const b = e.target.closest(".fe-rp-c");
+        if (b) set2(b.dataset.c || void 0);
+      });
+      box.addEventListener("input", (e) => {
+        const t = e.target;
+        if (t.classList.contains("fe-ow-pick")) set2(t.value);
+      });
+      pop = openLayer(box, { kind: "popover", anchor, offset: 6, group: "menu", focus: box.querySelector(".fe-rp-c.on") ?? "first" });
+    }
+    return () => {
+      const saved = Array.isArray(settings.openWith) ? settings.openWith.filter((r) => !!r && typeof r === "object") : null;
+      rows = (saved ?? parseCommands(settings.openWithCmds)).map((r) => ({ name: String(r.name ?? ""), cmd: String(r.cmd ?? ""), terminal: r.terminal !== false, ...r.filesOnly ? { filesOnly: true } : {}, ...typeof r.color === "string" ? { color: r.color } : {} }));
+      render2();
+    };
+  }
+
+  // src/settings-lenses.ts
+  function initLensSettings(app, settings, toast) {
+    const list3 = el("fe-st-lenses");
+    const apply = () => {
+      saveSettings(settings);
+      app.arrangeLenses?.(settings);
+    };
+    function render2() {
+      list3.innerHTML = lensOrder(settings).map((l) => {
+        const on = lensOn(settings, l.id);
+        return `<div class="fe-lens-row${on ? "" : " off"}" data-lens="${l.id}" draggable="true">
+        <button type="button" class="fe-lens-grip" title="Drag, or Alt+arrow, to move" aria-label="Move ${esc(l.label)}">${PI.drag}</button>
+        <span class="fe-lens-ico" aria-hidden="true">${l.icon}</span>
+        <span class="fe-lens-nm">${esc(l.label)}</span>
+        ${switchHtml({ id: l.id === "history" ? "fe-st-sec-recent" : void 0, title: on ? "On the sidebar" : "Off the sidebar", label: `Show ${l.label}`, checked: on, small: true, cls: "fe-st-lens-on" })}
+      </div>`;
+      }).join("");
+    }
+    const order = () => [...list3.querySelectorAll(".fe-lens-row")].map((r) => r.dataset.lens);
+    const moved = () => {
+      settings.lensOrder = order();
+      apply();
+    };
+    list3.addEventListener("change", (e) => {
+      const t = e.target;
+      if (!t.classList.contains("fe-st-lens-on")) return;
+      const row2 = t.closest(".fe-lens-row");
+      if (!setLensOn(settings, row2.dataset.lens, t.checked)) {
+        t.checked = true;
+        toast("One section has to stay on");
+        return;
+      }
+      row2.classList.toggle("off", !t.checked);
+      t.title = t.checked ? "On the sidebar" : "Off the sidebar";
+      apply();
+    });
+    list3.addEventListener("keydown", (e) => {
+      const grip = e.target.closest(".fe-lens-grip");
+      if (!grip || !e.altKey || e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const row2 = grip.closest(".fe-lens-row");
+      const other = e.key === "ArrowUp" ? row2.previousElementSibling : row2.nextElementSibling;
+      if (!other) return;
+      if (e.key === "ArrowUp") other.before(row2);
+      else other.after(row2);
+      grip.focus();
+      moved();
+    });
+    let dragged = null;
+    list3.addEventListener("dragstart", (e) => {
+      dragged = e.target.closest(".fe-lens-row");
+      if (!dragged) return;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", dragged.dataset.lens);
+      requestAnimationFrame(() => dragged?.classList.add("dragging"));
+    });
+    list3.addEventListener("dragover", (e) => {
+      const over = e.target.closest(".fe-lens-row");
+      if (!dragged || !over || over === dragged) return;
+      e.preventDefault();
+      const r = over.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) over.before(dragged);
+      else over.after(dragged);
+    });
+    list3.addEventListener("drop", (e) => e.preventDefault());
+    list3.addEventListener("dragend", () => {
+      if (!dragged) return;
+      dragged.classList.remove("dragging");
+      dragged = null;
+      if (order().join() !== lensOrder(settings).map((l) => l.id).join()) moved();
+    });
+    return render2;
+  }
+
+  // src/settings-folder-views.ts
+  var VIEW_OPTS = VIEW_ICONS.map((v) => ({ value: v.id, label: v.label, icon: v.ico }));
+  var VIEW_NAME = Object.fromEntries(VIEW_ICONS.map((v) => [v.id, v.label]));
+  var shapePref = textPref("bfb-fv-shape", "list");
+  var treePref = textPref("bfb-fv-tree", "on");
+  function initFolderViewSettings(app, toast) {
+    const list3 = el("fe-st-fv-list");
+    const shape = el("fe-st-fv-shape");
+    const tree = el("fe-st-fv-tree");
+    const home = homeDir(decodeURIComponent(location.pathname));
+    const short = (p) => home && (p === home || p.startsWith(home + "/")) ? "~" + p.slice(home.length) : p;
+    function rowHtml(path, view, depth, tail, inTree) {
+      const here = !app.fileMode && folderKey(app.folderPath) === path;
+      const label = inTree && depth ? tail : short(path);
+      return `<div class="fe-fv-row${here ? " here" : ""}" data-path="${esc(path)}" style="--depth:${inTree ? depth : 0}">
+      <a class="fe-fv-path" href="${esc(fileHref(path === "/" ? "/" : path + "/"))}" title="${esc(short(path))}">${UI_ICON.folderOpen}<span>${esc(label)}</span>${here ? "<em>this folder</em>" : ""}</a>
+      ${ddHtml("", VIEW_OPTS, `View for ${short(path)}`, "lg").replace(' id=""', "").replace('class="fe-dd', 'class="fe-fv-view fe-dd')}
+      <button type="button" class="btn fe-ibtn fe-fv-drop" data-icon data-size="sm" title="Follow the default view" aria-label="Follow the default view for ${esc(short(path))}">${UI_ICON.close}</button>
+    </div>`;
+    }
+    function render2() {
+      const all = allFolderViews();
+      const paths = Object.keys(all);
+      shape.value = shapePref.get();
+      tree.checked = treePref.get() === "on";
+      if (!paths.length) {
+        list3.innerHTML = emptyHtml("empty", "No folder keeps its own view", { inline: true, hint: "Every folder opens with the defaults above" });
+        return;
+      }
+      const inTree = tree.checked;
+      const laid = inTree ? folderTree(paths) : [...paths].sort((a, b) => a.localeCompare(b)).map((p) => ({ path: p, depth: 0, tail: p }));
+      const viewOf = (p) => folderView(p)?.view ?? "details";
+      if (shape.value === "view") {
+        list3.innerHTML = VIEW_ICONS.map((v) => {
+          const rows = laid.filter((r) => viewOf(r.path) === v.id);
+          return rows.length ? `<div class="fe-fv-group"><h4>${v.ico}${esc(v.label)}<span>${rows.length}</span></h4>${rows.map((r) => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join("")}</div>` : "";
+        }).join("");
+      } else {
+        list3.innerHTML = laid.map((r) => rowHtml(r.path, viewOf(r.path), r.depth, r.tail, inTree)).join("");
+      }
+      upgradeControls(list3);
+      list3.querySelectorAll(".fe-fv-row").forEach((row2) => {
+        row2.querySelector(".fe-fv-view").value = viewOf(row2.dataset.path);
+      });
+    }
+    list3.addEventListener("change", (e) => {
+      const dd = e.target.closest(".fe-fv-view");
+      const row2 = dd?.closest(".fe-fv-row");
+      if (!dd || !row2) return;
+      const v = dd.value;
+      keepFolderView(row2.dataset.path, { view: v });
+      if (row2.classList.contains("here")) app.setView(v);
+      toast(`${short(row2.dataset.path)} opens in ${VIEW_NAME[v] ?? v}`);
+      if (shape.value === "view") render2();
+    });
+    list3.addEventListener("click", (e) => {
+      const drop = e.target.closest(".fe-fv-drop");
+      const row2 = drop?.closest(".fe-fv-row");
+      if (!row2) return;
+      const path = row2.dataset.path;
+      const kept = allFolderViews()[path];
+      const here = row2.classList.contains("here");
+      dropFolderView(path);
+      if (here) app.syncKept?.();
+      render2();
+      toast(`${short(path)} follows the default view`, 8e3, { label: "Undo", run: () => {
+        keepFolderView(path, kept);
+        if (here) app.syncKept?.();
+        render2();
+      } });
+    });
+    shape.addEventListener("change", () => {
+      shapePref.set(shape.value);
+      render2();
+    });
+    tree.addEventListener("change", () => {
+      treePref.set(tree.checked ? "on" : "off");
+      render2();
+    });
+    return render2;
+  }
+
+  // src/settings-search.ts
+  var HL = "bfb-settings-hit";
+  var words = (q) => q.toLowerCase().split(/\s+/).filter(Boolean);
+  function said(node) {
+    const parts2 = [node.textContent ?? ""];
+    node.querySelectorAll("[title],[aria-label],[placeholder]").forEach((e) => {
+      parts2.push(e.getAttribute("title") ?? "", e.getAttribute("aria-label") ?? "", e.getAttribute("placeholder") ?? "");
+    });
+    return parts2.join(" ").toLowerCase();
+  }
+  var hasAll = (hay, ws) => ws.every((w) => hay.includes(w));
+  function nameOf3(unit, cardTitle) {
+    const l = unit.querySelector(".fe-set-l")?.textContent?.trim();
+    return l || cardTitle;
+  }
+  function initSettingsSearch(root2) {
+    const box = root2.querySelector(".fe-dlg-box");
+    const rail = root2.querySelector(".fe-dlg-tabs");
+    const panes = [...root2.querySelectorAll(".fe-dlg-pane")];
+    const tabs = [...rail.querySelectorAll(".fe-dlg-tab")];
+    const wrap = document.createElement("label");
+    wrap.className = "fe-dlg-search";
+    wrap.innerHTML = `<input type="search" id="fe-st-search" class="tb" data-size="lg" data-lead="search" placeholder="Search settings" spellcheck="false" autocomplete="off" title="Search every tab (\u2318F)" aria-label="Search settings">`;
+    root2.querySelector(".fe-dlg-title").append(wrap);
+    const input = wrap.querySelector("input");
+    const results = document.createElement("div");
+    results.className = "fe-dlg-pane fe-dlg-results";
+    results.setAttribute("role", "region");
+    results.setAttribute("aria-label", "Search results");
+    box.append(results);
+    let searching = false;
+    function clearMarks() {
+      root2.querySelectorAll(".fe-sr-miss").forEach((e) => e.classList.remove("fe-sr-miss"));
+      root2.querySelectorAll(".fe-dlg-hits").forEach((e) => e.remove());
+      tabs.forEach((t) => {
+        t.classList.remove("fe-sr-none");
+        t.querySelector(".fe-dlg-n")?.remove();
+      });
+      CSS.highlights?.delete(HL);
+    }
+    function stop() {
+      if (!searching) return;
+      searching = false;
+      clearMarks();
+      for (const p of panes) box.insertBefore(p, results);
+      results.replaceChildren();
+      box.classList.remove("searching");
+      input.removeAttribute("data-own-esc");
+    }
+    function start() {
+      if (searching) return;
+      searching = true;
+      box.classList.add("searching");
+      input.setAttribute("data-own-esc", "");
+    }
+    function run() {
+      const ws = words(input.value);
+      if (!ws.length) {
+        stop();
+        return;
+      }
+      start();
+      clearMarks();
+      results.replaceChildren();
+      const marked = [];
+      let total = 0;
+      panes.forEach((pane, i3) => {
+        const tab = tabs[i3];
+        const tabSays = said(tab);
+        const hits = [];
+        pane.querySelectorAll(".fe-set-group").forEach((group2) => {
+          const title = group2.querySelector(".fe-set-h")?.textContent?.trim() ?? "";
+          const titleSays = title.toLowerCase();
+          const units = [...group2.querySelectorAll(".fe-set-card > *")];
+          const whole = hasAll(tabSays + " " + titleSays, ws);
+          let shown2 = 0;
+          for (const u of units) {
+            const ok = whole || hasAll(said(u) + " " + titleSays + " " + tabSays, ws);
+            u.classList.toggle("fe-sr-miss", !ok);
+            if (ok) {
+              shown2++;
+              marked.push(u);
+              if (!u.matches(".fe-set-note")) hits.push({ name: nameOf3(u, title), el: u });
+            }
+          }
+          group2.classList.toggle("fe-sr-miss", !shown2);
+          if (shown2) marked.push(group2.querySelector(".fe-set-h"));
+        });
+        tab.classList.toggle("fe-sr-none", !hits.length);
+        if (!hits.length) return;
+        total += hits.length;
+        results.append(pane);
+        tab.querySelector(".fe-dlg-tab-main")?.insertAdjacentHTML("beforeend", `<em class="fe-dlg-n" aria-label="${hits.length} matching">${hits.length}</em>`);
+        const list3 = document.createElement("div");
+        list3.className = "fe-dlg-hits";
+        list3.dataset.tab = tab.dataset.tab;
+        const seen = /* @__PURE__ */ new Set();
+        const named = hits.filter((h) => h.name && !seen.has(h.name) && seen.add(h.name));
+        list3.innerHTML = named.slice(0, 4).map((h, j) => `<button type="button" class="fe-dlg-hit" data-j="${j}" title="Go to ${esc(h.name)}">${esc(h.name)}</button>`).join("") + (named.length > 4 ? `<span class="fe-dlg-more">and ${named.length - 4} more</span>` : "");
+        list3.addEventListener("click", (e) => {
+          const b = e.target.closest(".fe-dlg-hit");
+          if (b) goTo(named[Number(b.dataset.j)].el);
+        });
+        tab.after(list3);
+        marked.push(tab, list3);
+      });
+      if (!total) results.innerHTML = `<div class="fe-sr-empty"><b>No setting matches \u201C${esc(input.value.trim())}\u201D</b><span>Try a shorter word, or a different one</span></div>`;
+      else results.scrollTop = 0;
+      paintMarks(marked, ws);
+    }
+    function paintMarks(scopes, ws) {
+      if (!CSS.highlights || typeof Highlight === "undefined") return;
+      const ranges = [];
+      for (const scope of scopes) {
+        const walk = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+          acceptNode: (n) => n.parentElement?.closest(".fe-sr-miss, input, textarea, script, style, svg") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+          const text = n.data.toLowerCase();
+          for (const w of ws) {
+            for (let at = text.indexOf(w); at >= 0; at = text.indexOf(w, at + w.length)) {
+              const r = new Range();
+              r.setStart(n, at);
+              r.setEnd(n, at + w.length);
+              ranges.push(r);
+            }
+          }
+        }
+      }
+      CSS.highlights.set(HL, new Highlight(...ranges));
+    }
+    function goTo(el2) {
+      el2.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      el2.classList.remove("fe-sr-flash");
+      void el2.offsetWidth;
+      el2.classList.add("fe-sr-flash");
+      el2.querySelector('input, button, [tabindex="0"]')?.focus({ preventScroll: true });
+    }
+    input.addEventListener("input", run);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && input.value) {
+        e.preventDefault();
+        e.stopPropagation();
+        input.value = "";
+        run();
+      } else if (e.key === "Enter") {
+        const first = rail.querySelector(".fe-dlg-hit");
+        if (first) {
+          e.preventDefault();
+          first.click();
+        }
+      }
+    });
+    tabs.forEach((t) => t.addEventListener("click", () => {
+      if (searching) {
+        input.value = "";
+        stop();
+      }
+    }, { capture: true }));
+    const hasOn = (cls) => (cls ?? "").split(/\s+/).includes("on");
+    new MutationObserver((ms) => {
+      if (searching && ms.some((m) => m.target.matches(".fe-dlg-tab") && hasOn(m.oldValue) !== m.target.classList.contains("on"))) {
+        input.value = "";
+        stop();
+      }
+    }).observe(rail, { subtree: true, attributes: true, attributeFilter: ["class"], attributeOldValue: true });
+    root2.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        e.stopPropagation();
+        input.focus();
+        input.select();
+      }
+    });
+  }
+  function resetSettingsSearch(root2) {
+    const input = root2.querySelector("#fe-st-search");
+    if (input?.value) {
+      input.value = "";
+      input.dispatchEvent(new Event("input"));
+    }
+  }
+
   // src/tag-colours.ts
   function tagRows(noteTags, saved, colours) {
     const count = /* @__PURE__ */ new Map();
@@ -32496,29 +33288,14 @@ ${rows.join("\n")}`, name: subject };
     { name: "Readme", pattern: "^readme", label: "RDM", glyph: "book", color: "#4a9eff" },
     { name: "Claude", pattern: "(^claude\\.md$|\\.claude$)", label: "Cld", glyph: "sparkle", color: "#d97757" }
   ];
-  var SWATCHES = [
-    "#ff6b6b",
-    "#f783ac",
-    "#d97757",
-    "#ffa94d",
-    "#e8b923",
-    "#94d82d",
-    "#40c057",
-    "#38d9a9",
-    "#3bc9db",
-    "#4dabf7",
-    "#4a9eff",
-    "#748ffc",
-    "#b197fc",
-    "#da77f2",
-    "#a1887f",
-    "#8b949e"
-  ];
   function initSettingsUi(app) {
     const { fe, settings, toast } = app;
     const v = (id) => el(id);
     upgradeControls(el("fe-settings-modal"));
     const refreshWeb = initWebSettings(toast);
+    const refreshOpenWith = initOpenWithSettings(settings, toast);
+    const refreshLenses = initLensSettings(app, settings, toast);
+    const refreshFolderViews = initFolderViewSettings(app, toast);
     const badRegex = (p) => {
       try {
         new RegExp(p, "i");
@@ -32542,6 +33319,7 @@ ${rows.join("\n")}`, name: subject };
         return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i3}">
         ${switchHtml({ title: rule.enabled ? "On" : "Off", label: "Use this rule", checked: rule.enabled, small: true, cls: "fe-st-rule-en" })}
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
+        <input type="text" class="tb fe-st-rule-name" data-size="lg" value="${esc(rule.name || "")}" placeholder="Name" spellcheck="false" title="What you call this rule">
         <input type="text" class="tb fe-st-rule-pattern" data-size="lg" data-mono${bad ? ' aria-invalid="true"' : ""} value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? "!" : hits(rule.pattern)}</span>
         <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
@@ -32550,7 +33328,27 @@ ${rows.join("\n")}`, name: subject };
       const have = new Set(app.iconRules.map((r) => r.pattern));
       const left = RULE_SUGGESTIONS.filter((s) => !have.has(s.pattern));
       el("fe-st-rule-sugg").innerHTML = left.length ? `<span class="fe-rule-sugg-l">Add</span>` + left.map((s) => `<button type="button" class="chip fe-rule-add" data-add data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join("") : "";
+      tryName();
     }
+    function tryName() {
+      const input = v("fe-st-rule-try"), out = el("fe-st-rule-try-out");
+      const raw = input.value;
+      els(".fe-rule.win", el("fe-st-rules-list")).forEach((r2) => r2.classList.remove("win"));
+      if (!raw.trim()) {
+        out.innerHTML = "";
+        return;
+      }
+      const isDir = raw.endsWith("/"), name2 = isDir ? raw.replace(/\/+$/, "") : raw;
+      const won = ruleFor(name2, isDir, app.iconRules);
+      if (won < 0) {
+        out.innerHTML = `${getIcon({ name: name2, isDir }, null)}<span>No rule matches, so the usual icon</span>`;
+        return;
+      }
+      const r = app.iconRules[won];
+      el("fe-st-rules-list").querySelector(`.fe-rule[data-idx="${won}"]`)?.classList.add("win");
+      out.innerHTML = `${icoCustom(r.label, r.color, r.glyph)}<span><b>${esc(r.name || r.pattern)}</b> wins</span>`;
+    }
+    el("fe-st-rule-try").addEventListener("input", tryName);
     const saveRules = () => {
       saveIconRules(app.iconRules);
       app.applyAll();
@@ -32578,12 +33376,19 @@ ${rows.join("\n")}`, name: subject };
         app.iconRules[hit[1]].enabled = t.checked;
         hit[0].classList.toggle("off", !t.checked);
         saveRules();
+        tryName();
       }
     });
     rulesList.addEventListener("input", (e) => {
       const hit = ruleAt(e);
       if (!hit) return;
       const t = e.target;
+      if (t.classList.contains("fe-st-rule-name")) {
+        app.iconRules[hit[1]].name = t.value.trim() || void 0;
+        saveIconRules(app.iconRules);
+        tryName();
+        return;
+      }
       if (!t.classList.contains("fe-st-rule-pattern")) return;
       app.iconRules[hit[1]].pattern = t.value;
       const bad = badRegex(t.value);
@@ -32592,6 +33397,7 @@ ${rows.join("\n")}`, name: subject };
       t.title = bad || "Matches file names, any case";
       hit[0].querySelector(".fe-rule-n").textContent = bad ? "!" : String(hits(t.value));
       if (!bad) saveRules();
+      tryName();
     });
     rulesList.addEventListener("click", (e) => {
       const hit = ruleAt(e);
@@ -32609,7 +33415,7 @@ ${rows.join("\n")}`, name: subject };
       const b = e.target.closest(".fe-rule-add");
       const s = b && RULE_SUGGESTIONS.find((x2) => x2.name === b.dataset.name);
       if (!s) return;
-      app.iconRules.push({ id: "r" + Date.now(), pattern: s.pattern, label: s.label, color: s.color, glyph: s.glyph, enabled: true });
+      app.iconRules.push({ id: "r" + Date.now(), name: s.name, pattern: s.pattern, label: s.label, color: s.color, glyph: s.glyph, enabled: true });
       saveRules();
       renderRulesList();
     });
@@ -32760,7 +33566,11 @@ ${rows.join("\n")}`, name: subject };
       app.refreshSaved();
       app.refreshNotes();
     } });
-    const settingsDlg = mountDialog("fe-settings-modal", { onClose: closePop });
+    const settingsDlg = mountDialog("fe-settings-modal", { onClose: () => {
+      closePop();
+      resetSettingsSearch(el("fe-settings-modal"));
+    } });
+    initSettingsSearch(el("fe-settings-modal"));
     function paintSavedRow() {
       const { where: where2, why } = savedWhere();
       const inFolder = where2 === "folder";
@@ -32771,7 +33581,6 @@ ${rows.join("\n")}`, name: subject };
     onSavedWhere(paintSavedRow);
     el("fe-st-saved-move").addEventListener("click", () => void enableSavedFolder());
     const paintSamples = () => {
-      el("fe-st-rows").dataset.d = v("fe-st-density").value;
       el("fe-st-readsample").dataset.col = v("fe-st-rd-column").value;
     };
     function openSettings(tab) {
@@ -32795,9 +33604,10 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-font-code").value = fontPrefs.code.get();
       v("fe-st-uiscale").value = String(settings.uiScale || 100);
       v("fe-st-rd-size").value = String(settings.readerSize || 15);
-      v("fe-st-density").value = settings.compactMode ? "compact" : "roomy";
+      v("fe-st-density").value = String(densityPref.get());
       el("fe-st-tooltips").checked = settings.tooltips !== false;
       v("fe-st-defview").value = getView();
+      refreshFolderViews();
       const order = getSortConfig();
       v("fe-st-sort").value = order.col ?? "";
       v("fe-st-sort-dir").value = order.dir;
@@ -32813,8 +33623,8 @@ ${rows.join("\n")}`, name: subject };
       el("fe-st-dock-fold").checked = settings.dockFoldsSidebar !== false;
       v("fe-st-peek-close").value = String(settings.peekCloseMs ?? 500);
       v("fe-st-pan").value = settings.panKey ?? "Shift";
-      el("fe-st-open-with").value = settings.openWithCmds ?? DEFAULT_COMMANDS;
-      el("fe-st-sec-recent").checked = !settings.hideRecent;
+      refreshOpenWith();
+      refreshLenses();
       el("fe-st-newtab-home").checked = settings.newTabHome === true;
       el("fe-st-home-url").value = homeAddress();
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
@@ -32878,10 +33688,15 @@ ${rows.join("\n")}`, name: subject };
       saveSettings(settings);
     });
     v("fe-st-density").addEventListener("change", () => {
-      settings.compactMode = v("fe-st-density").value === "compact";
-      saveSettings(settings);
-      fe.classList.toggle("compact", settings.compactMode);
-      paintSamples();
+      const n = v("fe-st-density").value;
+      const bar = document.getElementById("fe-density");
+      if (bar) {
+        bar.value = n;
+        bar.dispatchEvent(new Event("change"));
+      } else {
+        densityPref.set(Number(n));
+        fe.dataset.density = n;
+      }
     });
     el("fe-st-tooltips").addEventListener("change", function() {
       settings.tooltips = this.checked;
@@ -32890,12 +33705,16 @@ ${rows.join("\n")}`, name: subject };
     });
     v("fe-st-defview").addEventListener("change", () => {
       viewPref.set(v("fe-st-defview").value);
-      app.setView(v("fe-st-defview").value);
+      if (!app.keptHere?.()) app.setView(v("fe-st-defview").value);
     });
-    const applyOrder = () => app.setOrder(
-      { col: v("fe-st-sort").value || null, dir: v("fe-st-sort-dir").value },
-      v("fe-st-group").value
-    );
+    const applyOrder = () => {
+      const sort = { col: v("fe-st-sort").value || null, dir: v("fe-st-sort-dir").value };
+      const group2 = v("fe-st-group").value;
+      if (app.keptHere?.()) {
+        saveSortConfig(sort);
+        saveGroupMode(group2);
+      } else app.setOrder(sort, group2);
+    };
     el("fe-st-sort-dir").addEventListener("change", () => {
       if (!v("fe-st-sort").value) v("fe-st-sort").value = "name";
     });
@@ -32946,11 +33765,6 @@ ${rows.join("\n")}`, name: subject };
       saveSettings(settings);
       if (document.querySelector("#fe-qlook.side")?.checkVisibility()) setSidebarShown(this.checked ? false : settings.showSidebar);
     });
-    el("fe-st-sec-recent").addEventListener("change", function() {
-      settings.hideRecent = !this.checked;
-      saveSettings(settings);
-      app.showLens?.(this.checked ? null : "notes", !this.checked);
-    });
     el("fe-st-newtab-home").addEventListener("change", function() {
       settings.newTabHome = this.checked;
       saveSettings(settings);
@@ -32963,10 +33777,6 @@ ${rows.join("\n")}`, name: subject };
     });
     el("fe-st-home-url").addEventListener("focus", function() {
       this.select();
-    });
-    el("fe-st-open-with").addEventListener("change", function() {
-      settings.openWithCmds = this.value;
-      saveSettings(settings);
     });
     v("fe-st-peek-close").addEventListener("change", () => {
       settings.peekCloseMs = Number(v("fe-st-peek-close").value);
@@ -33291,7 +34101,7 @@ ${rows.join("\n")}`, name: subject };
   }
   var claudeRoot = () => /^(\/(?:Users|home)\/[^/]+\/\.claude)\//.exec(decodeURIComponent(location.pathname))?.[1] ?? null;
   var skillNames = null;
-  var looked = /* @__PURE__ */ new WeakSet();
+  var looked2 = /* @__PURE__ */ new WeakSet();
   var facts = /* @__PURE__ */ new Map();
   var exists = /* @__PURE__ */ new Map();
   var existsOnce = (url) => {
@@ -33309,10 +34119,10 @@ ${rows.join("\n")}`, name: subject };
   function linkGccRefs() {
     const root2 = claudeRoot();
     if (!root2) return;
-    const codes = [...document.querySelectorAll(".fe-md code")].filter((c) => !looked.has(c) && !c.closest("pre, a"));
-    const strs = [...document.querySelectorAll(".fe-jt-root .tok-str, .fe-jl-root .tok-str")].filter((s) => !looked.has(s));
+    const codes = [...document.querySelectorAll(".fe-md code")].filter((c) => !looked2.has(c) && !c.closest("pre, a"));
+    const strs = [...document.querySelectorAll(".fe-jt-root .tok-str, .fe-jl-root .tok-str")].filter((s) => !looked2.has(s));
     if (!codes.length && !strs.length) return;
-    [...codes, ...strs].forEach((c) => looked.add(c));
+    [...codes, ...strs].forEach((c) => looked2.add(c));
     skillNames ??= fetchFileText(`${fileBase()}${root2}/skills/`).then((html) => new Set(parseListing(html, `${fileBase()}${root2}/skills/`).filter((e) => e.isDir && !e.isParent).map((e) => e.name.replace(/\/$/, "")))).catch(() => /* @__PURE__ */ new Set());
     void skillNames.then((skills) => {
       for (const code of codes) {
@@ -33448,11 +34258,11 @@ ${rows.join("\n")}`, name: subject };
   function showSource(block, on) {
     block.querySelector(".fe-md-mermaid-source")?.toggleAttribute("hidden", !on);
   }
-  var looked2 = /* @__PURE__ */ new WeakSet();
+  var looked3 = /* @__PURE__ */ new WeakSet();
   function linkFrontMatterPaths() {
     document.querySelectorAll(".fe-md-fm .fe-fm-path").forEach((span) => {
-      if (looked2.has(span) || span.tagName === "A") return;
-      looked2.add(span);
+      if (looked3.has(span) || span.tagName === "A") return;
+      looked3.add(span);
       const base2 = span.closest(".fe-md-fm")?.dataset.fmBase || location.href;
       const rel = span.dataset.fmPath || "";
       void findPath(rel, base2).then((url) => {
@@ -34223,8 +35033,9 @@ ${rows.join("\n")}`, name: subject };
     const allExts = [...new Set(nonPar.filter((e) => !e.isDir && getExt(e)).map(getExt))].sort();
     const extOpts = allExts;
     const iconRules = getIconRules();
+    if (takeCompactMode(settings)) saveSettings(settings);
     const initDensity = getDensity();
-    const initView = getView();
+    const initView = !fileMode && !homeMode && folderView(folderPath)?.view || getView();
     const initTheme = resolveTheme(themeMode());
     const initPalette = getPalette();
     const initHidden = getShowHidden();
@@ -34323,7 +35134,6 @@ ${rows.join("\n")}`, name: subject };
     });
     const applyLook = () => {
       setUiScale(settings.uiScale || 100);
-      fe.classList.toggle("compact", !!settings.compactMode);
       document.documentElement.style.setProperty("--ui-text-scale", String((settings.readerSize || 15) / 15));
       fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));
       fe.style.setProperty("--rd-code", `${settings.readerCodeSize || 13}px`);
