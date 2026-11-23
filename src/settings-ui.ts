@@ -7,6 +7,7 @@ import type { Entry, IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc, fileHref } from './utils';
 import { icoCustom, getIcon, ruleFor, RULE_GLYPHS, SWATCHES } from './icons';
+import { slowRegex, SLOW_REGEX_WHY } from './slow-regex';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, saveSortConfig, saveGroupMode, homeDir, densityPref, hiddenPref, dirsFirstPref, saveColWidths } from './storage';
 import { runOpenWith } from './open-with';
 import { initOpenWithSettings } from './settings-open-with';
@@ -57,7 +58,7 @@ function homeAddress(): string {
 }
 
 // Ready-made rules offered above the list; each appears until it is added.
-const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
+export const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
   { name: 'Images', pattern: '\\.(png|jpe?g|gif|webp|svg|avif|heic)$', label: 'IMG', glyph: 'image', color: '#b197fc' },
   { name: 'Archives', pattern: '\\.(zip|tar|gz|tgz|rar|7z|xz)$', label: 'ZIP', glyph: 'archive', color: '#a1887f' },
   { name: 'Env files', pattern: '^\\.env', label: 'ENV', glyph: 'key', color: '#e8b923' },
@@ -82,7 +83,7 @@ export function initSettingsUi(app: App): void {
   const refreshFolderViews = initFolderViewSettings(app, toast);
 
   // Icon rules.
-  const badRegex = (p: string) => { try { new RegExp(p, 'i'); return ''; } catch (e) { return String((e as Error).message); } };
+  const badRegex = (p: string) => { try { new RegExp(p, 'i'); return slowRegex(p) ? SLOW_REGEX_WHY : ''; } catch (e) { return String((e as Error).message); } };
   const hits = (p: string) => { try { const r = new RegExp(p, 'i'); return app.entryNames.filter(n => r.test(n)).length; } catch { return 0; } };
   function renderRulesList(): void {
     const list = el('fe-st-rules-list');

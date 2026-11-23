@@ -5,6 +5,7 @@
 //
 //   node e2e/icon-rules-walk.mjs [folder for screenshots]   (BFB_THEME=light for the light theme)
 import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import { launch, store, THEME } from './harness.mjs';
 
 const h = await launch();
@@ -78,6 +79,30 @@ try {
     return row ? row.querySelector('svg text')?.textContent ?? null : 'no md file';
   });
   check(listIcon === 'MD' || listIcon === 'no md file', 'the listing uses the same rule', listIcon);
+
+  // A stored rule whose pattern would hang on this file's name (an import or an
+  // older version can leave one) is skipped, so the folder still draws, and
+  // Settings marks it with the reason.
+  writeFileSync(join(h.fixture, 'a'.repeat(30) + '!.txt'), 'x');
+  await store.set('bfb-icon-rules-v1', JSON.stringify([
+    { id: 's1', name: 'Hangs', pattern: '^(a+)+$', label: 'BAD', color: '#ff6b6b', enabled: true },
+    { id: 's2', name: 'Text', pattern: '\\.txt$', label: 'TXT', color: '#4a9eff', enabled: true },
+  ]));
+  const page2 = await h.open();
+  const t0 = Date.now();
+  const longIcon = await Promise.race([
+    page2.waitForSelector('[data-name^="aaaaaaaa"]', { timeout: 4000 }).then(() => page2.evaluate(() =>
+      document.querySelector('[data-name^="aaaaaaaa"] svg text')?.textContent ?? null)),
+    sleep(4000).then(() => 'page hung'),
+  ]).catch(e => String(e.message));
+  check(longIcon === 'TXT', `a rule that would hang is skipped and the next rule gives the icon (${Date.now() - t0} ms)`, longIcon);
+  await page2.click('#fe-settings-btn');
+  await page2.waitForFunction(() => !document.getElementById('fe-settings-modal').hidden);
+  await page2.click('#fe-settings-modal .fe-dlg-tab[data-tab="tools"]');
+  await page2.waitForSelector('.fe-st-rule-pattern');
+  const marked = await page2.$eval('.fe-rule[data-idx="0"] .fe-st-rule-pattern', i => ({ invalid: i.getAttribute('aria-invalid'), why: i.title }));
+  check(marked.invalid === 'true' && /freeze/.test(marked.why), 'Settings marks that pattern and says why', marked);
+  if (shots) { await sleep(200); await page2.screenshot({ path: join(shots, `icon-rules-slow-${THEME}.png`) }); }
 
   async function shot(name) { if (shots) { await sleep(200); await page.screenshot({ path: join(shots, `${name}-${THEME}.png`) }); } }
 } catch (err) {

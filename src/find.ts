@@ -4,6 +4,7 @@
 // query, reopened by URL hash. The contents pass is async and cancellable.
 import type { Entry } from './types';
 import { CODE_EXTS, TABLE_EXTS, JSONL_EXTS } from './renderers';
+import { slowRegex, SLOW_REGEX_WHY } from './slow-regex';
 
 export interface FindQuery {
   scope: 'here' | 'deep';
@@ -38,7 +39,7 @@ export function matchesFind(e: Entry, q: FindQuery): boolean {
   if (q.kind && (q.kind === 'folders') !== e.isDir) return false;
   if (q.exts.length && !q.exts.includes(ext(e))) return false;
   if (q.name) {
-    if (q.regex) { try { if (!new RegExp(q.name, q.caseSensitive ? '' : 'i').test(e.name)) return false; } catch { return false; } }
+    if (q.regex) { try { if (slowRegex(q.name) || !new RegExp(q.name, q.caseSensitive ? '' : 'i').test(e.name)) return false; } catch { return false; } }
     else if (q.caseSensitive ? !e.name.includes(q.name) : !e.name.toLowerCase().includes(q.name.toLowerCase())) return false;
   }
   return true;
@@ -59,6 +60,7 @@ export interface ContentsResult { hits: Map<string, ContentHit>; scanned: number
 export function textPatternError(q: FindQuery): string | null {
   if (!q.textRegex || !q.text) return null;
   if (q.text.length > 160) return 'Text regex is limited to 160 characters';
+  if (slowRegex(q.text)) return SLOW_REGEX_WHY;
   try { new RegExp(q.text, q.caseSensitive ? 'gu' : 'giu'); return null; }
   catch { return 'Invalid text regex'; }
 }

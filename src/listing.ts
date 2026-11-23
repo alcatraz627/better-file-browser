@@ -199,9 +199,11 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // its whole strip at once, so it is drawn in one go.
   const TILES_FIRST = 160, TILES_CHUNK = 600;
   let tileFill = 0;
+  let leadWaits = false;
   function fillTiles(parts: string[], inSteps: boolean): void {
     const tiles = el('fe-tiles');
     const run = ++tileFill;
+    leadWaits = false;
     const watch = () => tiles.querySelectorAll('img[data-src]').forEach(img => pictureNear.observe(img));
     if (!inSteps || parts.length <= TILES_FIRST * 2) {
       tiles.innerHTML = parts.join('');
@@ -219,7 +221,12 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       at += TILES_CHUNK;
       watch();
       if (at < parts.length) requestAnimationFrame(more);
-      else { tiles.removeAttribute('aria-busy'); paintSel(); }
+      else {
+        tiles.removeAttribute('aria-busy');
+        paintSel();
+        // A jump made during the fill may have picked a tile not drawn yet.
+        if (leadWaits) { leadWaits = false; scrollToLead(); }
+      }
     };
     // After the first screen has painted.
     requestAnimationFrame(() => requestAnimationFrame(more));
@@ -443,7 +450,9 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
         paintWindow(true);
       }
     }
-    els(`#fe-scroll [data-idx="${ls.selIdx}"]`).forEach(x => { if (x.offsetParent) x.scrollIntoView({ block: 'nearest' }); });
+    const drawn = els(`#fe-scroll [data-idx="${ls.selIdx}"]`);
+    if (!drawn.length && el('fe-tiles').hasAttribute('aria-busy')) leadWaits = true;
+    drawn.forEach(x => { if (x.offsetParent) x.scrollIntoView({ block: 'nearest' }); });
   }
 
   // The view switch, hidden files, zoom.

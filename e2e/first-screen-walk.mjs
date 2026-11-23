@@ -50,6 +50,49 @@ try {
   const nonMatching = names.filter(n => n && !n.includes('file-29') && n !== '..' && !/^\.\.?$/.test(n));
   check(nonMatching.length === 0 && names.filter(n => n.includes('file-29')).length === 100, 'a filter during the fill leaves only its 100 matches, nothing stale added', { total: names.length, stray: nonMatching.slice(0, 3) });
 
+  // Keys pressed while the fill is still running. The key is sent from inside
+  // the page at the first frame that has tiles, since the fill lasts only a few frames.
+  const midFill = async (init) => {
+    const p = await h.browser.newPage();
+    await p.setViewport({ width: 1300, height: 900 });
+    await p.evaluateOnNewDocument(k => {
+      const seen = () => {
+        const box = document.getElementById('fe-tiles');
+        if (box?.querySelector('.fe-tile')) {
+          window.__mid = { busy: box.getAttribute('aria-busy'), drawn: box.querySelectorAll('.fe-tile').length };
+          document.body.dispatchEvent(new KeyboardEvent('keydown', { ...k, bubbles: true, cancelable: true }));
+          return;
+        }
+        requestAnimationFrame(seen);
+      };
+      requestAnimationFrame(seen);
+    }, init);
+    await p.goto('file://' + big + '/', { waitUntil: 'load' });
+    await p.waitForFunction(() => window.__mid, { timeout: 15000 });
+    await p.waitForFunction(n => document.querySelectorAll('#fe-tiles .fe-tile').length >= n && !document.getElementById('fe-tiles').hasAttribute('aria-busy'), { timeout: 20000 }, N);
+    await new Promise(r => setTimeout(r, 300));
+    return p;
+  };
+
+  let p = await midFill({ key: 'a', code: 'KeyA', metaKey: true });
+  let got = await p.evaluate(() => ({ mid: window.__mid, selected: document.querySelectorAll('#fe-tiles .fe-tile.selected').length, status: document.getElementById('fe-status-text').textContent }));
+  check(got.mid.busy === 'true' && got.selected === N && got.status === `${N} selected`, 'Select All during the fill ends with every file selected', got);
+  await p.close();
+
+  p = await midFill({ key: 'End', code: 'End' });
+  got = await p.evaluate(() => {
+    const lead = document.querySelector('#fe-tiles .fe-tile.selected'), box = document.getElementById('fe-scroll').getBoundingClientRect();
+    const r = lead?.getBoundingClientRect();
+    return { mid: window.__mid, name: lead?.dataset.name ?? null, count: document.querySelectorAll('#fe-tiles .fe-tile.selected').length, inView: !!r && r.top >= box.top && r.bottom <= box.bottom + 1 };
+  });
+  check(got.mid.busy === 'true' && got.name === `file-${N - 1}.txt` && got.count === 1 && got.inView, 'End during the fill lands on the last file, selected and in view', got);
+  await p.close();
+
+  p = await midFill({ key: 'ArrowDown', code: 'ArrowDown' });
+  got = await p.evaluate(() => ({ mid: window.__mid, names: [...document.querySelectorAll('#fe-tiles .fe-tile.selected')].map(t => t.dataset.name) }));
+  check(got.mid.busy === 'true' && got.names.length === 1, 'Arrow down during the fill selects one tile and keeps it', got);
+  await p.close();
+
   // A small folder: drawn whole at once.
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe-tiles .fe-tile');

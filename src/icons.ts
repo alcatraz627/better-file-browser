@@ -1,5 +1,6 @@
 import type { Entry, IconRule } from './types';
 import { line, LINE_ICON } from './control-icons';
+import { slowRegex } from './slow-regex';
 
 export const EXT_COLORS: Record<string, string> = {
   js:'#f0db4f',mjs:'#f0db4f',cjs:'#f0db4f',
@@ -123,6 +124,8 @@ export function ruleFor(name: string, isDir: boolean, rules: IconRule[]): number
     // A rule like "claude" means files named that; a folder of the same name stays a folder.
     // A folder rule ends in /, and the folder is tried with its slash, so `^node_modules/$` matches it.
     if (isDir && !/\/\$?$/.test(rule.pattern)) continue;
+    // Every row runs every rule, so one pattern that hangs would hang every folder.
+    if (slowRegex(rule.pattern)) continue;
     try { if (new RegExp(rule.pattern, 'i').test(isDir ? name.replace(/\/*$/, '/') : name)) return i; } catch { /* a pattern still being typed */ }
   }
   return -1;

@@ -751,10 +751,10 @@
   }
   var HOME_KEY = "bfb-home-v1";
   function homeDir(path) {
-    const seen = path.match(/^\/Users\/[^/]+/)?.[0];
-    if (seen && seen !== "/Users/Shared") {
-      if (kvGet(HOME_KEY) !== seen) kvSet(HOME_KEY, seen);
-      return seen;
+    const seen2 = path.match(/^\/Users\/[^/]+/)?.[0];
+    if (seen2 && seen2 !== "/Users/Shared") {
+      if (kvGet(HOME_KEY) !== seen2) kvSet(HOME_KEY, seen2);
+      return seen2;
     }
     return kvGet(HOME_KEY) ?? "";
   }
@@ -1884,6 +1884,98 @@ ${text}
     return ok;
   }
 
+  // src/slow-regex.ts
+  var seen = /* @__PURE__ */ new Map();
+  function slowRegex(pattern) {
+    let known = seen.get(pattern);
+    if (known === void 0) {
+      known = scan(pattern);
+      if (seen.size > 500) seen.clear();
+      seen.set(pattern, known);
+    }
+    return known;
+  }
+  var SLOW_REGEX_WHY = "This pattern can freeze the page: a repeat inside a repeat";
+  function scan(p) {
+    const stack2 = [{ rep: false, firsts: [], atStart: true, overlap: false }];
+    let closed = null;
+    const top = () => stack2[stack2.length - 1];
+    const atom = (token) => {
+      const g = top();
+      if (g.atStart) {
+        if (g.firsts.includes(token)) g.overlap = true;
+        g.firsts.push(token);
+        g.atStart = false;
+      }
+      closed = null;
+    };
+    let i3 = 0;
+    while (i3 < p.length) {
+      const c = p[i3];
+      if (c === "\\") {
+        atom(p.slice(i3, i3 + 2));
+        i3 += 2;
+        continue;
+      }
+      if (c === "[") {
+        let j = i3 + 1;
+        while (j < p.length && p[j] !== "]") j += p[j] === "\\" ? 2 : 1;
+        atom(p.slice(i3, j + 1));
+        i3 = j + 1;
+        continue;
+      }
+      if (c === "(") {
+        atom("(" + i3);
+        stack2.push({ rep: false, firsts: [], atStart: true, overlap: false });
+        i3++;
+        const lead = /^\?(?::|=|!|<=|<!|<[^>]*>)/.exec(p.slice(i3));
+        if (lead) i3 += lead[0].length;
+        continue;
+      }
+      if (c === ")") {
+        if (stack2.length > 1) {
+          const g = stack2.pop();
+          if (g.atStart && g.firsts.length) g.overlap = true;
+          if (g.rep) top().rep = true;
+          closed = g;
+        }
+        i3++;
+        continue;
+      }
+      if (c === "|") {
+        const g = top();
+        if (g.atStart) g.overlap = true;
+        g.atStart = true;
+        closed = null;
+        i3++;
+        continue;
+      }
+      if (c === "^" || c === "$") {
+        i3++;
+        continue;
+      }
+      const counted = c === "{" ? /^\{(\d+)(,(\d*))?\}/.exec(p.slice(i3)) : null;
+      if (c === "*" || c === "+" || counted) {
+        const repeats = !counted || (counted[2] ? counted[3] === "" || Number(counted[3]) > 1 : Number(counted[1]) > 1);
+        const g = closed;
+        if (repeats && g && (g.rep || g.overlap)) return true;
+        if (repeats) top().rep = true;
+        i3 += counted ? counted[0].length : 1;
+        if (p[i3] === "?") i3++;
+        closed = null;
+        continue;
+      }
+      if (c === "?") {
+        closed = null;
+        i3++;
+        continue;
+      }
+      atom(c);
+      i3++;
+    }
+    return false;
+  }
+
   // src/icons.ts
   var EXT_COLORS = {
     js: "#f0db4f",
@@ -2064,6 +2156,7 @@ ${text}
       const rule = rules[i3];
       if (!rule || !rule.enabled || typeof rule.pattern !== "string" || !rule.pattern) continue;
       if (isDir && !/\/\$?$/.test(rule.pattern)) continue;
+      if (slowRegex(rule.pattern)) continue;
       try {
         if (new RegExp(rule.pattern, "i").test(isDir ? name2.replace(/\/*$/, "/") : name2)) return i3;
       } catch {
@@ -2369,13 +2462,13 @@ ${text}
       const inside = !!ae && root2.contains(ae);
       const layer = ae?.closest("[data-layer]");
       if (!inside && layer && !layer.contains(root2)) return;
-      const seen = /* @__PURE__ */ new Set();
+      const seen2 = /* @__PURE__ */ new Set();
       const stops = [...root2.querySelectorAll(FOCUSABLE)].filter((x2) => {
         if (x2.offsetParent === null || x2.disabled || x2.tabIndex < 0) return false;
         const r = x2;
         if (r.type !== "radio" || !r.name) return true;
-        if (seen.has(r.name)) return false;
-        seen.add(r.name);
+        if (seen2.has(r.name)) return false;
+        seen2.add(r.name);
         return true;
       }).map((x2) => {
         const r = x2;
@@ -2417,10 +2510,10 @@ ${text}
   }
   function ownCommands(s) {
     if (!Array.isArray(s.openWith)) return parseCommands(s.openWithCmds);
-    const seen = /* @__PURE__ */ new Set();
+    const seen2 = /* @__PURE__ */ new Set();
     return s.openWith.filter((c) => !!c && typeof c.name === "string" && typeof c.cmd === "string" && !commandProblem(c)).filter((c) => {
       const k = c.name.trim().toLowerCase();
-      return !seen.has(k) && !!seen.add(k);
+      return !seen2.has(k) && !!seen2.add(k);
     }).map((c) => ({ name: c.name, cmd: c.cmd, terminal: c.terminal !== false, ...c.filesOnly ? { filesOnly: true } : {}, ...typeof c.color === "string" ? { color: c.color } : {} }));
   }
   function commandProblem(c, others = []) {
@@ -4095,14 +4188,14 @@ ${text}
     if (rows.length < 2) return out;
     const width = rows[0].length;
     for (let c = 0; c < width; c++) {
-      let seen = 0, num2 = 0;
+      let seen2 = 0, num2 = 0;
       for (let r = 1; r < Math.min(rows.length, 200); r++) {
         const v = (rows[r][c] ?? "").trim();
         if (!v) continue;
-        seen++;
+        seen2++;
         if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v.replace(/,/g, ""))) num2++;
       }
-      if (seen > 0 && num2 / seen > 0.8) out.add(c);
+      if (seen2 > 0 && num2 / seen2 > 0.8) out.add(c);
     }
     return out;
   }
@@ -4383,10 +4476,10 @@ ${text}
     }
     return template.innerHTML;
   }
-  function headingId(text, seen) {
+  function headingId(text, seen2) {
     let id = text.trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
-    const n = seen.get(id) ?? 0;
-    seen.set(id, n + 1);
+    const n = seen2.get(id) ?? 0;
+    seen2.set(id, n + 1);
     if (n) id += "-" + n;
     return id;
   }
@@ -14178,19 +14271,19 @@ ${t}`)) say("Note title saved");
         root2.classList.toggle("dl-plain", !graph.flow);
       }
       function reach(id, dir) {
-        const seen = /* @__PURE__ */ new Map([[id, 0]]), q = [id], edges = /* @__PURE__ */ new Set();
+        const seen2 = /* @__PURE__ */ new Map([[id, 0]]), q = [id], edges = /* @__PURE__ */ new Set();
         while (q.length) {
           const cur = q.shift();
           for (const e of (dir === "out" ? graph.out : graph.in).get(cur) ?? []) {
             const next = dir === "out" ? e.end : e.start;
             edges.add(e.id);
-            if (!seen.has(next)) {
-              seen.set(next, seen.get(cur) + 1);
+            if (!seen2.has(next)) {
+              seen2.set(next, seen2.get(cur) + 1);
               q.push(next);
             }
           }
         }
-        return { nodes: seen, edges };
+        return { nodes: seen2, edges };
       }
       const els2 = { svg: null, nodes: /* @__PURE__ */ new Map(), edges: /* @__PURE__ */ new Map(), base: /* @__PURE__ */ new Map(), boxes0: /* @__PURE__ */ new Map(), boxes: /* @__PURE__ */ new Map(), W: 0, H: 0 };
       let renders = 0, offsets = {};
@@ -16282,14 +16375,14 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       const row2 = e.target.closest(".fe-dv-outline-row");
       if (row2) jump(row2.dataset.target);
     });
-    const seen = /* @__PURE__ */ new Map();
+    const seen2 = /* @__PURE__ */ new Map();
     const onScreen = (t) => {
       const a = t.getBoundingClientRect(), s = scroller2.getBoundingClientRect();
       return a.bottom > s.top && a.top < s.bottom;
     };
     const mark = () => {
       const p = prefer();
-      const first = p && onScreen(p) ? p : targets.find((t) => seen.get(t));
+      const first = p && onScreen(p) ? p : targets.find((t) => seen2.get(t));
       if (!first) return;
       nav.querySelectorAll(".fe-dv-outline-row.active").forEach((r) => {
         r.classList.remove("active");
@@ -16303,7 +16396,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (row2.offsetTop < ol.scrollTop || row2.offsetTop + row2.offsetHeight > ol.scrollTop + ol.clientHeight) ol.scrollTop = row2.offsetTop - ol.clientHeight / 2;
     };
     const io2 = new IntersectionObserver((entries) => {
-      entries.forEach((en) => seen.set(en.target, en.isIntersecting));
+      entries.forEach((en) => seen2.set(en.target, en.isIntersecting));
       mark();
     }, { root: scroller2, rootMargin: "0px 0px -55% 0px" });
     targets.forEach((t) => io2.observe(t));
@@ -17204,12 +17297,12 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     return name2 ? { kind: "file", label: name2, title: path, href } : null;
   }
   function rowLinks(el2) {
-    const seen = /* @__PURE__ */ new Set();
+    const seen2 = /* @__PURE__ */ new Set();
     const out = [];
     [...el2.cells].forEach((c) => c.querySelectorAll("a[href]").forEach((a) => {
       const l = linkOf(a.getAttribute("href") ?? "", a.href);
-      if (l && !seen.has(l.href)) {
-        seen.add(l.href);
+      if (l && !seen2.has(l.href)) {
+        seen2.add(l.href);
         out.push(l);
       }
     }));
@@ -22575,7 +22668,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     let editing = "";
     let busy2 = false;
     let dueOpen = "";
-    const seen = /* @__PURE__ */ new Set();
+    const seen2 = /* @__PURE__ */ new Set();
     const ranges = /* @__PURE__ */ new Map();
     const typed = /* @__PURE__ */ new Map();
     let linked = location.hash.startsWith("#c=") ? decodeURIComponent(location.hash.slice(3)) : "";
@@ -22623,9 +22716,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     };
     const readCompanion = () => fetchFileText(o.href + ".bfb.json").catch(() => "");
     const take = (r) => {
-      const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
+      const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen2.has(c.id) && c.author.kind === "agent").map((c) => c.author));
       if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
-      r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
+      r.threads.forEach((t) => t.comments.forEach((c) => seen2.add(c.id)));
       threads = r.threads.filter((t) => t.comments.some((c) => !c.deleted));
       failed2 = "";
       loaded = true;
@@ -23067,7 +23160,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       if (ta) ta.value = "";
       typed.delete(id);
-      const seen2 = new Set(t.comments.map((c) => c.id));
+      const seen3 = new Set(t.comments.map((c) => c.id));
       const leaving = close && wasOpen && (filter === "open" || filter === "me") ? o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`) : null;
       if (leaving) await collapseOut(leaving);
       if (!await write2(ops, "Reply")) {
@@ -23075,7 +23168,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         paint();
         return;
       }
-      const fresh = threads.find((x2) => x2.id === id)?.comments.filter((c) => !seen2.has(c.id)) ?? [];
+      const fresh = threads.find((x2) => x2.id === id)?.comments.filter((c) => !seen3.has(c.id)) ?? [];
       for (const c of fresh) {
         const el2 = o.box.querySelector(`.fe-cm-c[data-c="${CSS.escape(c.id)}"]`);
         if (el2) riseIn(el2);
@@ -26485,6 +26578,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   function textPatternError(q) {
     if (!q.textRegex || !q.text) return null;
     if (q.text.length > 160) return "Text regex is limited to 160 characters";
+    if (slowRegex(q.text)) return SLOW_REGEX_WHY;
     try {
       new RegExp(q.text, q.caseSensitive ? "gu" : "giu");
       return null;
@@ -27564,9 +27658,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }), { root: el("fe-scroll"), rootMargin: "300px" });
     const TILES_FIRST = 160, TILES_CHUNK = 600;
     let tileFill = 0;
+    let leadWaits = false;
     function fillTiles(parts2, inSteps) {
       const tiles = el("fe-tiles");
       const run = ++tileFill;
+      leadWaits = false;
       const watch2 = () => tiles.querySelectorAll("img[data-src]").forEach((img) => pictureNear.observe(img));
       if (!inSteps || parts2.length <= TILES_FIRST * 2) {
         tiles.innerHTML = parts2.join("");
@@ -27587,6 +27683,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         else {
           tiles.removeAttribute("aria-busy");
           paintSel();
+          if (leadWaits) {
+            leadWaits = false;
+            scrollToLead();
+          }
         }
       };
       requestAnimationFrame(() => requestAnimationFrame(more));
@@ -27670,10 +27770,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function paintEmpty() {
       const box = el("fe-empty");
       const showHidden = fe.classList.contains("show-hidden");
-      const seen = lastEntries.filter((e) => showHidden || !e.isHidden).length;
+      const seen2 = lastEntries.filter((e) => showHidden || !e.isHidden).length;
       const busy2 = ls.deepScanning || !!nameFilterAbort || app.fileMode;
       const filtered = !!ls.filter.q || ls.filter.type !== "all" || !!ls.contentHits;
-      box.hidden = busy2 || seen > 0;
+      box.hidden = busy2 || seen2 > 0;
       const showThem = "Press <kbd>.</kbd> to show them";
       box.innerHTML = box.hidden ? "" : filtered && lastEntries.length ? emptyHtml("filtered", "Only hidden files match", { hintHtml: showThem, actions: [CLEAR] }) : filtered ? emptyHtml("filtered", "Nothing here matches", { actions: [CLEAR] }) : lastEntries.length ? emptyHtml("empty", "Only hidden files here", { hintHtml: showThem }) : ls.deepOn ? emptyHtml("empty", "Nothing in these folders", { hint: showHidden ? "" : "Hidden files are left out of a subfolder search" }) : emptyHtml("empty", "This folder is empty");
     }
@@ -27821,7 +27921,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           paintWindow(true);
         }
       }
-      els(`#fe-scroll [data-idx="${ls.selIdx}"]`).forEach((x2) => {
+      const drawn = els(`#fe-scroll [data-idx="${ls.selIdx}"]`);
+      if (!drawn.length && el("fe-tiles").hasAttribute("aria-busy")) leadWaits = true;
+      drawn.forEach((x2) => {
         if (x2.offsetParent) x2.scrollIntoView({ block: "nearest" });
       });
     }
@@ -28795,9 +28897,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return v;
     };
     setStrip(stripPref.get().h);
-    const seen = new IntersectionObserver((items) => items.forEach((it) => {
+    const seen2 = new IntersectionObserver((items) => items.forEach((it) => {
       if (!it.isIntersecting) return;
-      seen.unobserve(it.target);
+      seen2.unobserve(it.target);
       void fillThumb(it.target, ls.visible[Number(it.target.dataset.idx)]);
     }), { root: scroll, rootMargin: "0px 400px" });
     function paintThumbs() {
@@ -28805,7 +28907,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       scroll.querySelectorAll("#fe-tiles .fe-tile[data-idx]:not([data-gal])").forEach((t) => {
         t.dataset.gal = "1";
         const en = ls.visible[Number(t.dataset.idx)];
-        if (en && !en.isDir && !en.isParent && !IMG_EXTS.has(getExt(en)) && (VIDEO_EXTS.has(getExt(en)) || TEXTISH(en))) seen.observe(t);
+        if (en && !en.isDir && !en.isParent && !IMG_EXTS.has(getExt(en)) && (VIDEO_EXTS.has(getExt(en)) || TEXTISH(en))) seen2.observe(t);
       });
     }
     const show = () => {
@@ -31466,10 +31568,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   var nameOf2 = (path) => path.split("/").filter(Boolean).pop() || "/";
   function quoteTargets(here, tabPaths, recent, chatsFor2, max = 8) {
     const out = [{ ...here, label: "This chat", here: true }];
-    const seen = /* @__PURE__ */ new Set([here.subject]);
+    const seen2 = /* @__PURE__ */ new Set([here.subject]);
     const add = (subject, chat, label) => {
-      if (!chat || seen.has(subject) || out.length >= max) return;
-      seen.add(subject);
+      if (!chat || seen2.has(subject) || out.length >= max) return;
+      seen2.add(subject);
       out.push({ subject, chatId: chat.id, title: chat.title, label, here: false });
     };
     for (const p of tabPaths) add(p, chatsFor2(p)[0], `${nameOf2(p)} \xB7 open tab`);
@@ -33016,8 +33118,8 @@ ${rows.join("\n")}`, name: subject };
         const list3 = document.createElement("div");
         list3.className = "fe-dlg-hits";
         list3.dataset.tab = tab.dataset.tab;
-        const seen = /* @__PURE__ */ new Set();
-        const named = hits.filter((h) => h.name && !seen.has(h.name) && seen.add(h.name));
+        const seen2 = /* @__PURE__ */ new Set();
+        const named = hits.filter((h) => h.name && !seen2.has(h.name) && seen2.add(h.name));
         list3.innerHTML = named.slice(0, 4).map((h, j) => `<button type="button" class="fe-dlg-hit" data-j="${j}" title="Go to ${esc(h.name)}">${esc(h.name)}</button>`).join("") + (named.length > 4 ? `<span class="fe-dlg-more">and ${named.length - 4} more</span>` : "");
         list3.addEventListener("click", (e) => {
           const b = e.target.closest(".fe-dlg-hit");
@@ -33299,7 +33401,7 @@ ${rows.join("\n")}`, name: subject };
     const badRegex = (p) => {
       try {
         new RegExp(p, "i");
-        return "";
+        return slowRegex(p) ? SLOW_REGEX_WHY : "";
       } catch (e) {
         return String(e.message);
       }
@@ -34430,11 +34532,11 @@ ${rows.join("\n")}`, name: subject };
   var isUnclaimedCapture = (n) => !!n.source && !(n.tags ?? []).length && !n.pinned && !n.agent;
   var noteTitle2 = (n) => n.title || n.rel.replace(/\.md$/, "");
   var forMe2 = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
-  function buildWaiting(i3, seen, now = Date.now()) {
+  function buildWaiting(i3, seen2, now = Date.now()) {
     const keep = {};
     const items = [];
     const add = (kind, key, title, why, path, never = false) => {
-      const since = seen[key] ?? now;
+      const since = seen2[key] ?? now;
       keep[key] = since;
       items.push({ kind, key, title, why, path, since, faded: !never && now - since >= FADE_DAYS * DAY });
     };
