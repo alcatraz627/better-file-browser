@@ -26,8 +26,8 @@ default and how it is written.
 
 A `profile` Pref (the default) lives in the shared store and is seen by every
 tab; a `tab` Pref lives in this tab's session. `onChange` reports another tab's
-write (profile Prefs only; a tab Pref is this tab's alone). `exportAll` and
-`importAll` back Settings' export and import.
+write (profile Prefs only; a tab Pref is this tab's alone). `exportAll` backs
+Settings' export. `planImport` and `importPlan` back its import.
 
 Banned: `kvGet`, `kvSet` or `localStorage`/`sessionStorage` outside kv.ts and
 storage.ts (`js-storage`, 0).
@@ -66,7 +66,7 @@ errors.ts (`js-message-shown`, 0).
 `watch(check, { pause })` puts a check on one shared two-second clock. Nothing
 runs while the tab is hidden, a part pauses its own check while it saves or
 edits, and a check still running is not started again. The file page, the
-editor and the comments panel are its three subscribers. A check that has not
+editor, the preview and the comments panel are its four subscribers. A check that has not
 settled after three ticks is started again, and a pause that throws counts as
 paused. smoke's "Updated from disk" check goes red when the clock stops.
 

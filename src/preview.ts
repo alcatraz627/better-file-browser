@@ -285,7 +285,6 @@ export function setPreviewHost(host: HTMLElement | null): void {
   if (overlay) applyLayout();
 }
 /** Whether the preview lives in the Gallery view's stage. */
-export function isPreviewInGallery(): boolean { return !!galleryHost; }
 
 // Modal: a fixed overlay under #fe with a scrim. Side: the same element moved
 // into #fe-body as a flex sibling of the listing, no scrim, owner-set width.
@@ -385,7 +384,6 @@ window.addEventListener('beforeunload', e => {
   e.preventDefault();
 });
 
-export function isEditing(): boolean { return !!edit; }
 /// The note the editor holds right now, or null; it follows the first-save rename.
 export function editingRel(): string | null { return edit ? edit.rel : null; }
 /// Write the editor's pending text to disk and wait for it.

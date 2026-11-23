@@ -26,15 +26,3 @@ export function chipBarHtml(parts: Tally[], extra = ''): string {
   return parts.filter(p => p.n).map(p =>
     `<button type="button" class="chip fe-dv-chip" data-state="${esc(p.state)}" aria-pressed="false" title="Show only ${esc(p.label)}"><i></i><span>${esc(p.label)}</span><b>${p.n}</b></button>`).join('') + extra;
 }
-
-/** Make a chip bar a single-choice filter: a press picks its state, a second press clears it. */
-export function wireChipBar(bar: HTMLElement, pick: (state: string) => void): void {
-  bar.addEventListener('click', e => {
-    const chip = (e.target as Element).closest<HTMLElement>('.fe-dv-chip');
-    if (!chip) return;
-    const on = chip.getAttribute('aria-pressed') !== 'true';
-    bar.querySelectorAll('.fe-dv-chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
-    chip.setAttribute('aria-pressed', String(on));
-    pick(on ? chip.dataset.state! : '');
-  });
-}

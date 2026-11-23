@@ -7,7 +7,27 @@
 // `#dir?layout=list&depth=overview&s=needs,waiting&q=sensor`, so a filtered
 // view can be linked and a reload or Back comes back to it. On load the
 // address wins, then what was last chosen for this doc, then the defaults.
-import type { DirState } from './directions';
+
+// The five states a row can be in, with the mark that names each in a doc.
+// They live here, below both the page and its model, so neither imports the other for them.
+export type DirState = 'needs' | 'waiting' | 'ready' | 'parked' | 'done';
+export const DIR_STATES: { id: DirState; mark: string; label: string }[] = [
+  { id: 'needs', mark: '🔴', label: 'needs you' },
+  { id: 'waiting', mark: '🟠', label: 'waiting' },
+  { id: 'ready', mark: '🟢', label: 'ready' },
+  { id: 'parked', mark: '💤', label: 'parked' },
+  { id: 'done', mark: '✅', label: 'done' },
+];
+
+/** A row's state: the first state mark anywhere in its text, or null. */
+export function rowState(text: string): DirState | null {
+  let best: { at: number; id: DirState } | null = null;
+  for (const s of DIR_STATES) {
+    const at = text.indexOf(s.mark);
+    if (at >= 0 && (!best || at < best.at)) best = { at, id: s.id };
+  }
+  return best?.id ?? null;
+}
 
 export type DirLayout = 'doc' | 'list';
 export type DirDepth = 'overview' | 'full';

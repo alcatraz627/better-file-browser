@@ -5,7 +5,7 @@
 // the standard shape, so a state can come from a mark, from a word in a state
 // column, or from sitting under "Waiting on you"; a row with none is kept as
 // unmarked rather than dropped.
-import { rowState, type DirState } from './directions';
+import { rowState, type DirState } from './directions-state';
 
 export type DirWhen = 'now' | 'next' | 'later';
 export type SectionKind = 'direction' | 'goal' | 'waiting' | 'plain';

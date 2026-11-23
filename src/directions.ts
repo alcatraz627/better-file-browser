@@ -18,7 +18,7 @@ import { applyView, mountDepth, markOutline, savedDepth, saveDepth } from './dir
 import { markDone } from './directions-done';
 import { UI_ICON } from './control-icons';
 import { mountList, mountLayoutSeg, listRow, savedLayout, saveLayout } from './directions-list';
-import { startFilter, hashFor, filterFromHash, isFiltered, ownsHash, type DirFilter } from './directions-state';
+import { startFilter, hashFor, filterFromHash, isFiltered, ownsHash, DIR_STATES, rowState, type DirFilter, type DirState } from './directions-state';
 
 /** Light a row up for a moment, so the eye finds it after a jump. */
 function flashRow(row: HTMLTableRowElement): void {
@@ -28,27 +28,10 @@ function flashRow(row: HTMLTableRowElement): void {
   window.setTimeout(() => delete row.dataset.flash, 1400);
 }
 
-export type DirState = 'needs' | 'waiting' | 'ready' | 'parked' | 'done';
-export const DIR_STATES: { id: DirState; mark: string; label: string }[] = [
-  { id: 'needs', mark: '🔴', label: 'needs you' },
-  { id: 'waiting', mark: '🟠', label: 'waiting' },
-  { id: 'ready', mark: '🟢', label: 'ready' },
-  { id: 'parked', mark: '💤', label: 'parked' },
-  { id: 'done', mark: '✅', label: 'done' },
-];
+export { DIR_STATES, rowState, type DirState };
 
 /** Whether a file name is a directions doc. */
 export const isDirectionsDoc = (path: string) => /directions[^/]*\.md$/i.test(path);
-
-/** A row's state: the first state mark anywhere in its text, or null. */
-export function rowState(text: string): DirState | null {
-  let best: { at: number; id: DirState } | null = null;
-  for (const s of DIR_STATES) {
-    const at = text.indexOf(s.mark);
-    if (at >= 0 && (!best || at < best.at)) best = { at, id: s.id };
-  }
-  return best?.id ?? null;
-}
 
 /** How many rows hold each state. */
 export function tally(states: (DirState | null)[]): Record<DirState, number> {

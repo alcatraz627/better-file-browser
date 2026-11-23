@@ -16992,6 +16992,56 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     paint();
   }
 
+  // src/directions-state.ts
+  var DIR_STATES = [
+    { id: "needs", mark: "\u{1F534}", label: "needs you" },
+    { id: "waiting", mark: "\u{1F7E0}", label: "waiting" },
+    { id: "ready", mark: "\u{1F7E2}", label: "ready" },
+    { id: "parked", mark: "\u{1F4A4}", label: "parked" },
+    { id: "done", mark: "\u2705", label: "done" }
+  ];
+  function rowState(text) {
+    let best = null;
+    for (const s of DIR_STATES) {
+      const at = text.indexOf(s.mark);
+      if (at >= 0 && (!best || at < best.at)) best = { at, id: s.id };
+    }
+    return best?.id ?? null;
+  }
+  var STATE_IDS = ["needs", "waiting", "ready", "parked", "done"];
+  var PREFIX = "#dir?";
+  var defaultFilter = () => ({ layout: "doc", depth: "full", states: /* @__PURE__ */ new Set(), q: "" });
+  var isFiltered = (f) => f.states.size > 0 || !!f.q.trim();
+  function filterFromHash(hash) {
+    if (!hash.startsWith(PREFIX)) return null;
+    const p = new URLSearchParams(hash.slice(PREFIX.length));
+    const out = {};
+    const layout2 = p.get("layout"), depth = p.get("depth");
+    if (layout2 === "doc" || layout2 === "list") out.layout = layout2;
+    if (depth === "overview" || depth === "full") out.depth = depth;
+    out.states = new Set((p.get("s") ?? "").split(",").filter((s) => STATE_IDS.includes(s)));
+    out.q = p.get("q") ?? "";
+    return out;
+  }
+  function hashFor(f) {
+    const p = new URLSearchParams();
+    if (f.layout !== "doc") p.set("layout", f.layout);
+    if (f.depth !== "full") p.set("depth", f.depth);
+    if (f.states.size) p.set("s", STATE_IDS.filter((s2) => f.states.has(s2)).join(","));
+    if (f.q.trim()) p.set("q", f.q.trim());
+    const s = p.toString().replace(/%2C/g, ",");
+    return s ? PREFIX + s : "";
+  }
+  function startFilter(hash, saved) {
+    const f = defaultFilter();
+    if (saved.layout) f.layout = saved.layout;
+    if (saved.depth) f.depth = saved.depth;
+    const fromUrl = filterFromHash(hash);
+    if (fromUrl) Object.assign(f, fromUrl);
+    return f;
+  }
+  var ownsHash = (hash) => !hash.startsWith("#c=") && hash !== "#comments";
+
   // src/directions-model.ts
   var WHEN_MARKS = [["\u23E9", "now"], ["\u23ED", "next"], ["\u23F8", "later"]];
   var STATE_WORDS = [
@@ -17137,41 +17187,6 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const readySub = (r) => [r.when, r.section && plain2(r.section.title)].filter(Boolean).map((s) => esc(s)).join(" \xB7 ");
     return `${group2("you", "On you", h.you, youSub, youTip, "Nothing waits on you.", "needs")}${group2("ready", "Ready for an agent", h.ready, readySub, () => "", "Nothing is ready to pick up.", "ready")}`;
   }
-
-  // src/directions-state.ts
-  var STATE_IDS = ["needs", "waiting", "ready", "parked", "done"];
-  var PREFIX = "#dir?";
-  var defaultFilter = () => ({ layout: "doc", depth: "full", states: /* @__PURE__ */ new Set(), q: "" });
-  var isFiltered = (f) => f.states.size > 0 || !!f.q.trim();
-  function filterFromHash(hash) {
-    if (!hash.startsWith(PREFIX)) return null;
-    const p = new URLSearchParams(hash.slice(PREFIX.length));
-    const out = {};
-    const layout2 = p.get("layout"), depth = p.get("depth");
-    if (layout2 === "doc" || layout2 === "list") out.layout = layout2;
-    if (depth === "overview" || depth === "full") out.depth = depth;
-    out.states = new Set((p.get("s") ?? "").split(",").filter((s) => STATE_IDS.includes(s)));
-    out.q = p.get("q") ?? "";
-    return out;
-  }
-  function hashFor(f) {
-    const p = new URLSearchParams();
-    if (f.layout !== "doc") p.set("layout", f.layout);
-    if (f.depth !== "full") p.set("depth", f.depth);
-    if (f.states.size) p.set("s", STATE_IDS.filter((s2) => f.states.has(s2)).join(","));
-    if (f.q.trim()) p.set("q", f.q.trim());
-    const s = p.toString().replace(/%2C/g, ",");
-    return s ? PREFIX + s : "";
-  }
-  function startFilter(hash, saved) {
-    const f = defaultFilter();
-    if (saved.layout) f.layout = saved.layout;
-    if (saved.depth) f.depth = saved.depth;
-    const fromUrl = filterFromHash(hash);
-    if (fromUrl) Object.assign(f, fromUrl);
-    return f;
-  }
-  var ownsHash = (hash) => !hash.startsWith("#c=") && hash !== "#comments";
 
   // src/directions-views.ts
   var DIR_DEPTHS = [
@@ -17497,22 +17512,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     for (const td of row2.cells) td.animate([{ backgroundColor: "color-mix(in srgb, var(--ac) 24%, transparent)" }, { backgroundColor: "transparent" }], { duration: 1400, easing: "ease-out" });
     window.setTimeout(() => delete row2.dataset.flash, 1400);
   }
-  var DIR_STATES = [
-    { id: "needs", mark: "\u{1F534}", label: "needs you" },
-    { id: "waiting", mark: "\u{1F7E0}", label: "waiting" },
-    { id: "ready", mark: "\u{1F7E2}", label: "ready" },
-    { id: "parked", mark: "\u{1F4A4}", label: "parked" },
-    { id: "done", mark: "\u2705", label: "done" }
-  ];
   var isDirectionsDoc = (path) => /directions[^/]*\.md$/i.test(path);
-  function rowState(text) {
-    let best = null;
-    for (const s of DIR_STATES) {
-      const at = text.indexOf(s.mark);
-      if (at >= 0 && (!best || at < best.at)) best = { at, id: s.id };
-    }
-    return best?.id ?? null;
-  }
   function tally(states) {
     const t = { needs: 0, waiting: 0, ready: 0, parked: 0, done: 0 };
     for (const s of states) if (s) t[s]++;
@@ -25071,7 +25071,7 @@ ${d.message}` : d.message;
         }
       }, 8e3);
     };
-    const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? "";
+    const home = homeDir(rawPath);
     let root2 = editableRoot(rawPath, opts.editableFolders, home);
     const folder = rawPath.slice(0, rawPath.lastIndexOf("/"));
     editBtn.title = "Edit this file (e)";

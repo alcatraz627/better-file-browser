@@ -18,7 +18,7 @@ import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON, GLYPH } from './control-icons';
 import { openLayer } from './layer';
-import { getSettings, saveSettings, textPref, jsonPref, flagPref, choicePref } from './storage';
+import { getSettings, saveSettings, textPref, jsonPref, flagPref, choicePref, homeDir } from './storage';
 import { go } from './nav';
 import { editableRoot, editableFoldersOf, openFileEditor, type FileEditor } from './file-editor';
 import { setSidebarShown, sidebarShown } from './motion';
@@ -449,7 +449,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     clearTimeout(statusTimer);
     statusTimer = window.setTimeout(() => { if (el.textContent === t) { el.textContent = ''; paintMeta(); } }, 8000);
   };
-  const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? '';
+  const home = homeDir(rawPath);
   let root = editableRoot(rawPath, opts.editableFolders, home);
   const folder = rawPath.slice(0, rawPath.lastIndexOf('/'));
   editBtn.title = 'Edit this file (e)';

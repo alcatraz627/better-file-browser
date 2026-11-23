@@ -381,7 +381,6 @@ export function savePreviewLayout(l: PreviewLayout): void {
 }
 
 export function getView():       string  { return viewPref.get(); }
-export function getTheme():      string  { return kvGet(THEME_KEY)  ?? 'dark'; }
 export function getPalette():    string  { return palettePref.get(); }
 /// How much a folder shows, from 1 (few big items, names only) to 5 (small items, every detail).
 export const DENSITY_NAMES = ['Overview', 'Large', 'Standard', 'Detailed', 'Full detail'];
@@ -538,7 +537,6 @@ function applyWrites(label: string, writes: Record<string, string | null>): numb
 export function importPlan(plan: ImportPlan): number { return applyWrites('Imported', plan.writes); }
 
 /** Write back an export; only the explorer's own keys are taken. Returns how many. */
-export function importAll(data: Record<string, unknown>): number { return importPlan(planImport(data)); }
 
 /** Put every preference back to its default. Saved places, history, icon rules, commands and folders stay. Returns how many keys changed. */
 export function resetPreferences(): number {

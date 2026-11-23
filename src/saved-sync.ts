@@ -185,12 +185,6 @@ function schedulePush(): void {
   }, 300);
 }
 
-/** Resolves once every pending write to the folder has finished. Walks call it. */
-export async function flushSaved(): Promise<void> {
-  if (timer) { clearTimeout(timer); timer = null; const r = root(); busy = busy.then(() => (isMoved(r) ? pushSaved() : pullSaved()).then(() => undefined).catch(() => undefined)); }
-  await busy;
-}
-
 let lastPull = 0;
 /** Wire Saved to the folder: pull now and whenever the page comes back to the front. */
 export function startSavedSync(h: SavedHooks): void {

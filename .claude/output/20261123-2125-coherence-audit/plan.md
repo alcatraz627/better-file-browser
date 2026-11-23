@@ -110,6 +110,8 @@ Each fixed row has a check that was watched failing without the fix, unless the 
 
 Not done this session, still worth doing: U8 (marks by keyboard), U13 (editor mode switch), A3 (three stale walks), A10, A11, A13, A14, A16, and history repaint in other tabs (rest of D11).
 
+Later the same day, on the owner's "build all of the low hanging ones": A13 (nine dead exports removed), A14 (row state moved to directions-state.ts, cycle gone), A16 (file page uses `homeDir`), and two stale lines in docs/system/services.md. Checked by `tsc`, 1047 unit tests, smoke, directions-walk and edit-walk. Left as not low-hanging: U8, U13, U7's button, A3, A10, A11, history repaint in other tabs.
+
 Also fixed before the audit, from the last checkpoint's leftovers: a pattern that could freeze the page (src/slow-regex.ts, tests/slow-regex.test.ts) and End pressed while a big tile folder fills (e2e/first-screen-walk.mjs).
 
 Waiting on the owner: D8, A15, U2, U4 (with A5), U18.

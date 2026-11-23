@@ -10,7 +10,6 @@ let panel: HTMLElement | null = null;
 let showAll = false;
 let unsub: (() => void)[] = [];
 
-export const panelOpen = () => !!panel;
 
 export function togglePanel() {
   if (panel) closePanel(); else openPanel();

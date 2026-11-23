@@ -74,7 +74,6 @@ export function commandProblem(c: Pick<OwnCommand, 'name' | 'cmd'>, others: Pick
 }
 
 /** The program a command runs, the first word, for the launcher to look up. */
-export const commandProgram = (cmd: string) => cmd.trim().split(/\s+/)[0]?.replace(/^['"]|['"]$/g, '') ?? '';
 
 const dot = (c: string) => `<i class="fe-ow-dot" style="--c:${safeColor(c)}" aria-hidden="true"></i>`;
 

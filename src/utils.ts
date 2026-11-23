@@ -15,11 +15,6 @@ export const fileBase = (): string => base;
 export function setFileBase(b: string): void { base = b.replace(/\/$/, ''); }
 /** Whether an address is a file's or folder's own address in this page's world. */
 export const isFileUrl = (u: string): boolean => u.startsWith(base + '/');
-/** The path an address names, or null when it is not a file address. */
-export function pathOfFileUrl(u: string): string | null {
-  if (!isFileUrl(u)) return null;
-  try { return decodeURIComponent(new URL(u).pathname); } catch { return null; }
-}
 
 // A file's address with each path segment encoded, so a # or ? in a name is not
 // read as a fragment or query when the browser follows the anchor.
