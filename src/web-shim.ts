@@ -191,7 +191,10 @@ export async function seedFromMac(): Promise<void> {
     // Saved and its tag colours live in the notes folder, which the phone reads and writes through the Mac;
     // the seed is only their first copy, and never replaces a change the phone has not sent yet.
     const unsent = read('local', 'bfb-saved-dirty-v1') === '1';
-    const MAC_ONLY = (k: string) => k === 'bfb-saved-dirty-v1' || k === 'bfb-saved-folder-off-v1' || k.endsWith('-premigration-v1') || (unsent && (k === 'bfb-saved-v1' || k === 'bfb-tags-v1'));
+    const MAC_ONLY = (k: string) => k === 'bfb-saved-dirty-v1' || k === 'bfb-saved-folder-off-v1' || k.endsWith('-premigration-v1') || (unsent && (k === 'bfb-saved-v1' || k === 'bfb-tags-v1'
+      // What the phone last saw in the folder goes with its unsent list: the Mac's newer
+      // record would make the next push remove saves the phone never knew about.
+      || k === 'bfb-saved-known-v1' || k === 'bfb-saved-moved-v1' || k === 'bfb-saved-colours-v1'));
     for (const [k, v] of Object.entries(kv ?? {})) {
       if (MAC_ONLY(k)) continue;
       // Chats asked on the phone are not in the Mac's copy: join the two rather than replace.

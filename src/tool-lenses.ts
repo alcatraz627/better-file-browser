@@ -491,7 +491,11 @@ function initAsk(app: App): void {
   // Answers that finished after their page had gone are filed into their chats.
   async function settleOrphans(): Promise<void> {
     const list = await llmOrphans();
-    for (const o of list) addTurn(o.job.subject, o.job.chatId, endedTurn(o.job.turn as Omit<AskTurn, 'a' | 'ms'>, o.text, o.frame as { t: string }));
+    // The worker has already let go of these, so one answer that cannot be filed must not cost the rest.
+    for (const o of list) {
+      try { addTurn(o.job.subject, o.job.chatId, endedTurn(o.job.turn as Omit<AskTurn, 'a' | 'ms'>, o.text, o.frame as { t: string })); }
+      catch (e) { console.warn('[BFB] a finished answer could not be filed', e); }
+    }
     if (list.length) syncHistN();
   }
   // An answer about this page still running in the background picks up here,

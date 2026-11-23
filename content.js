@@ -29884,6 +29884,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return { written: batch.written.length, removed: batch.removed.length };
   }
   function adopt(r, got) {
+    if (savedUnsent()) return;
     const next = placesFromFiles(got.items);
     const before = JSON.stringify(getSaved()), regBefore = kvGet(TAGS_KEY);
     setSavedFromFolder(next, got.tags ?? void 0);
@@ -31297,6 +31298,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     app.paintSync = paintSync;
     startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
+    onKvChange((k) => {
+      if ((k === SAVED_KEY || k === TAGS_KEY) && kvGet(k) !== null) refreshSaved();
+    });
     const svWhere = el("fe-sv-where");
     const paintWhere = () => {
       const { where: where2, why, clashes, backup } = savedWhere();
@@ -32292,7 +32296,13 @@ ${rows2.join("\n")}`, name: subject };
     }
     async function settleOrphans() {
       const list3 = await llmOrphans();
-      for (const o of list3) addTurn(o.job.subject, o.job.chatId, endedTurn(o.job.turn, o.text, o.frame));
+      for (const o of list3) {
+        try {
+          addTurn(o.job.subject, o.job.chatId, endedTurn(o.job.turn, o.text, o.frame));
+        } catch (e) {
+          console.warn("[BFB] a finished answer could not be filed", e);
+        }
+      }
       if (list3.length) syncHistN();
     }
     async function resumeRunning() {
@@ -32912,11 +32922,16 @@ ${rows2.join("\n")}`, name: subject };
       });
       pop = openLayer(box, { kind: "popover", anchor, offset: 6, group: "menu", focus: box.querySelector(".fe-rp-c.on") ?? "first" });
     }
-    return () => {
+    const load = () => {
       const saved = Array.isArray(settings.openWith) ? settings.openWith.filter((r) => !!r && typeof r === "object") : null;
       rows2 = (saved ?? parseCommands(settings.openWithCmds)).map((r) => ({ name: String(r.name ?? ""), cmd: String(r.cmd ?? ""), terminal: r.terminal !== false, ...r.filesOnly ? { filesOnly: true } : {}, ...typeof r.color === "string" ? { color: r.color } : {} }));
       render2();
     };
+    onKvChange((k) => {
+      if (k !== SETTINGS_KEY || !Array.isArray(settings.openWith) || JSON.stringify(settings.openWith) === JSON.stringify(rows2)) return;
+      if (!list3.contains(document.activeElement)) load();
+    });
+    return load;
   }
 
   // src/settings-lenses.ts

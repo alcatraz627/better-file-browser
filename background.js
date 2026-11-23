@@ -23,8 +23,27 @@ async function transitCachePut(key, text) {
 // file:// is blocked by CORS in modern Chrome (file pages have an opaque
 // origin); the extension service worker can still fetch file URLs as long as
 // "Allow access to file URLs" is enabled.
+// Reading files and reaching the Mac's helpers is for bfb's own pages. A bfb
+// script also runs on every website (dark mode, marks), so a request for
+// either is answered only when it comes from a file:// page or one of the
+// extension's own pages, and only for the helpers bfb installs.
+const ownPage = sender => {
+  const url = sender?.url || '';
+  return url.startsWith('file://') || url.startsWith(chrome.runtime.getURL(''));
+};
+const OWN_PAGES_ONLY = new Set(['bfb-fetch', 'bfb-fetch-image', 'bfb-native-oneshot']);
+const NATIVE_HOSTS = new Set(['com.better_file_browser.notes', 'com.better_file_browser.ghostty', 'com.better_file_browser.llm']);
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg) return;
+  if (OWN_PAGES_ONLY.has(msg.type) && !ownPage(_sender)) {
+    sendResponse({ ok: false, error: 'Not available from this page' });
+    return;
+  }
+  if (msg.type === 'bfb-native-oneshot' && !NATIVE_HOSTS.has(msg.host)) {
+    sendResponse({ ok: false, error: 'Unknown helper' });
+    return;
+  }
   if (msg.type === 'bfb-fetch') {
     fetch(msg.url)
       .then(r => r.text())
@@ -162,6 +181,8 @@ function runSearchReads() {
   }
 }
 chrome.runtime.onConnect.addListener(port => {
+  // Both ports read local files or reach the model helper: bfb's own pages only.
+  if (!ownPage(port.sender)) { try { port.disconnect(); } catch { /* already closed */ } return; }
   if (port.name === 'bfb-search-fetch') {
     const state = { closed: false, active: new Set() };
     port.onMessage.addListener(msg => {

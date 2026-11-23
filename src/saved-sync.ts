@@ -74,6 +74,10 @@ export async function pushSaved(r = root(), createOnly = false): Promise<{ writt
 
 /** Make the cache what the folder says, and remember what the folder held. */
 function adopt(r: string, got: { items: { key: string; text: string }[]; tags: Record<string, string> | null }): void {
+  // A save made while the folder was being read or written is not in `got`;
+  // taking the folder's list now would undo it. Its own push follows, and the
+  // next read takes the folder then.
+  if (savedUnsent()) return;
   const next = placesFromFiles(got.items);
   const before = JSON.stringify(getSaved()), regBefore = kvGet(TAGS_KEY);
   setSavedFromFolder(next, got.tags ?? undefined);

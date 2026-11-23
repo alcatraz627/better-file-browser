@@ -34,6 +34,7 @@ describe('search cancellation across tabs', () => {
     });
     const chrome = {
       runtime: {
+        getURL: (p: string) => 'chrome-extension://abc/' + p,
         onMessage: { addListener: () => {} },
         onConnect: { addListener: (fn: (port: any) => void) => { onConnect = fn; } },
       },
@@ -47,6 +48,7 @@ describe('search cancellation across tabs', () => {
       const replies: unknown[] = [];
       const port = {
         name: 'bfb-search-fetch',
+        sender: { url: 'file:///r/' },
         onMessage: { addListener: (fn: typeof onMessage) => { onMessage = fn; } },
         onDisconnect: { addListener: (fn: typeof onDisconnect) => { onDisconnect = fn; } },
         postMessage: (msg: unknown) => replies.push(msg),

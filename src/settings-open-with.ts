@@ -12,7 +12,8 @@ import { switchHtml } from './controls';
 import { emptyHtml } from './empty-state';
 import { safeColor, SWATCHES } from './icons';
 import { openLayer, type Layer } from './layer';
-import { saveSettings } from './storage';
+import { saveSettings, SETTINGS_KEY } from './storage';
+import { onKvChange } from './kv';
 import { commandProblem, parseCommands, type OwnCommand } from './open-with';
 import type { Settings } from './types';
 
@@ -175,10 +176,17 @@ export function initOpenWithSettings(settings: Settings, toast: Toast): () => vo
     pop = openLayer(box, { kind: 'popover', anchor, offset: 6, group: 'menu', focus: box.querySelector<HTMLElement>('.fe-rp-c.on') ?? 'first' });
   }
 
-  return () => {
+  const load = () => {
     // The older text is carried over as rows the first time; it is saved as rows only on a change.
     const saved = Array.isArray(settings.openWith) ? settings.openWith.filter(r => !!r && typeof r === 'object') : null;
     rows = (saved ?? parseCommands(settings.openWithCmds)).map(r => ({ name: String(r.name ?? ''), cmd: String(r.cmd ?? ''), terminal: r.terminal !== false, ...(r.filesOnly ? { filesOnly: true } : {}), ...(typeof r.color === 'string' ? { color: r.color } : {}) }));
     render();
   };
+  // Commands changed in another tab's Settings are taken here, so the next
+  // edit in this tab is made on the current list and not on an old copy of it.
+  onKvChange(k => {
+    if (k !== SETTINGS_KEY || !Array.isArray(settings.openWith) || JSON.stringify(settings.openWith) === JSON.stringify(rows)) return;
+    if (!list.contains(document.activeElement)) load();
+  });
+  return load;
 }

@@ -10,7 +10,8 @@ import { copyLink, onPhone } from './phone';
 import { runOpenWith } from './open-with';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, removeSavedWithUndo, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref } from './storage';
+import { getSaved, saveSaved, removeSavedWithUndo, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList, jsonPref, SAVED_KEY, TAGS_KEY } from './storage';
+import { kvGet, onKvChange } from './kv';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, cycleTagColor, isWebPath } from './places';
 import { renderSavedList } from './render';
 import { describeSync } from './sync-state';
@@ -1155,6 +1156,10 @@ export function initSidebar(app: App): void {
   };
   app.paintSync = paintSync;
   startSavedSync({ refresh: refreshSaved, toast: (m, ms, a) => toast(m, ms, a) });
+  // A place saved or a tag changed in another tab shows here without a reload.
+  // A key that was removed (a reset, an import) is left alone: reading Saved
+  // while it is absent would rebuild it from the old rows and write that back.
+  onKvChange(k => { if ((k === SAVED_KEY || k === TAGS_KEY) && kvGet(k) !== null) refreshSaved(); });
   // One plain line under the Saved filter: where this list is kept, and what is wrong when it cannot reach the folder.
   const svWhere = el('fe-sv-where');
   const paintWhere = () => {
