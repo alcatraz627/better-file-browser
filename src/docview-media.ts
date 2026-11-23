@@ -83,7 +83,7 @@ function followMarks(img: HTMLImageElement, layer: HTMLElement): void {
 }
 
 const actBtn = (act: string, icon: string, title: string, extra = '') =>
-  `<button type="button" class="btn" data-icon data-size="sm" data-variant="ghost" data-media="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon}</button>`;
+  `<button type="button" class="btn" data-icon data-size="sm" data-media="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon}</button>`;
 
 /** One picture or mock page with its grow, open-large and (when `compare`) compare buttons. */
 export function mediaHtml(m: Media, compare = false): string {

@@ -29,7 +29,7 @@ export const isLaidOut = (text: string): boolean => /[─│┌┐└┘├┤�
 const preHtml = (text: string, base: string) => {
   const raw = isLaidOut(text);
   return `<div class="fe-dp-preview" data-view="${raw ? 'raw' : 'md'}">
-    <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">${UI_ICON.fmtCode}Raw</button>
+    <button type="button" class="btn fe-dp-rawbtn" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">${UI_ICON.fmtCode}Raw</button>
     ${md(text, base)}
     <pre class="fe-dp-pre">${esc(text)}</pre>
   </div>`;
@@ -45,7 +45,7 @@ const noteHtml = (id: string, notes: boolean) => notes ? `
     <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
   </div>
   <div class="fe-dp-notefoot">
-    <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" aria-expanded="false" title="Add a note (n)" aria-label="Note on ${esc(id)}">${UI_ICON.comment}<span>Note</span>${UI_ICON.chevronDown}</button>
+    <button type="button" class="btn fe-dp-addnote" data-size="sm" data-note-for="${esc(id)}" aria-expanded="false" title="Add a note (n)" aria-label="Note on ${esc(id)}">${UI_ICON.comment}<span>Note</span>${UI_ICON.chevronDown}</button>
   </div>` : '';
 
 function optionHtml(d: DpDecision, o: DpOption, n: number, base: string, none = false): string {

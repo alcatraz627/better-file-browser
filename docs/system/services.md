@@ -7,8 +7,13 @@ and the source check (`e2e/check-system.mjs`) keeps it that way.
 
 ## Store: `src/storage.ts`
 
-Every remembered value is a `Pref` declared in storage.ts: its key, its
-default and how it is written sit in one place.
+Every remembered value is a `Pref`. One declaration holds its key, its
+default and how it is written.
+
+- The helpers that make a `Pref` (`textPref`, `flagPref`, `jsonPref` and the
+  rest) live in storage.ts.
+- Each declaration lives with the feature that owns the value.
+- About a dozen shared ones are declared in storage.ts itself.
 
 | Helper | Holds |
 |---|---|

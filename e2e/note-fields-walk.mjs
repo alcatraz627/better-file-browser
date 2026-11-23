@@ -77,8 +77,9 @@ try {
   await page.click('.fe-chip-rem');
   await page.waitForSelector('#fe-rem-at');
   await page.$eval('#fe-rem-at', e => { e.value = '2030-01-02T09:00'; e.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.select('#fe-rem-repeat', 'weekly');
-  await page.select('#fe-rem-on', 'phone');
+  if (process.argv[2]) await page.screenshot({ path: `${process.argv[2]}/note-reminder-menu.png` });
+  await page.click('#fe-rem-repeat [data-v="weekly"]');
+  await page.click('#fe-rem-on [data-v="phone"]');
   await page.click('#fe-rem-persist');
   await shot(page, 'fields-reminder-popover');
   await page.click('.fe-rem-form button[type="submit"]');

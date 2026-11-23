@@ -7,6 +7,11 @@ even if closed or refreshed, should be snappy and best-effort recovery",
 "tell me if this complicates the browser url syncing". Supersedes the Tabs
 section of `docs/feature-set.md`; the nouns and verbs there still hold.
 
+Two parts below no longer match the code. Recovery is now offered, not
+automatic: a closed tab's set shows as a row under Recent and is restored on a
+click (`src/strip.ts`). The Settings and Help tab names have changed; the
+current ones are in `src/settings-page.ts` and `src/help.ts`.
+
 ## The one rule about the URL
 
 The Chrome address bar shows the active strip tab's location and nothing

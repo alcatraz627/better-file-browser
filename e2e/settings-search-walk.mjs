@@ -33,7 +33,7 @@ try {
       counts: Object.fromEntries([...document.querySelectorAll('#fe-settings-modal .fe-dlg-tab')].map(t => [t.dataset.tab, t.querySelector('.fe-dlg-n')?.textContent ?? null])),
       named: [...document.querySelectorAll('.fe-dlg-hits')].map(l => [l.dataset.tab, [...l.querySelectorAll('.fe-dlg-hit')].map(b => b.textContent)]),
       marks: CSS.highlights.get('bfb-settings-hit')?.size ?? 0,
-      empty: res.querySelector('.fe-sr-empty')?.textContent ?? null,
+      empty: res.querySelector('.empty')?.textContent ?? null,
     };
   });
   const type = async q => {

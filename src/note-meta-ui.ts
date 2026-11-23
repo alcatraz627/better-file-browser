@@ -4,6 +4,7 @@ import { NOTE_COLORS, nextRing, reminderState, type NoteColor, type NoteProps, t
 import { UI_ICON, dotIcon } from './control-icons';
 import { esc, midHtml } from './utils';
 import { openLayer, type Layer } from './layer';
+import { checkHtml, segHtml, upgradeControls, type ValuedEl } from './controls';
 
 export const colorDot = (c: NoteColor | null): string => dotIcon(c ? `var(--nc-${c})` : null);
 
@@ -97,17 +98,21 @@ export function openReminderMenu(anchor: HTMLElement, props: NoteProps, apply: A
     <form class="fe-rem-form">
       <label class="fe-pm-lbl" for="fe-rem-at">Remind me${st === 'missed' ? ' (missed)' : ''}</label>
       <input id="fe-rem-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
-      <label class="fe-pm-lbl" for="fe-rem-repeat">Repeats</label>
-      <select id="fe-rem-repeat" class="tb" data-size="sm">${[['', 'Does not repeat'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']].map(([v, t]) => `<option value="${v}"${(props.remindRepeat ?? '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select>
-      <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
-      <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== 'phone' ? ' selected' : ''}>This Mac</option><option value="phone"${props.remindOn === 'phone' ? ' selected' : ''}>The phone</option></select>
-      <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? ' checked' : ''}><span>Keep ringing until dismissed</span></label>
-      <label class="fe-rem-keep"><input id="fe-rem-expire" type="checkbox"><span>Also expire the note then</span></label>
+      <span class="fe-pm-lbl">Repeats</span>
+      ${segHtml('fe-rem-repeat', [{ value: 'none', label: 'Never' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }], 'How often it repeats')}
+      <span class="fe-pm-lbl">Rings on</span>
+      ${segHtml('fe-rem-on', [{ value: 'mac', label: 'This Mac' }, { value: 'phone', label: 'The phone' }], 'Where it rings')}
+      ${checkHtml('fe-rem-persist', 'Keep ringing until dismissed', 'Rings again until you dismiss it', !!props.remindPersist)}
+      ${checkHtml('fe-rem-expire', 'Expire the note too', 'The note moves under Expired at this time')}
       <div class="fe-rem-acts">
-        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? 'Update' : 'Set reminder'}</span></button>
-        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? 'Move to the next time' : 'Done: clear it'}">${UI_ICON.check}Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">${UI_ICON.close}Clear</button>` : ''}
+        <button class="btn" data-size="sm" data-variant="solid" type="submit" title="${props.remindAt ? 'Save these changes' : 'Remind me at this time'}">${UI_ICON.clock}<span>${props.remindAt ? 'Update' : 'Set reminder'}</span></button>
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? 'Move to the next time' : 'Done: clear it'}">${UI_ICON.check}Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear" title="Remove this reminder">${UI_ICON.close}Clear</button>` : ''}
       </div>
     </form>`;
+  upgradeControls(menu);
+  const repeatEl = menu.querySelector('#fe-rem-repeat') as unknown as ValuedEl, onEl = menu.querySelector('#fe-rem-on') as unknown as ValuedEl;
+  repeatEl.value = props.remindRepeat ?? 'none';
+  onEl.value = props.remindOn === 'phone' ? 'phone' : 'mac';
   const done = async (c: PropChange) => { await apply(c); closePropsMenu(); };
   menu.addEventListener('click', e => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-rem]');
@@ -121,10 +126,10 @@ export function openReminderMenu(anchor: HTMLElement, props: NoteProps, apply: A
     e.preventDefault();
     const at = new Date((menu.querySelector('#fe-rem-at') as HTMLInputElement).value);
     if (!isFinite(+at)) return;
-    const repeat = (menu.querySelector('#fe-rem-repeat') as HTMLSelectElement).value as 'daily' | 'weekly' | 'monthly' | '';
+    const repeat = (repeatEl.value === 'none' ? '' : repeatEl.value) as 'daily' | 'weekly' | 'monthly' | '';
     const iso = at.toISOString().replace(/\.\d{3}Z$/, 'Z');
     const alsoExpire = (menu.querySelector('#fe-rem-expire') as HTMLInputElement).checked;
-    void done({ remind: { at: iso, ...(repeat ? { repeat } : {}), on: (menu.querySelector('#fe-rem-on') as HTMLSelectElement).value as 'mac' | 'phone', persist: (menu.querySelector('#fe-rem-persist') as HTMLInputElement).checked }, ...(alsoExpire ? { expires: iso } : {}) });
+    void done({ remind: { at: iso, ...(repeat ? { repeat } : {}), on: onEl.value as 'mac' | 'phone', persist: (menu.querySelector('#fe-rem-persist') as HTMLInputElement).checked }, ...(alsoExpire ? { expires: iso } : {}) });
   });
   openMenu = openLayer(menu, { kind: 'popover', anchor, role: 'dialog', group: 'menu', focus: menu.querySelector<HTMLElement>('#fe-rem-at')! });
 }
@@ -143,8 +148,8 @@ export function openExpiryMenu(anchor: HTMLElement, props: NoteProps, apply: App
       <div class="fe-exp-presets">${presets.map(([t, d]) => `<button class="btn" data-size="sm" type="button" data-exp-days="${d}">${t}</button>`).join('')}</div>
       <input id="fe-exp-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
       <div class="fe-rem-acts">
-        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.expires ? 'Update' : 'Set expiry'}</span></button>
-        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">${UI_ICON.close}No expiry</button>` : ''}
+        <button class="btn" data-size="sm" data-variant="solid" type="submit" title="${props.expires ? 'Save this time' : 'Expire the note at this time'}">${UI_ICON.clock}<span>${props.expires ? 'Update' : 'Set expiry'}</span></button>
+        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear" title="Keep the note for good">${UI_ICON.close}No expiry</button>` : ''}
       </div>
     </form>`;
   const done = async (c: PropChange) => { await apply(c); closePropsMenu(); };

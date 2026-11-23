@@ -5339,6 +5339,263 @@ ${body}
     };
   }
 
+  // src/controls.ts
+  var fontAttr = (o) => o.font ? ` data-font="${esc(o.font)}"` : "";
+  var drawFonts = (box) => box.querySelectorAll("[data-font]").forEach((e) => {
+    e.style.fontFamily = e.dataset.font;
+  });
+  function segHtml(id, opts, title, size = "md") {
+    return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
+  }
+  function sliderHtml(id, values, unit, title, names) {
+    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">
+    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
+    <output></output>
+  </div>`;
+  }
+  function ddHtml(id, opts, title, size = "md") {
+    return `<div class="fe-dd" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
+    <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
+  </div>`;
+  }
+  function checkHtml(id, label, title, checked = false) {
+    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}" title="${esc(title)}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
+  }
+  function switchHtml(o) {
+    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
+  }
+  function chipsHtml(id, placeholder, title, spaces = false) {
+    return `<div class="fe-chipin"${spaces ? " data-spaces" : ""} id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
+  }
+  var fire = (host) => host.dispatchEvent(new Event("change", { bubbles: true }));
+  function upgradeSeg(host) {
+    const btns = [...host.querySelectorAll(".fe-seg-b")];
+    let cur = "";
+    const paint = () => btns.forEach((b) => {
+      const on = b.dataset.v === cur;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", String(on));
+      b.tabIndex = on || !cur && b === btns[0] ? 0 : -1;
+    });
+    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
+      cur = String(v);
+      paint();
+    } });
+    btns.forEach((b) => b.addEventListener("click", () => {
+      if (cur !== b.dataset.v) {
+        cur = b.dataset.v;
+        paint();
+        fire(host);
+      }
+    }));
+    rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
+    paint();
+  }
+  function upgradeSlider(host) {
+    const values = host.dataset.values.split(",").map(Number);
+    const unit = host.dataset.unit ?? "";
+    const names = host.dataset.names?.split("|");
+    const range = host.querySelector("input");
+    const out = host.querySelector("output");
+    const show = () => {
+      const v = values[Number(range.value)];
+      out.textContent = names?.[Number(range.value)] ?? `${v}${unit}`;
+      if (names) range.setAttribute("aria-valuetext", out.textContent);
+      host.style.setProperty("--pct", `${Number(range.value) / (values.length - 1) * 100}%`);
+    };
+    Object.defineProperty(host, "value", {
+      get: () => String(values[Number(range.value)]),
+      set: (v) => {
+        const n = Number(v);
+        let best = 0;
+        values.forEach((x2, i3) => {
+          if (Math.abs(x2 - n) < Math.abs(values[best] - n)) best = i3;
+        });
+        range.value = String(best);
+        show();
+      }
+    });
+    range.addEventListener("input", () => {
+      show();
+      host.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    range.addEventListener("change", (e) => {
+      e.stopPropagation();
+      fire(host);
+    });
+    show();
+  }
+  var list = null;
+  var closeList = null;
+  function upgradeDd(host) {
+    const btn = host.querySelector(".fe-dd-btn");
+    const curEl = host.querySelector(".fe-dd-cur");
+    let opts = JSON.parse(host.dataset.opts || "[]");
+    let cur = "";
+    const paint = () => {
+      host.dataset.value = cur;
+      const o = opts.find((x2) => x2.value === cur);
+      curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+      drawFonts(curEl);
+    };
+    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
+      cur = String(v);
+      paint();
+    } });
+    host.setOptions = (o) => {
+      opts = o;
+      host.dataset.opts = JSON.stringify(o);
+      paint();
+    };
+    let keys2 = null;
+    function open() {
+      closeList?.();
+      list = document.createElement("div");
+      list.className = "fe-dd-list";
+      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l"${fontAttr(o)}>${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const groups = [...new Set(opts.map((o) => o.group ?? ""))];
+      list.innerHTML = groups.map((g) => {
+        const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
+        return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
+      }).join("");
+      drawFonts(list);
+      list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
+      const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
+        keys2 = null;
+        list = null;
+        closeList = null;
+      } });
+      if (!layer.open) return;
+      const items = [...list.querySelectorAll(".fe-dd-opt")];
+      let at = Math.max(0, items.findIndex((i3) => i3.dataset.v === cur));
+      const mark = () => {
+        items.forEach((it, i3) => it.classList.toggle("kb", i3 === at));
+        items[at]?.scrollIntoView({ block: "nearest" });
+      };
+      mark();
+      const pick2 = (v) => {
+        const changed = v !== cur;
+        cur = v;
+        paint();
+        layer.close("pick");
+        btn.focus();
+        if (changed) fire(host);
+      };
+      list.addEventListener("click", (e) => {
+        const it = e.target.closest(".fe-dd-opt");
+        if (it) pick2(it.dataset.v);
+      });
+      list.addEventListener("mousemove", (e) => {
+        const it = e.target.closest(".fe-dd-opt");
+        if (it) {
+          at = items.indexOf(it);
+          mark();
+        }
+      });
+      let typed = "", typedAt = 0;
+      keys2 = (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+          mark();
+        } else if (e.key === "Home" || e.key === "End") {
+          at = e.key === "Home" ? 0 : items.length - 1;
+          mark();
+        } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
+          if (items[at]) pick2(items[at].dataset.v);
+        } else if (e.key === "Tab") {
+          layer.close("blur");
+          return;
+        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+          typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
+          typedAt = Date.now();
+          const hit = items.findIndex((it) => (it.querySelector(".fe-dd-l")?.textContent ?? "").toLowerCase().startsWith(typed));
+          if (hit >= 0) {
+            at = hit;
+            mark();
+          }
+        } else return;
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      closeList = () => layer.close("api");
+    }
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("aria-expanded") === "true") closeList?.();
+      else open();
+    });
+    btn.addEventListener("keydown", (e) => {
+      if (keys2) keys2(e);
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        open();
+      }
+    });
+    paint();
+  }
+  function upgradeChips(host) {
+    const input = host.querySelector(".fe-chipin-in");
+    let items = [];
+    const paint = () => {
+      host.dataset.value = items.join(", ");
+      host.querySelectorAll(".chip").forEach((c) => c.remove());
+      input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
+    };
+    const commit = () => {
+      const add = input.value.split(host.hasAttribute("data-spaces") ? /,/ : /[,\s]+/).map((x2) => x2.trim()).filter(Boolean);
+      input.value = "";
+      if (!add.length) return;
+      items = [...items, ...add.filter((a) => !items.includes(a))];
+      paint();
+      fire(host);
+    };
+    Object.defineProperty(host, "value", {
+      get: () => items.join(", "),
+      set: (v) => {
+        items = String(v).split(",").map((x2) => x2.trim()).filter(Boolean);
+        paint();
+      }
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === ",") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Backspace" && !input.value && items.length) {
+        items.pop();
+        paint();
+        fire(host);
+      }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("change", (e) => e.stopPropagation());
+    host.addEventListener("click", (e) => {
+      const b = e.target.closest(".chip button");
+      if (b) {
+        items.splice(Number(b.dataset.i), 1);
+        paint();
+        fire(host);
+        input.focus();
+      } else if (e.target === host) input.focus();
+    });
+  }
+  function upgradeControls(root2 = document) {
+    root2.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeSeg(h);
+    });
+    root2.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeSlider(h);
+    });
+    root2.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeDd(h);
+    });
+    root2.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeChips(h);
+    });
+  }
+
   // src/note-meta-ui.ts
   var colorDot = (c) => dotIcon(c ? `var(--nc-${c})` : null);
   var openMenu = null;
@@ -5421,17 +5678,21 @@ ${body}
     <form class="fe-rem-form">
       <label class="fe-pm-lbl" for="fe-rem-at">Remind me${st === "missed" ? " (missed)" : ""}</label>
       <input id="fe-rem-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
-      <label class="fe-pm-lbl" for="fe-rem-repeat">Repeats</label>
-      <select id="fe-rem-repeat" class="tb" data-size="sm">${[["", "Does not repeat"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"]].map(([v, t]) => `<option value="${v}"${(props.remindRepeat ?? "") === v ? " selected" : ""}>${t}</option>`).join("")}</select>
-      <label class="fe-pm-lbl" for="fe-rem-on">Rings on</label>
-      <select id="fe-rem-on" class="tb" data-size="sm"><option value="mac"${props.remindOn !== "phone" ? " selected" : ""}>This Mac</option><option value="phone"${props.remindOn === "phone" ? " selected" : ""}>The phone</option></select>
-      <label class="fe-rem-keep"><input id="fe-rem-persist" type="checkbox"${props.remindPersist ? " checked" : ""}><span>Keep ringing until dismissed</span></label>
-      <label class="fe-rem-keep"><input id="fe-rem-expire" type="checkbox"><span>Also expire the note then</span></label>
+      <span class="fe-pm-lbl">Repeats</span>
+      ${segHtml("fe-rem-repeat", [{ value: "none", label: "Never" }, { value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }], "How often it repeats")}
+      <span class="fe-pm-lbl">Rings on</span>
+      ${segHtml("fe-rem-on", [{ value: "mac", label: "This Mac" }, { value: "phone", label: "The phone" }], "Where it rings")}
+      ${checkHtml("fe-rem-persist", "Keep ringing until dismissed", "Rings again until you dismiss it", !!props.remindPersist)}
+      ${checkHtml("fe-rem-expire", "Expire the note too", "The note moves under Expired at this time")}
       <div class="fe-rem-acts">
-        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.remindAt ? "Update" : "Set reminder"}</span></button>
-        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">${UI_ICON.check}Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear">${UI_ICON.close}Clear</button>` : ""}
+        <button class="btn" data-size="sm" data-variant="solid" type="submit" title="${props.remindAt ? "Save these changes" : "Remind me at this time"}">${UI_ICON.clock}<span>${props.remindAt ? "Update" : "Set reminder"}</span></button>
+        ${props.remindAt ? `<button class="btn" data-size="sm" type="button" data-rem="dismiss" title="${props.remindRepeat ? "Move to the next time" : "Done: clear it"}">${UI_ICON.check}Dismiss</button><button class="btn" data-size="sm" data-tone="danger" type="button" data-rem="clear" title="Remove this reminder">${UI_ICON.close}Clear</button>` : ""}
       </div>
     </form>`;
+    upgradeControls(menu);
+    const repeatEl = menu.querySelector("#fe-rem-repeat"), onEl = menu.querySelector("#fe-rem-on");
+    repeatEl.value = props.remindRepeat ?? "none";
+    onEl.value = props.remindOn === "phone" ? "phone" : "mac";
     const done = async (c) => {
       await apply(c);
       closePropsMenu();
@@ -5448,10 +5709,10 @@ ${body}
       e.preventDefault();
       const at = new Date(menu.querySelector("#fe-rem-at").value);
       if (!isFinite(+at)) return;
-      const repeat = menu.querySelector("#fe-rem-repeat").value;
+      const repeat = repeatEl.value === "none" ? "" : repeatEl.value;
       const iso = at.toISOString().replace(/\.\d{3}Z$/, "Z");
       const alsoExpire = menu.querySelector("#fe-rem-expire").checked;
-      void done({ remind: { at: iso, ...repeat ? { repeat } : {}, on: menu.querySelector("#fe-rem-on").value, persist: menu.querySelector("#fe-rem-persist").checked }, ...alsoExpire ? { expires: iso } : {} });
+      void done({ remind: { at: iso, ...repeat ? { repeat } : {}, on: onEl.value, persist: menu.querySelector("#fe-rem-persist").checked }, ...alsoExpire ? { expires: iso } : {} });
     });
     openMenu = openLayer(menu, { kind: "popover", anchor, role: "dialog", group: "menu", focus: menu.querySelector("#fe-rem-at") });
   }
@@ -5467,8 +5728,8 @@ ${body}
       <div class="fe-exp-presets">${presets.map(([t, d]) => `<button class="btn" data-size="sm" type="button" data-exp-days="${d}">${t}</button>`).join("")}</div>
       <input id="fe-exp-at" class="tb" data-size="sm" type="datetime-local" value="${seed}" required>
       <div class="fe-rem-acts">
-        <button class="btn" data-size="sm" data-variant="primary" type="submit">${UI_ICON.clock}<span>${props.expires ? "Update" : "Set expiry"}</span></button>
-        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear">${UI_ICON.close}No expiry</button>` : ""}
+        <button class="btn" data-size="sm" data-variant="solid" type="submit" title="${props.expires ? "Save this time" : "Expire the note at this time"}">${UI_ICON.clock}<span>${props.expires ? "Update" : "Set expiry"}</span></button>
+        ${props.expires ? `<button class="btn" data-size="sm" data-tone="danger" type="button" data-exp="clear" title="Keep the note for good">${UI_ICON.close}No expiry</button>` : ""}
       </div>
     </form>`;
     const done = async (c) => {
@@ -12335,7 +12596,7 @@ ${end.comment}` : end.comment;
   }
   var VOID = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
   var OPTIONAL_CLOSE = /* @__PURE__ */ new Set(["p", "li", "td", "th", "tr", "thead", "tbody", "tfoot", "option", "optgroup", "dt", "dd", "html", "head", "body", "colgroup", "caption", "rt", "rp"]);
-  function checkHtml(text) {
+  function checkHtml2(text) {
     const out = [];
     const stack2 = [];
     const re = /<!--[\s\S]*?(?:-->|$)|<(script|style|textarea|title)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)|<(\/?)([a-zA-Z][\w:-]*)\b(?:[^>"']|"[^"]*"|'[^']*')*?(\/?)>/g;
@@ -12392,7 +12653,7 @@ ${end.comment}` : end.comment;
     }, "json"), check: checkJson },
     { id: "jsonl", label: "JSON Lines", exts: ["jsonl", "ndjson"], rich: safely((t) => renderJsonl(t), "json"), check: checkJsonl },
     { id: "yaml", label: "YAML", exts: ["yaml", "yml"], rich: safely((t) => richYaml(t), "yaml"), check: (t) => checkYaml(t) },
-    { id: "html", label: "HTML", exts: ["html", "htm", "xhtml"], rich: safely(richHtml, "html"), check: checkHtml }
+    { id: "html", label: "HTML", exts: ["html", "htm", "xhtml"], rich: safely(richHtml, "html"), check: checkHtml2 }
   ];
   function renderFile(text, ext2, href, host) {
     const note2 = unrenderableNote(text);
@@ -13399,263 +13660,6 @@ ${end.comment}` : end.comment;
     document.addEventListener("pointercancel", end);
   }
 
-  // src/controls.ts
-  var fontAttr = (o) => o.font ? ` data-font="${esc(o.font)}"` : "";
-  var drawFonts = (box) => box.querySelectorAll("[data-font]").forEach((e) => {
-    e.style.fontFamily = e.dataset.font;
-  });
-  function segHtml(id, opts, title, size = "md") {
-    return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
-  }
-  function sliderHtml(id, values, unit, title, names) {
-    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">
-    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
-    <output></output>
-  </div>`;
-  }
-  function ddHtml(id, opts, title, size = "md") {
-    return `<div class="fe-dd" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
-    <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
-  </div>`;
-  }
-  function checkHtml2(id, label, title, checked = false) {
-    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}" title="${esc(title)}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
-  }
-  function switchHtml(o) {
-    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
-  }
-  function chipsHtml(id, placeholder, title, spaces = false) {
-    return `<div class="fe-chipin"${spaces ? " data-spaces" : ""} id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
-  }
-  var fire = (host) => host.dispatchEvent(new Event("change", { bubbles: true }));
-  function upgradeSeg(host) {
-    const btns = [...host.querySelectorAll(".fe-seg-b")];
-    let cur = "";
-    const paint = () => btns.forEach((b) => {
-      const on = b.dataset.v === cur;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-checked", String(on));
-      b.tabIndex = on || !cur && b === btns[0] ? 0 : -1;
-    });
-    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
-      cur = String(v);
-      paint();
-    } });
-    btns.forEach((b) => b.addEventListener("click", () => {
-      if (cur !== b.dataset.v) {
-        cur = b.dataset.v;
-        paint();
-        fire(host);
-      }
-    }));
-    rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
-    paint();
-  }
-  function upgradeSlider(host) {
-    const values = host.dataset.values.split(",").map(Number);
-    const unit = host.dataset.unit ?? "";
-    const names = host.dataset.names?.split("|");
-    const range = host.querySelector("input");
-    const out = host.querySelector("output");
-    const show = () => {
-      const v = values[Number(range.value)];
-      out.textContent = names?.[Number(range.value)] ?? `${v}${unit}`;
-      if (names) range.setAttribute("aria-valuetext", out.textContent);
-      host.style.setProperty("--pct", `${Number(range.value) / (values.length - 1) * 100}%`);
-    };
-    Object.defineProperty(host, "value", {
-      get: () => String(values[Number(range.value)]),
-      set: (v) => {
-        const n = Number(v);
-        let best = 0;
-        values.forEach((x2, i3) => {
-          if (Math.abs(x2 - n) < Math.abs(values[best] - n)) best = i3;
-        });
-        range.value = String(best);
-        show();
-      }
-    });
-    range.addEventListener("input", () => {
-      show();
-      host.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    range.addEventListener("change", (e) => {
-      e.stopPropagation();
-      fire(host);
-    });
-    show();
-  }
-  var list = null;
-  var closeList = null;
-  function upgradeDd(host) {
-    const btn = host.querySelector(".fe-dd-btn");
-    const curEl = host.querySelector(".fe-dd-cur");
-    let opts = JSON.parse(host.dataset.opts || "[]");
-    let cur = "";
-    const paint = () => {
-      host.dataset.value = cur;
-      const o = opts.find((x2) => x2.value === cur);
-      curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
-      drawFonts(curEl);
-    };
-    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
-      cur = String(v);
-      paint();
-    } });
-    host.setOptions = (o) => {
-      opts = o;
-      host.dataset.opts = JSON.stringify(o);
-      paint();
-    };
-    let keys2 = null;
-    function open() {
-      closeList?.();
-      list = document.createElement("div");
-      list.className = "fe-dd-list";
-      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l"${fontAttr(o)}>${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
-      const groups = [...new Set(opts.map((o) => o.group ?? ""))];
-      list.innerHTML = groups.map((g) => {
-        const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
-        return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
-      }).join("");
-      drawFonts(list);
-      list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
-      const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
-        keys2 = null;
-        list = null;
-        closeList = null;
-      } });
-      if (!layer.open) return;
-      const items = [...list.querySelectorAll(".fe-dd-opt")];
-      let at = Math.max(0, items.findIndex((i3) => i3.dataset.v === cur));
-      const mark = () => {
-        items.forEach((it, i3) => it.classList.toggle("kb", i3 === at));
-        items[at]?.scrollIntoView({ block: "nearest" });
-      };
-      mark();
-      const pick2 = (v) => {
-        const changed = v !== cur;
-        cur = v;
-        paint();
-        layer.close("pick");
-        btn.focus();
-        if (changed) fire(host);
-      };
-      list.addEventListener("click", (e) => {
-        const it = e.target.closest(".fe-dd-opt");
-        if (it) pick2(it.dataset.v);
-      });
-      list.addEventListener("mousemove", (e) => {
-        const it = e.target.closest(".fe-dd-opt");
-        if (it) {
-          at = items.indexOf(it);
-          mark();
-        }
-      });
-      let typed = "", typedAt = 0;
-      keys2 = (e) => {
-        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-          at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-          mark();
-        } else if (e.key === "Home" || e.key === "End") {
-          at = e.key === "Home" ? 0 : items.length - 1;
-          mark();
-        } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
-          if (items[at]) pick2(items[at].dataset.v);
-        } else if (e.key === "Tab") {
-          layer.close("blur");
-          return;
-        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-          typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
-          typedAt = Date.now();
-          const hit = items.findIndex((it) => (it.querySelector(".fe-dd-l")?.textContent ?? "").toLowerCase().startsWith(typed));
-          if (hit >= 0) {
-            at = hit;
-            mark();
-          }
-        } else return;
-        e.preventDefault();
-        e.stopPropagation();
-      };
-      closeList = () => layer.close("api");
-    }
-    btn.addEventListener("click", () => {
-      if (btn.getAttribute("aria-expanded") === "true") closeList?.();
-      else open();
-    });
-    btn.addEventListener("keydown", (e) => {
-      if (keys2) keys2(e);
-      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        open();
-      }
-    });
-    paint();
-  }
-  function upgradeChips(host) {
-    const input = host.querySelector(".fe-chipin-in");
-    let items = [];
-    const paint = () => {
-      host.dataset.value = items.join(", ");
-      host.querySelectorAll(".chip").forEach((c) => c.remove());
-      input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
-    };
-    const commit = () => {
-      const add = input.value.split(host.hasAttribute("data-spaces") ? /,/ : /[,\s]+/).map((x2) => x2.trim()).filter(Boolean);
-      input.value = "";
-      if (!add.length) return;
-      items = [...items, ...add.filter((a) => !items.includes(a))];
-      paint();
-      fire(host);
-    };
-    Object.defineProperty(host, "value", {
-      get: () => items.join(", "),
-      set: (v) => {
-        items = String(v).split(",").map((x2) => x2.trim()).filter(Boolean);
-        paint();
-      }
-    });
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === ",") {
-        e.preventDefault();
-        commit();
-      } else if (e.key === "Backspace" && !input.value && items.length) {
-        items.pop();
-        paint();
-        fire(host);
-      }
-    });
-    input.addEventListener("blur", commit);
-    input.addEventListener("change", (e) => e.stopPropagation());
-    host.addEventListener("click", (e) => {
-      const b = e.target.closest(".chip button");
-      if (b) {
-        items.splice(Number(b.dataset.i), 1);
-        paint();
-        fire(host);
-        input.focus();
-      } else if (e.target === host) input.focus();
-    });
-  }
-  function upgradeControls(root2 = document) {
-    root2.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeSeg(h);
-    });
-    root2.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeSlider(h);
-    });
-    root2.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeDd(h);
-    });
-    root2.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeChips(h);
-    });
-  }
-
   // src/doc-keep.ts
   function nameProblem(name2) {
     if (!name2) return "Type a name.";
@@ -13724,7 +13728,7 @@ ${end.comment}` : end.comment;
         ${props ? `<div class="fe-keep-h">${switchHtml({ id: "fe-keep-pinned", title: "Pin this note to the top of Notes", label: "Pinned in Notes", checked: props.pinned, small: true })}<span>Pinned in Notes</span></div>
         <label class="fe-keep-f"><span class="fe-keep-l">Note title</span>
           <input class="tb" data-k="title" value="${esc(props.title)}" spellcheck="false" autocomplete="off" aria-label="Note title"></label>
-        ${checkHtml2("fe-keep-link", "Same title in Saved and Notes", "Changing one title changes the other", linked)}` : `<p class="fe-keep-note">${note2 ? "This note could not be read." : "Not in your Notes folder, so it has no note title or pin."}</p>`}
+        ${checkHtml("fe-keep-link", "Same title in Saved and Notes", "Changing one title changes the other", linked)}` : `<p class="fe-keep-note">${note2 ? "This note could not be read." : "Not in your Notes folder, so it has no note title or pin."}</p>`}
       </div>
       <p class="fe-keep-msg" aria-live="polite"></p>`;
       const field = (k) => box.querySelector(`[data-k="${k}"]`);
@@ -15780,7 +15784,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     else img.addEventListener("load", place, { once: true });
     new ResizeObserver(place).observe(img);
   }
-  var actBtn = (act, icon2, title, extra = "") => `<button type="button" class="btn" data-icon data-size="sm" data-variant="ghost" data-media="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon2}</button>`;
+  var actBtn = (act, icon2, title, extra = "") => `<button type="button" class="btn" data-icon data-size="sm" data-media="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon2}</button>`;
   function mediaHtml(m, compare = false) {
     const body = m.kind === "html" ? `<div class="fe-dv-frame"><iframe sandbox="allow-scripts" src="${esc(m.src)}" title="${esc(m.name)}" loading="lazy" tabindex="-1"></iframe></div>` : `<img src="${esc(m.src)}" alt="${esc(m.name)}" loading="lazy">${m.marks ? marksHtml(m.marks) : ""}`;
     return `<figure class="fe-dv-media" data-kind="${m.kind}" data-src="${esc(m.src)}" data-name="${esc(m.name)}"${m.marks ? ` data-marks="${esc(JSON.stringify(m.marks))}"` : ""}>
@@ -16113,7 +16117,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
 
   // src/docview-clamp.ts
-  var clampHtml = (inner, lines = 3) => `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-variant="ghost" data-size="sm" aria-expanded="false" hidden>${UI_ICON.chevronDown}More</button></div>`;
+  var clampHtml = (inner, lines = 3) => `<div class="fe-dv-clamp" style="--lines:${lines}"><div class="fe-dv-clamp-in">${inner}</div><button type="button" class="btn fe-dv-more" data-size="sm" aria-expanded="false" hidden>${UI_ICON.chevronDown}More</button></div>`;
   function wireClamps(root2) {
     const check = (c) => {
       if (c.classList.contains("open")) return;
@@ -16140,7 +16144,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   var preHtml = (text, base2) => {
     const raw = isLaidOut(text);
     return `<div class="fe-dp-preview" data-view="${raw ? "raw" : "md"}">
-    <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">${UI_ICON.fmtCode}Raw</button>
+    <button type="button" class="btn fe-dp-rawbtn" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">${UI_ICON.fmtCode}Raw</button>
     ${md(text, base2)}
     <pre class="fe-dp-pre">${esc(text)}</pre>
   </div>`;
@@ -16151,7 +16155,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
   </div>
   <div class="fe-dp-notefoot">
-    <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" aria-expanded="false" title="Add a note (n)" aria-label="Note on ${esc(id)}">${UI_ICON.comment}<span>Note</span>${UI_ICON.chevronDown}</button>
+    <button type="button" class="btn fe-dp-addnote" data-size="sm" data-note-for="${esc(id)}" aria-expanded="false" title="Add a note (n)" aria-label="Note on ${esc(id)}">${UI_ICON.comment}<span>Note</span>${UI_ICON.chevronDown}</button>
   </div>` : "";
   function optionHtml(d, o, n, base2, none2 = false) {
     const imgs = mediaList(o.images, base2);
@@ -16463,7 +16467,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   var DOWN = /* @__PURE__ */ new Set(["unavailable", "dp_unavailable"]);
   var codeOf2 = (e) => e?.code ?? "";
   var answerBarHtml = () => `<span class="fe-dp-bar-end">
-  <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">${UI_ICON.eye}Answer</button>
+  <button type="button" class="btn" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Preview the answer (p)">${UI_ICON.eye}Answer</button>
   <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
   <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send to the agent (s or \u2318\u21A9)">${UI_ICON.send}Submit</button></span>`;
   var answerPanelHtml = () => `
@@ -16696,10 +16700,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     <div class="fe-dp-bar" id="fe-dp-bar">
       <span id="fe-dp-meter"></span>
       <span class="fe-dp-progress" id="fe-dp-progress" aria-live="polite"></span>
-      ${cfg.notes !== false ? `<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">${UI_ICON.notes}Notes</button>` : ""}
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>${UI_ICON.tag}Marks</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">${UI_ICON.pin}Flagged only</button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">${UI_ICON.reset}Reset</button>
+      ${cfg.notes !== false ? `<button type="button" class="btn" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">${UI_ICON.notes}Notes</button>` : ""}
+      <button type="button" class="btn" data-size="sm" id="fe-dp-marks" aria-pressed="true" title="Show or hide the marks on every picture" hidden>${UI_ICON.tag}Marks</button>
+      <button type="button" class="btn" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Only cards you changed or noted (f)">${UI_ICON.pin}Flagged only</button>
+      <button type="button" class="btn" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">${UI_ICON.reset}Reset</button>
       <span class="fe-dp-bar-gap"></span>${answerBarHtml()}
     </div>
     ${answerPanelHtml()}`;
@@ -18613,10 +18617,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-plan[hidden]{display:none}
 .fe-st-plan-acts{display:inline-flex;gap:var(--sp-3);margin-left:auto}
 
-.fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
-  gap:var(--sp-3);align-items:center;padding:var(--sp-2) var(--sp-1);border-bottom:1px solid var(--bd)}
-.fe-st-rule:last-child{border-bottom:none}
-.fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
 .fe-st-ai-head{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-4)}
 .fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
 .fe-st-ai-blink .dot{width:9px;height:9px;border-radius:50%;background:var(--dm);z-index:1}
@@ -19417,7 +19417,7 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-nt-marks{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:2px}.fe-nt-mark{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);color:var(--dm)}.fe-nt-mark svg{width:11px;height:11px;flex:none}.fe-nt-mark.rem.missed{color:var(--gold)}.fe-nt-mark.agent{color:var(--nc-purple)}
 .fe-chip-rem.missed,.fe-chip-exp.expired{color:var(--gold)}.fe-chip-url-t{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-tc{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-1) var(--sp-5);padding:var(--sp-2) var(--sp-6) var(--sp-4)}.fe-tc-row{display:flex;align-items:center;gap:var(--sp-3);min-width:0}.fe-tc-row .tb{flex:1;min-width:0}.fe-tc-n{flex:none;width:56px;text-align:right;color:var(--dm);font-size:var(--fs-sm);white-space:nowrap}.fe-tc-sw{display:inline-flex;align-items:center;justify-content:center;width:var(--ctl-md);height:var(--ctl-md);padding:0;border:0;background:none;border-radius:var(--r-sm);cursor:pointer}.fe-tc-sw:hover{background:var(--hover)}.fe-tc-sw i{width:14px;height:14px;border-radius:50%;background:var(--dot);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tx) 25%,transparent)}
-.fe-exp-presets{display:flex;gap:var(--sp-2);flex-wrap:wrap}.fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-keep{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
+.fe-exp-presets{display:flex;gap:var(--sp-2);flex-wrap:wrap}.fe-rem{min-width:240px}.fe-rem-form{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}.fe-rem-acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
 .fe-hp-wait.faded{opacity:.55}.fe-hp-wait[data-kind="reminder"] .fe-hp-link-tags i{color:var(--gold)}
 .fe-clash-btn{color:var(--gold);flex:none}.fe-pl-item.fe-clash .fe-pl-label{color:var(--gold)}.fe-clash-menu{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2)}
 .fe-where{padding:0 var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--dm);line-height:1.35}.fe-where[hidden]{display:none}.fe-where[data-state="unreachable"],.fe-where[data-state="trouble"]{color:var(--gold)}.fe-where .btn{margin-left:var(--sp-2)}
@@ -20273,7 +20273,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-sugg-l{position:absolute;left:var(--sp-6);top:calc(var(--sp-5) + 4px);font-size:var(--fs-sm);color:var(--dm)}
 .chip.fe-rule-add > svg{width:13px;height:15px}
 #fe-st-rules-list{padding:var(--sp-3) 0 var(--sp-4)}
-.fe-rule{display:grid;grid-template-columns:auto auto minmax(80px,.55fr) minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:9px}
+.fe-rule{display:grid;grid-template-columns:auto auto minmax(80px,.55fr) minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3) 0;border-radius:var(--row-r)}
 .fe-rule:hover{background:var(--hover)}
 .fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern,.fe-rule.off .fe-st-rule-name{opacity:.45}
 .fe-rule.win{background:color-mix(in srgb,var(--ac) 12%,transparent);box-shadow:inset 3px 0 0 var(--ac)}
@@ -20313,7 +20313,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
 .fe-switch.sm::after{width:12px;height:12px}
 .fe-switch.sm:checked::after{transform:translateX(12px)}
-.fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
+.fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:pointer}
 .fe-rule-ico:hover{border-color:var(--ac)}
 .fe-rule-ico svg{width:18px;height:20px}
 .fe-st-rule-pattern{width:100%}
@@ -20345,15 +20345,13 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-dlg-results .fe-dlg-ph{position:static}
 .fe-sr-miss{display:none!important}
 .fe-dlg-tab.fe-sr-none{opacity:.45}
-.fe-dlg-n{margin-left:auto;min-width:20px;padding:0 6px;border-radius:10px;background:color-mix(in srgb,var(--ac) 22%,transparent);color:var(--tx);font:600 var(--fs-xs)/18px var(--font-text);text-align:center}
+.fe-dlg-n{margin-left:auto}
 .fe-dlg-hits{display:flex;flex-direction:column;gap:1px;margin:calc(var(--sp-1) * -1) 0 var(--sp-2);padding-left:calc(var(--sp-4) + 22px + var(--row-gap))}
 .fe-dlg-hit{padding:3px var(--sp-3);border:0;border-radius:6px;background:none;color:var(--mt);font-size:var(--fs-sm);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-dlg-hit:hover,.fe-dlg-hit:focus-visible{background:var(--hover);color:var(--tx)}
 /* A narrow dialog has its tabs as a row of icons: counts stay, the named matches go. */
-@container dlg (max-width:420px){.fe-dlg-hits{display:none}.fe-dlg-n{margin-left:2px;min-width:16px;padding:0 4px}}
+@container dlg (max-width:420px){.fe-dlg-hits{display:none}.fe-dlg-n{margin-left:2px}}
 .fe-dlg-more{padding:2px var(--sp-3);font-size:var(--fs-xs);color:var(--dm)}
-.fe-sr-empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-9) var(--sp-6);color:var(--dm);text-align:center}
-.fe-sr-empty b{color:var(--tx);font-weight:600}
 ::highlight(bfb-settings-hit){background:color-mix(in srgb,var(--gold) 45%,transparent);color:inherit}
 @keyframes fe-sr-flash{from{background:color-mix(in srgb,var(--ac) 22%,transparent)}to{background:transparent}}
 .fe-sr-flash{animation:fe-sr-flash 1.2s var(--ease)}
@@ -20364,9 +20362,9 @@ button.chip:disabled{opacity:.45;cursor:default}
 #fe-st-fv-list>.empty{padding:var(--sp-5) var(--sp-2)}
 .fe-fv-group{display:flex;flex-direction:column;gap:2px}
 .fe-fv-group+.fe-fv-group{margin-top:var(--sp-4)}
-.fe-fv-group h4{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm);font-weight:600;color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
-.fe-fv-group h4 span{font-weight:500;color:var(--dm)}
-.fe-fv-row{display:grid;grid-template-columns:minmax(0,1fr) 168px 28px;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-2) var(--sp-2) calc(var(--sp-2) + var(--depth,0) * 18px);border-radius:9px}
+.fe-fv-group h4{padding:var(--sp-2) var(--sp-2)}
+.fe-fv-group h4 span{font-weight:500}
+.fe-fv-row{display:grid;grid-template-columns:minmax(0,1fr) 168px 28px;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-2) var(--sp-2) calc(var(--sp-2) + var(--depth,0) * 18px);border-radius:var(--row-r)}
 .fe-fv-row:hover{background:var(--hover)}
 .fe-fv-row.here{background:color-mix(in srgb,var(--ac) 9%,transparent)}
 .fe-fv-path{display:flex;align-items:center;gap:var(--sp-3);min-width:0;color:var(--tx);text-decoration:none;font-size:var(--fs-lg)}
@@ -20376,7 +20374,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-fv-path:hover span{text-decoration:underline}
 .fe-fv-view{width:100%}
 .fe-st-lenses{display:flex;flex-direction:column;gap:2px;max-width:420px}
-.fe-lens-row{display:grid;grid-template-columns:24px 20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);border-radius:9px;background:var(--card)}
+.fe-lens-row{display:grid;grid-template-columns:24px 20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1);border-radius:var(--row-r);background:var(--card)}
 .fe-lens-row:hover{background:var(--hover)}
 .fe-lens-row.dragging{opacity:.4}
 .fe-lens-row.off .fe-lens-ico,.fe-lens-row.off .fe-lens-nm{opacity:.45}
@@ -20390,14 +20388,15 @@ button.chip:disabled{opacity:.45;cursor:default}
 #fe-st-ow-add{align-self:flex-start}
 .fe-ow-list{display:flex;flex-direction:column;gap:2px;min-width:0}
 .fe-ow-head,.fe-ow-row{display:grid;grid-template-columns:34px minmax(96px,.45fr) minmax(0,1fr) 64px 56px 28px;align-items:center;column-gap:var(--sp-4)}
-.fe-ow-row{padding:var(--sp-2) 0;border-radius:9px}
+.fe-ow-row{padding:var(--sp-2) 0;border-radius:var(--row-r)}
 .fe-ow-head{padding-bottom:var(--sp-1)}
 .fe-ow-head span{font-size:var(--fs-sm);color:var(--dm);text-align:center}
 .fe-ow-head span:nth-child(2),.fe-ow-head span:nth-child(3){text-align:left}
 .fe-ow-row>.fe-switch{justify-self:center}
 .fe-ow-row>input.tb{width:100%;min-width:0}
-.fe-ow-color{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
+.fe-ow-color{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:pointer}
 .fe-ow-color:hover{border-color:var(--ac)}
+.fe-ow-color:focus-visible,.fe-rule-ico:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-ow-ball{width:14px;height:14px;border-radius:50%;background:var(--c)}
 .fe-ow-ball.none{background:none;border:1.5px dashed var(--dm)}
 .fe-ow-st{grid-column:2/-1;padding-top:var(--sp-1);font-size:var(--fs-sm);color:var(--dm);overflow-wrap:anywhere}
@@ -26512,7 +26511,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           wide("View", "Each drawn as it looks", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, label: v.label, icon: `<span class="fe-st-mini" aria-hidden="true">${VIEW_MINI[v.id]}</span>`, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Folders on top", "Whatever the sort", sw("fe-st-dirs-first", "Keep folders above files")) + row("Hidden files", "Dotfiles and comment files", sw("fe-st-hidden", "Show hidden files")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
         ) + card2(
           "Folders with their own view",
-          `<div class="fe-fv-bar"><span class="fe-fv-l">Show</span>${segHtml("fe-st-fv-shape", [{ value: "list", label: "List" }, { value: "view", label: "By view" }], "Show as a list, or grouped by view")}<label class="fe-fv-tree" title="Indent folders inside other kept folders">${switchHtml({ id: "fe-st-fv-tree", title: "Indent nested folders", small: true })}<span>Tree</span></label></div>
+          `<div class="fe-fv-bar"><span class="fe-fv-l">Show</span>${segHtml("fe-st-fv-shape", [{ value: "list", label: "List" }, { value: "view", label: "By view" }], "Show as a list, or grouped by view", "lg")}<label class="fe-fv-tree" title="Indent folders inside other kept folders">${switchHtml({ id: "fe-st-fv-tree", title: "Indent nested folders", small: true })}<span>Tree</span></label></div>
           <div id="fe-st-fv-list"></div>` + note("Pin a folder with the keep button beside the view switch.")
         ) + card2(
           "Opening a file",
@@ -26766,7 +26765,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">
       ${GLYPH.lines}
     </button>
-    <button class="btn fe-act-more" data-icon data-size="sm" data-variant="ghost" title="Actions" aria-label="Actions for ${dName}">
+    <button class="btn fe-act-more" data-icon data-size="sm" title="Actions" aria-label="Actions for ${dName}">
       ${UI_ICON.more}
     </button>
   </span>`;
@@ -27113,7 +27112,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <span class="fe-panel-lbl">Sort by</span>
           ${ddHtml("fe-sort-cols", SORT_OPTS, "Sort this folder by")}
           ${segHtml("fe-sort-dir", SORT_DIR_OPTS, "Direction")}
-          ${checkHtml2("fe-sort-dirs", "Folders on top", "Keep folders above files in every sort, without group headers")}
+          ${checkHtml("fe-sort-dirs", "Folders on top", "Keep folders above files in every sort, without group headers")}
           <span class="fe-panel-lbl fe-panel-gap">Group by</span>
           ${ddHtml("fe-group-btns", GROUP_OPTS, "Group this folder by")}
         </div>
@@ -31788,8 +31787,8 @@ ${body}
     <div class="fe-tl-form">
       <input id="fe-srch-q" class="tb fe-tl-input" data-size="lg" data-lead="search" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
-        ${checkHtml2("fe-srch-deep", "Subfolders", "Subfolders: search every folder under this one too", true)}
-        ${checkHtml2("fe-srch-case", "Match case", "Match upper and lower case exactly")}
+        ${checkHtml("fe-srch-deep", "Subfolders", "Subfolders: search every folder under this one too", true)}
+        ${checkHtml("fe-srch-case", "Match case", "Match upper and lower case exactly")}
       </div>
     </div>
     <div id="fe-srch-status" class="fe-hint">Type a word and press Enter.</div>
@@ -33043,7 +33042,7 @@ ${rows2.join("\n")}`, name: subject };
       if (shape.value === "view") {
         list3.innerHTML = VIEW_ICONS.map((v) => {
           const rows2 = laid.filter((r) => viewOf(r.path) === v.id);
-          return rows2.length ? `<div class="fe-fv-group"><h4>${v.ico}${esc(v.label)}<span>${rows2.length}</span></h4>${rows2.map((r) => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join("")}</div>` : "";
+          return rows2.length ? `<div class="fe-fv-group"><h4 class="sect" data-level="group">${v.ico}${esc(v.label)}<span>${rows2.length}</span></h4>${rows2.map((r) => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join("")}</div>` : "";
         }).join("");
       } else {
         list3.innerHTML = laid.map((r) => rowHtml(r.path, viewOf(r.path), r.depth, r.tail, inTree)).join("");
@@ -33182,7 +33181,7 @@ ${rows2.join("\n")}`, name: subject };
         if (!hits.length) return;
         total += hits.length;
         results.append(pane);
-        tab.querySelector(".fe-dlg-tab-main")?.insertAdjacentHTML("beforeend", `<em class="fe-dlg-n" aria-label="${hits.length} matching">${hits.length}</em>`);
+        tab.querySelector(".fe-dlg-tab-main")?.insertAdjacentHTML("beforeend", `<span class="badge fe-dlg-n" title="${hits.length} matching">${hits.length}</span>`);
         const list3 = document.createElement("div");
         list3.className = "fe-dlg-hits";
         list3.dataset.tab = tab.dataset.tab;
@@ -33196,7 +33195,7 @@ ${rows2.join("\n")}`, name: subject };
         tab.after(list3);
         marked.push(tab, list3);
       });
-      if (!total) results.innerHTML = `<div class="fe-sr-empty"><b>No setting matches \u201C${esc(input.value.trim())}\u201D</b><span>Try a shorter word, or a different one</span></div>`;
+      if (!total) results.innerHTML = emptyHtml("filtered", `No setting matches \u201C${input.value.trim()}\u201D`, { hint: "Try a shorter word, or a different one" });
       else results.scrollTop = 0;
       paintMarks(marked, ws);
     }
@@ -34708,7 +34707,7 @@ ${rows2.join("\n")}`, name: subject };
   </button>`;
   };
   var none = (text) => `<p class="fe-home-none">${esc(text)}</p>`;
-  var moreBtn = (shown2, all) => shown2 < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">${UI_ICON.list}Show all ${all}</button>` : "";
+  var moreBtn = (shown2, all) => shown2 < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm">${UI_ICON.list}Show all ${all}</button>` : "";
   var group = (id, label, n, body, open) => `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? " open" : ""}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
   function paintSide(d, allShown, folded) {
     const asks = d.repos.filter((r) => r.onYou);
@@ -34744,17 +34743,17 @@ ${rows2.join("\n")}`, name: subject };
     ["keys", UI_ICON.keyboard, "Keyboard map (?)"],
     ["settings", line(LINE_ICON.gear, 16), "Settings (,)"]
   ];
-  var actionBtn = ([act, icon2, title]) => `<button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
+  var actionBtn = ([act, icon2, title]) => `<button type="button" class="btn" data-icon data-hp-act="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
   var linkCard = (l) => {
     const dir = l.path.endsWith("/");
     const ext2 = l.label.includes(".") ? l.label.split(".").pop().toLowerCase() : "";
     const ico = l.kind === "note" ? UI_ICON.notes : isWebPath(l.path) ? UI_ICON.link : dir ? PI.folder : icoFile(ext2);
     const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map((t) => `<i>${esc(t)}</i>`).join("")}</span>` : "";
-    const end = l.kind === "recent" ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>` : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
+    const end = l.kind === "recent" ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>` : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
     return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(isWebPath(l.path) ? l.path : pageHref(fileHref(l.path)))}"${isWebPath(l.path) ? ' target="_blank" rel="noopener noreferrer"' : ""} data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
   };
   var toolRow = (s) => {
-    const end = s.up ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>` : "";
+    const end = s.up ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>` : "";
     return `<div class="fe-hp-link" data-kind="tool"><a class="fe-hp-link-a" href="${esc(s.url)}" data-tool="${esc(s.name)}" data-up="${s.up ? "1" : ""}" title="${esc(s.up ? `Open ${s.label}` : `Start and open ${s.label}`)}. ${esc(s.about)}">${UI_ICON.terminal}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(s.label)}</span><span class="fe-hp-link-tags"><i>${s.up ? "running" : "stopped"}</i></span></span></a>${end}</div>`;
   };
   var card4 = (id, o, body, folded) => `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? "" : " open"}>
@@ -34764,9 +34763,9 @@ ${rows2.join("\n")}`, name: subject };
   function paintPage(d, allShown, folded) {
     const { recent: fresh, older } = splitByAge(d.pages.filter((p) => p.state === "waiting"), FRESH_DAYS);
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
-    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural3(older.length, "older page")} in Decisions</button>` : "";
+    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural3(older.length, "older page")} in Decisions</button>` : "";
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
-    const links = (id, o, list3, empty, total, lens, lensName) => card4(id, { ...o, n: total }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>${total > list3.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="${lens}" data-size="sm" data-variant="ghost" title="See them all in the sidebar">${total - list3.length} more in ${lensName}</button>` : ""}` : none(empty), folded);
+    const links = (id, o, list3, empty, total, lens, lensName) => card4(id, { ...o, n: total }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>${total > list3.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="${lens}" data-size="sm" title="See them all in the sidebar">${total - list3.length} more in ${lensName}</button>` : ""}` : none(empty), folded);
     const waitRow = (w) => `<div class="fe-hp-link fe-hp-wait${w.faded ? " faded" : ""}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? " (waiting more than a week)" : ""}">${w.kind === "reminder" ? UI_ICON.clock : w.kind === "comment" ? UI_ICON.opinion : w.kind === "agent" ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
     const others = d.waiting.filter((w) => w.kind !== "decision");
     const waitingCard = others.length ? card4("waiting", { icon: UI_ICON.opinion, tone: "var(--nc-red)", title: "Waiting on you", sub: "Missed reminders, comments, captures and agent notes", n: others.length }, others.map(waitRow).join(""), folded) : "";
@@ -34778,9 +34777,9 @@ ${rows2.join("\n")}`, name: subject };
         <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
         <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; suggestions follow">
         <datalist id="fe-hp-go-list"></datalist>
-        <button type="submit" class="btn" data-icon data-variant="ghost" title="Open this path here (\u21B5)" aria-label="Open this path here">${UI_ICON.next}</button>
-        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open as a web link in a tab" aria-label="Open as a web link">${UI_ICON.link}</button>
-        <button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
+        <button type="submit" class="btn" data-icon title="Open this path here (\u21B5)" aria-label="Open this path here">${UI_ICON.next}</button>
+        <button type="button" class="btn fe-hp-go-link" data-icon title="Open as a web link in a tab" aria-label="Open as a web link">${UI_ICON.link}</button>
+        <button type="button" class="btn" data-icon data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
       </form>
       <p class="fe-hp-go-msg" role="status" hidden></p>
     </header>
@@ -34971,7 +34970,7 @@ ${rows2.join("\n")}`, name: subject };
       form.className = "fe-hp-edit panel";
       form.innerHTML = `<label><span>Name</span><input class="tb" data-size="md" name="label" spellcheck="false" title="Name shown for this place"></label>
       <label><span>Tags</span><input class="tb" data-size="md" name="tags" spellcheck="false" placeholder="work, docs" title="Tags, separated by commas"></label>
-      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">${UI_ICON.close}Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">${UI_ICON.check}Save</button></div>`;
+      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-cancel title="Close without saving">${UI_ICON.close}Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">${UI_ICON.check}Save</button></div>`;
       const label = form.querySelector('[name="label"]'), tags = form.querySelector('[name="tags"]');
       label.value = place.label || name(path);
       tags.value = (place.tags ?? []).join(", ");

@@ -84,7 +84,7 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 | Audio / video (`.mp4`, `.webm`, `.mp3`, `.flac`…) | Native player |
 | Fonts (`.ttf`, `.otf`, `.woff`, `.woff2`) | Multi-size glyph specimen |
 
-A **copy** button in the header copies the full raw file contents. Previews fetch `file://` content through the background service worker (page-context `file://` XHR is CORS-blocked in current Chrome), so no extra permissions are required.
+A **copy** button in the header copies the full raw file contents. Previews fetch `file://` content through the background service worker (page-context `file://` XHR is CORS-blocked in current Chrome). The worker reads files only for `file://` pages and the extension's own pages.
 
 ### AI (local model) — optional
 With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) installed, the preview gains an **AI bar**: **Summarize**, **Explain** (→ **Describe** for tabular files), and an **Ask** box. Answers stream in and render as markdown; closing the overlay cancels the generation. A status chip shows whether the model is warm/cold/down, and the settings modal has a **Local Model** panel with a live status blinker, a **model picker** (choose any installed model; passed as `-m`), and a **Keep warm / Unload** toggle (runs `lm warm on/off`). Local by default: the extension shells out to `lm` via a native messaging host, and the default model answers on this Mac. Models marked **remote** (the Gemini ones) send the question and the file to Google; the model picker, Settings and the Ask lens tag them. Requires the `install.sh` step below.
@@ -281,7 +281,14 @@ After a build:
 2. Click the refresh icon on the **Better File Browser** card
 3. Reload any open `file://` tab
 
-`content.js` is generated — never edit it by hand; edit `src/` and rebuild. The extension itself makes no remote network requests; the only `fetch` calls read local `file://` URLs (via the service worker) and, if enabled, the AI bar talks to the local `lm` CLI through a native host. Only a remote model you pick (Gemini) sends text off the machine, and that goes through `lm`, not the extension.
+`content.js` is generated — never edit it by hand; edit `src/` and rebuild. On `file://` pages the extension makes no remote network requests. Its `fetch` calls read local `file://` URLs through the service worker. If enabled, the AI bar talks to the local `lm` CLI through a native host.
+
+The web page tools do reach the network, and the manifest asks for every http and https site because of them:
+
+- Dark mode, once switched on for a site, fetches that site's own stylesheets to recolour them.
+- The metro switch on Booking and Airbnb maps asks public OpenStreetMap (Overpass) servers for station data.
+
+Only a remote model you pick (Gemini) sends your text off the machine, and that goes through `lm`, not the extension.
 
 ---
 

@@ -77,7 +77,7 @@ const repoRow = (r: RepoSummary) => {
 };
 const none = (text: string) => `<p class="fe-home-none">${esc(text)}</p>`;
 const moreBtn = (shown: number, all: number) =>
-  shown < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">${UI_ICON.list}Show all ${all}</button>` : '';
+  shown < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm">${UI_ICON.list}Show all ${all}</button>` : '';
 const group = (id: string, label: string, n: number, body: string, open: boolean) =>
   `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? ' open' : ''}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
 
@@ -128,7 +128,7 @@ const ACTIONS: [string, string, string][] = [
   ['settings', line(LINE_ICON.gear, 16), 'Settings (,)'],
 ];
 const actionBtn = ([act, icon, title]: [string, string, string]) =>
-  `<button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;
+  `<button type="button" class="btn" data-icon data-hp-act="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;
 
 const linkCard = (l: QuickLink) => {
   const dir = l.path.endsWith('/');
@@ -136,8 +136,8 @@ const linkCard = (l: QuickLink) => {
   const ico = l.kind === 'note' ? UI_ICON.notes : isWebPath(l.path) ? UI_ICON.link : dir ? PI.folder : icoFile(ext);
   const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : '';
   const end = l.kind === 'recent'
-    ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>`
-    : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
+    ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>`
+    : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
   return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(isWebPath(l.path) ? l.path : pageHref(fileHref(l.path)))}"${isWebPath(l.path) ? ' target="\x5fblank" rel="noopener noreferrer"' : ''} data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
 };
 
@@ -146,7 +146,7 @@ const linkCard = (l: QuickLink) => {
 // find them stopped and one click is the whole start-up.
 const toolRow = (s: ServiceState) => {
   const end = s.up
-    ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>`
+    ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>`
     : '';
   return `<div class="fe-hp-link" data-kind="tool"><a class="fe-hp-link-a" href="${esc(s.url)}" data-tool="${esc(s.name)}" data-up="${s.up ? '1' : ''}" title="${esc(s.up ? `Open ${s.label}` : `Start and open ${s.label}`)}. ${esc(s.about)}">${UI_ICON.terminal}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(s.label)}</span><span class="fe-hp-link-tags"><i>${s.up ? 'running' : 'stopped'}</i></span></span></a>${end}</div>`;
 };
@@ -165,12 +165,12 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
   const { recent: fresh, older } = splitByAge(d.pages.filter(p => p.state === 'waiting'), FRESH_DAYS);
   const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
   const olderLine = older.length
-    ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural(older.length, 'older page')} in Decisions</button>` : '';
+    ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural(older.length, 'older page')} in Decisions</button>` : '';
   const decide = d.pagesFailed ? none('Decision pages could not be listed')
     : (fresh.map(r => pageRow(r, true)).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
   // A rail card lists its latest few, counts them all, and says where the rest are.
   const links = (id: string, o: { icon: string; tone: string; title: string; sub: string }, list: QuickLink[], empty: string, total: number, lens: string, lensName: string) =>
-    card(id, { ...o, n: total }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>${total > list.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="${lens}" data-size="sm" data-variant="ghost" title="See them all in the sidebar">${total - list.length} more in ${lensName}</button>` : ''}` : none(empty), folded);
+    card(id, { ...o, n: total }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>${total > list.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="${lens}" data-size="sm" title="See them all in the sidebar">${total - list.length} more in ${lensName}</button>` : ''}` : none(empty), folded);
   // What waits on the owner besides decisions, down to a note an agent left: missed reminders and comments first.
   const waitRow = (w: WaitItem) =>
     `<div class="fe-hp-link fe-hp-wait${w.faded ? ' faded' : ''}" data-kind="${w.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(w.path)))}" data-link="${esc(w.path)}" title="${esc(w.path)}${w.faded ? ' (waiting more than a week)' : ''}">${w.kind === 'reminder' ? UI_ICON.clock : w.kind === 'comment' ? UI_ICON.opinion : w.kind === 'agent' ? UI_ICON.ai : UI_ICON.notes}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(w.title)}</span><span class="fe-hp-link-tags"><i>${esc(w.why)}</i></span></span></a></div>`;
@@ -185,9 +185,9 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
         <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
         <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; suggestions follow">
         <datalist id="fe-hp-go-list"></datalist>
-        <button type="submit" class="btn" data-icon data-variant="ghost" title="Open this path here (↵)" aria-label="Open this path here">${UI_ICON.next}</button>
-        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open as a web link in a tab" aria-label="Open as a web link">${UI_ICON.link}</button>
-        <button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
+        <button type="submit" class="btn" data-icon title="Open this path here (↵)" aria-label="Open this path here">${UI_ICON.next}</button>
+        <button type="button" class="btn fe-hp-go-link" data-icon title="Open as a web link in a tab" aria-label="Open as a web link">${UI_ICON.link}</button>
+        <button type="button" class="btn" data-icon data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
       </form>
       <p class="fe-hp-go-msg" role="status" hidden></p>
     </header>
@@ -357,7 +357,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
     form.className = 'fe-hp-edit panel';
     form.innerHTML = `<label><span>Name</span><input class="tb" data-size="md" name="label" spellcheck="false" title="Name shown for this place"></label>
       <label><span>Tags</span><input class="tb" data-size="md" name="tags" spellcheck="false" placeholder="work, docs" title="Tags, separated by commas"></label>
-      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">${UI_ICON.close}Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">${UI_ICON.check}Save</button></div>`;
+      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-cancel title="Close without saving">${UI_ICON.close}Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">${UI_ICON.check}Save</button></div>`;
     const label = form.querySelector<HTMLInputElement>('[name="label"]')!, tags = form.querySelector<HTMLInputElement>('[name="tags"]')!;
     label.value = place.label || name(path);
     tags.value = (place.tags ?? []).join(', ');

@@ -53,7 +53,7 @@ export function initFolderViewSettings(app: App, toast: Toast): () => void {
       // Grouped by view: one heading per view in the order the toolbar shows them.
       list.innerHTML = VIEW_ICONS.map(v => {
         const rows = laid.filter(r => viewOf(r.path) === v.id);
-        return rows.length ? `<div class="fe-fv-group"><h4>${v.ico}${esc(v.label)}<span>${rows.length}</span></h4>${rows.map(r => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join('')}</div>` : '';
+        return rows.length ? `<div class="fe-fv-group"><h4 class="sect" data-level="group">${v.ico}${esc(v.label)}<span>${rows.length}</span></h4>${rows.map(r => rowHtml(r.path, v.id, r.depth, r.tail, inTree)).join('')}</div>` : '';
       }).join('');
     } else {
       list.innerHTML = laid.map(r => rowHtml(r.path, viewOf(r.path), r.depth, r.tail, inTree)).join('');

@@ -10,6 +10,7 @@
 // working as it does on its own tab.
 
 import { esc } from './utils';
+import { emptyHtml } from './empty-state';
 
 const HL = 'bfb-settings-hit';
 const words = (q: string) => q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -108,7 +109,7 @@ export function initSettingsSearch(root: HTMLElement): void {
       if (!hits.length) return;
       total += hits.length;
       results.append(pane);
-      tab.querySelector('.fe-dlg-tab-main')?.insertAdjacentHTML('beforeend', `<em class="fe-dlg-n" aria-label="${hits.length} matching">${hits.length}</em>`);
+      tab.querySelector('.fe-dlg-tab-main')?.insertAdjacentHTML('beforeend', `<span class="badge fe-dlg-n" title="${hits.length} matching">${hits.length}</span>`);
       const list = document.createElement('div');
       list.className = 'fe-dlg-hits';
       list.dataset.tab = tab.dataset.tab;
@@ -123,7 +124,7 @@ export function initSettingsSearch(root: HTMLElement): void {
       tab.after(list);
       marked.push(tab, list);
     });
-    if (!total) results.innerHTML = `<div class="fe-sr-empty"><b>No setting matches “${esc(input.value.trim())}”</b><span>Try a shorter word, or a different one</span></div>`;
+    if (!total) results.innerHTML = emptyHtml('filtered', `No setting matches “${input.value.trim()}”`, { hint: 'Try a shorter word, or a different one' });
     else results.scrollTop = 0;
     paintMarks(marked, ws);
   }

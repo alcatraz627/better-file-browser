@@ -122,7 +122,7 @@ async function start(): Promise<void> {
   // There is no bfb toolbar here, so the dark and light switch sits by the title.
   const sw = document.createElement('button');
   sw.type = 'button'; sw.id = 'fe-dp-web-theme'; sw.className = 'btn';
-  Object.assign(sw.dataset, { variant: 'ghost', size: 'sm', icon: '' });
+  Object.assign(sw.dataset, { size: 'sm', icon: '' });
   const paintSw = () => {
     const dark = fe.dataset.theme === 'dark';
     sw.innerHTML = dark ? UI_ICON.appearance : MOON;
@@ -134,13 +134,13 @@ async function start(): Promise<void> {
   // Back to every page: /dp/ answers on both of gcc's listeners, where / does not.
   const all = document.createElement('a');
   all.id = 'fe-dp-web-all'; all.className = 'btn'; all.href = '/dp/';
-  Object.assign(all.dataset, { variant: 'ghost', size: 'sm' });
+  Object.assign(all.dataset, { size: 'sm' });
   all.title = 'Every decision page, waiting ones first';
   all.innerHTML = `${UI_ICON.opinion}All decisions`;
   // The page's keys, read from the key map, on ? or the button.
   const help = document.createElement('button');
   help.type = 'button'; help.id = 'fe-dp-web-help'; help.className = 'btn';
-  Object.assign(help.dataset, { variant: 'ghost', size: 'sm', icon: '' });
+  Object.assign(help.dataset, { size: 'sm', icon: '' });
   help.textContent = '?';
   help.title = help.ariaLabel = 'Keys on this page (?)';
   let card: ReturnType<typeof openLayer> | null = null;

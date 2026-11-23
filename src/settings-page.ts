@@ -116,7 +116,7 @@ export function settingsDialog(): DialogSpec {
           row('Hidden files', 'Dotfiles and comment files', sw('fe-st-hidden', 'Show hidden files')) +
           row('Dates', '', segHtml('fe-st-datefmt', [{ value: 'short', label: 'Apr 17' }, { value: 'full', label: 'April 17, 2025' }], 'How dates read', 'lg'))) +
         card('Folders with their own view',
-          `<div class="fe-fv-bar"><span class="fe-fv-l">Show</span>${segHtml('fe-st-fv-shape', [{ value: 'list', label: 'List' }, { value: 'view', label: 'By view' }], 'Show as a list, or grouped by view')}<label class="fe-fv-tree" title="Indent folders inside other kept folders">${switchHtml({ id: 'fe-st-fv-tree', title: 'Indent nested folders', small: true })}<span>Tree</span></label></div>
+          `<div class="fe-fv-bar"><span class="fe-fv-l">Show</span>${segHtml('fe-st-fv-shape', [{ value: 'list', label: 'List' }, { value: 'view', label: 'By view' }], 'Show as a list, or grouped by view', 'lg')}<label class="fe-fv-tree" title="Indent folders inside other kept folders">${switchHtml({ id: 'fe-st-fv-tree', title: 'Indent nested folders', small: true })}<span>Tree</span></label></div>
           <div id="fe-st-fv-list"></div>` +
           note('Pin a folder with the keep button beside the view switch.')) +
         card('Opening a file',
